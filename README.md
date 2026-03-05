@@ -62,19 +62,22 @@ Development mode:
 
 - `GET /healthz` returns HTTP 200 and runtime metadata.
 
-## Deployed URL + Routes Template
+## Deployed URL + Routes
 
 Base URL:
-- `https://<your-render-service>.onrender.com`
+- `https://racetrack-wf9v.onrender.com`
+
+Health:
+- `https://racetrack-wf9v.onrender.com/healthz`
 
 Route URLs:
-- `https://<your-render-service>.onrender.com/front-desk`
-- `https://<your-render-service>.onrender.com/race-control`
-- `https://<your-render-service>.onrender.com/lap-line-tracker`
-- `https://<your-render-service>.onrender.com/leader-board`
-- `https://<your-render-service>.onrender.com/next-race`
-- `https://<your-render-service>.onrender.com/race-countdown`
-- `https://<your-render-service>.onrender.com/race-flags`
+- `https://racetrack-wf9v.onrender.com/front-desk`
+- `https://racetrack-wf9v.onrender.com/race-control`
+- `https://racetrack-wf9v.onrender.com/lap-line-tracker`
+- `https://racetrack-wf9v.onrender.com/leader-board`
+- `https://racetrack-wf9v.onrender.com/next-race`
+- `https://racetrack-wf9v.onrender.com/race-countdown`
+- `https://racetrack-wf9v.onrender.com/race-flags`
 
 ## Render Deployment Instructions
 
