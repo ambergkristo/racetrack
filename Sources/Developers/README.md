@@ -219,12 +219,14 @@ Dev-D-Kevin
 Each folder contains:
 
 CODEX-M{milestone}.md
+KES-MA-OLEN.md
 
 Example:
 
 CODEX-M0.md
 
 These files contain the exact instructions for Codex agents.
+`KES-MA-OLEN.md` contains the fixed role description and milestone ownership for each developer.
 
 Pull request rules
 
