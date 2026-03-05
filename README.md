@@ -23,7 +23,7 @@ SPA deep-linking is enabled for all routes above (refresh does not 404).
 ## Realtime and API Rules
 
 - Realtime updates use Socket.IO.
-- Polling for live updates is not allowed.
+- Polling for live updates is not allowed (Socket.IO is configured for `websocket` only).
 - REST is used only for handshake/health style calls:
   - `GET /healthz`
   - `GET /api/bootstrap`
@@ -39,6 +39,11 @@ These keys are required at startup (fail-fast if missing):
 Other env vars:
 - `PORT` (default `3000`)
 - `RACE_DURATION_SECONDS` (optional explicit override)
+- `AUTH_FAILURE_DELAY_MS` (optional; defaults to `500`)
+
+Notes:
+- Server env is centralized in `src/config/env.js`.
+- `.env` is loaded automatically on startup (override with `DOTENV_PATH` if needed).
 
 Timer defaults:
 - `npm run dev` => 60 seconds
@@ -93,6 +98,7 @@ Route URLs:
    - `RACE_CONTROL_KEY`
    - `LAP_LINE_TRACKER_KEY`
    - optional `RACE_DURATION_SECONDS`
+   - optional `AUTH_FAILURE_DELAY_MS`
 6. Deploy and verify:
    - `GET /healthz` returns 200
    - all top-level routes load
