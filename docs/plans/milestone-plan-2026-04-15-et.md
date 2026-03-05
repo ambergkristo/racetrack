@@ -35,6 +35,16 @@ Owner-fookus:
 - Dev C: public route skeleton + fullscreen base
 - Dev D: socket schema + CI
 
+UI/UX integratsioon (add-only):
+- Loo design system primitive’id:
+  - `AppShell`
+  - `Panel`
+  - `TelemetryHeader`
+  - `FullscreenButton`
+  - `KeyGateModal`
+- Rakenda shared shell kõikidele route skeletonitele.
+- Staff route’del peab võtme prompt avanema enne Socket.IO ühendust.
+
 ### Nädal 2 (11.03–17.03): Core race API ASAP (kõrgeim prioriteet)
 Eesmärk:
 - state machine + timer + session/racer CRUD + race-control commandid
@@ -47,6 +57,16 @@ Owner-fookus:
 - Dev A: domain service’d
 - Dev D: event validation + integration testid
 - Dev B/C: UI wire-up põhivoole
+
+UI/UX integratsioon (add-only):
+- Loo hooks:
+  - `useSocket()`
+  - `useRaceState()` bootstrap/snapshot
+  - `useStaffGate()`
+  - `useTimer()`
+  - `useLeaderboard()`
+  - `useFeatureFlags()`
+- Lisa `ConnectionStatus` ja baastaseme veaseisud.
 
 ### Nädal 3 (18.03–24.03): MVP end-to-end
 Eesmärk:
@@ -62,6 +82,15 @@ Owner-fookus:
 - Dev C: public vaated live andmetega
 - Dev D: e2e smoke ja regressioonitestid
 
+UI/UX integratsioon (add-only):
+- Rakenda route screenid realtime state’iga:
+  - `/leader-board`: `LeaderboardScreen`, `LeaderboardTable/Row`, `FlagStatusBar`, `FullscreenButton`
+  - `/race-control`: `RaceControlScreen`, `ModeSelector`, `Start/Finish/EndLock` guardid
+  - `/lap-line-tracker`: `LapTrackerScreen`, `CarGrid`, `CarButtonHuge`, `SessionEndedOverlay`
+  - `/next-race`: `NextRaceScreen`, `NextRaceTable`, `CallToPitBanner`, `FullscreenButton`
+  - `/race-countdown`: `CountdownScreen`, `CountdownTimerBig`, `NextRaceRoster`, `SessionStatusBanner`
+  - `/race-flags`: `RaceFlagsScreen`, `FlagFullScreen(mode)`, `FullscreenButton`
+
 ### Nädal 4 (25.03–31.03): Hardening + edge cases
 Eesmärk:
 - reconnect/resync, ebaseaduslike transitionite handling
@@ -73,6 +102,13 @@ Deliverable:
 Owner-fookus:
 - Dev A/D: consistency + idempotency + conflict handling
 - Dev B/C: UX polish, fullscreen töökindlus eri vaadetes
+
+UI/UX integratsioon (add-only):
+- Lisa reconnect/resync bannerid.
+- Lisa disabled state selgitusega (miks tegevus pole lubatud).
+- Lisa micro-animations ja touch feedback.
+- Rakenda `FINISHED` jaoks checkered visual.
+- Paranda fullscreen robustsus (desktop + tahvel).
 
 ### Nädal 5 (1.04–7.04): Upgrade architecture (ilma vaikekäitumist muutmata)
 Eesmärk:
@@ -89,6 +125,11 @@ Owner-fookus:
 - Dev D: flag matrix integration tests
 - Dev C: public side compatibility checks
 
+UI/UX integratsioon (add-only):
+- Loo `/front-desk` `ManualCarAssignmentPanel` ainult `FF_MANUAL_CAR_ASSIGNMENT=true` korral.
+- Kinnita, et flag OFF korral MVP vaikekäitumine ei muutu.
+- Lisa OFF/ON UI regressioonitestid.
+
 ### Nädal 6 (8.04–14.04): Stabiliseerimine + demo prep + buffer
 Eesmärk:
 - bugfix, test coverage gapid, demo script lukku
@@ -100,6 +141,13 @@ Deliverable:
 Owner-fookus:
 - Kõik: kriitiliste vigade swarming
 - Dev D: release checklist, build health, MTTR drill
+
+UI/UX integratsioon (add-only):
+- Lõplik visual consistency pass kõigil route’idel:
+  - sama AppShell
+  - sama tokeni kasutus
+  - sama header/panel loogika
+- Demo stabiliseerimine fullscreen ja reconnect stsenaariumitega.
 
 ### 15.04: Tähtaeg / esitlus
 - MVP peab olema täielikult toimiv.
@@ -153,3 +201,26 @@ Kui kriitiline tee hilineb:
 - PR review:
   - min 1 peer
   - state machine/socket contract muudatused min 2 peer’i
+
+## UI/UX Coverage Matrix (add-only)
+- W1 (M0) katab:
+  - Design system base
+  - Staff pre-connect key gate
+  - Route skeleton shell
+- W2 katab:
+  - Socket hooks
+  - Snapshot/bootstrap vaated
+  - Connection status
+- W3 (M1) katab:
+  - Kõik route screenid live reaalajas andmetega
+- W4 (M2) katab:
+  - UX hardening (reconnect, disabled-reason, animations, finished visual, fullscreen)
+- W5 (M3) katab:
+  - Upgrade UI flagi taga (`ManualCarAssignmentPanel`)
+- W6 katab:
+  - UI regressioonide sulgemine + demo readiness
+
+## No Deletion Guard (milestone)
+- Kõik algsed milestone punktid on säilitatud.
+- UI/UX punktid on lisatud ainult add-only põhimõttel.
+- Uued lisad ei asenda ühtegi algset M0-M3 eesmärki.

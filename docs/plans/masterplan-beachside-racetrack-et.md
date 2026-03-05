@@ -145,3 +145,148 @@ Input metricud:
 - MVP demo-ready enne deadline’i.
 - Upgrade branch/flag valmidus (võib olla osaliselt viimistlemisel, kuid arhitektuuriliselt valmis).
 - Demo script 5–7 min.
+
+## 13. UI/UX Design System (autoritatiivne)
+- Teema: modern racing/telemetry dashboard, dark mode, high contrast, neon aktsendid, fullscreen-friendly.
+- Värvitokenid:
+  - background `#0b0b0f`
+  - panel `#16161c`
+  - safe `#00ff7b`
+  - warning `#ffd400`
+  - danger `#ff2e2e`
+  - finished `checkered pattern`
+- Fondid:
+  - pealkirjad `Orbitron`
+  - UI/body `Rajdhani`
+- Touch target reeglid:
+  - staff nupud min kõrgus `56px`
+  - lap tracker auto nupud `120–160px`
+- Ühtne stiil kõikidel route’idel:
+  - sama `AppShell`
+  - sama `TelemetryHeader`
+  - sama paneeli visuaal (`Panel`)
+
+## 14. UI komponentide kaart (kohustuslik)
+- Shared komponendid:
+  - `AppShell`
+  - `Panel`
+  - `TelemetryHeader`
+  - `KpiPill`
+  - `Button` variandid (`Primary`, `Danger`, `Warning`, `Ghost`, `HugeTouch`)
+  - `FullscreenButton`
+  - `ConnectionStatus`
+  - `Toast` või `InlineAlert`
+  - `LoadingSkeleton`
+  - `EmptyState`
+  - `Divider` ja `Table`
+- Staff gate:
+  - `KeyGateModal(routeKeyName)` kuvab võtme prompti enne socket ühendust
+  - Vale võti kuvab vea ning peab järgima serveri 500ms viivituskäitumist
+  - Socket ühendus luuakse alles pärast edukat valideerimist
+- Hooks:
+  - `useSocket()`
+  - `useStaffGate()`
+  - `useRaceState()`
+  - `useTimer()`
+  - `useLeaderboard()`
+  - `useFeatureFlags()`
+
+## 15. Route-põhine UI leping
+- `/leader-board`:
+  - `LeaderboardScreen`
+  - `LeaderboardTable` / `LeaderboardRow`
+  - `FlagStatusBar`
+  - `FullscreenButton`
+- `/race-flags`:
+  - `RaceFlagsScreen`
+  - `FlagFullScreen(mode)`
+  - `FullscreenButton`
+- `/race-countdown`:
+  - `CountdownScreen`
+  - `CountdownTimerBig`
+  - `NextRaceRoster`
+  - `SessionStatusBanner`
+- `/next-race`:
+  - `NextRaceScreen`
+  - `NextRaceTable`
+  - `CallToPitBanner`
+  - `FullscreenButton`
+- `/race-control`:
+  - `RaceControlScreen`
+  - `ModeSelector(SAFE/SLOW/STOP)`
+  - `Start/Finish/EndLock` tegevused guardidega
+- `/lap-line-tracker`:
+  - `LapTrackerScreen`
+  - `CarGrid`
+  - `CarButtonHuge`
+  - `SessionEndedOverlay` (`LOCKED` olekus blokeerib sisendi)
+- `/front-desk`:
+  - `FrontDeskScreen`
+  - `SessionsList`
+  - `SessionEditor`
+  - `RacerList` CRUD
+  - `ManualCarAssignmentPanel` ainult `FF_MANUAL_CAR_ASSIGNMENT=true` korral
+
+## 16. Realtime UI piirangud ja MVP pariteet
+- Live state update jaoks pollingut ei kasutata.
+- Lubatud on ainult esmane handshake/bootstrap API; kõik ülejäänud uuendused peavad tulema Socket.IO kaudu.
+- Kõik staff route’id peavad küsima võtme enne socket connecti.
+- Kõik public route’id peavad sisaldama fullscreen nuppu.
+- Kui feature flagid on OFF, UI käitumine peab olema identne MVP-ga.
+- Upgrade UI tohib aktiveeruda ainult flagi all:
+  - `FF_MANUAL_CAR_ASSIGNMENT`
+  - `FF_PERSISTENCE`
+
+## 17. Milestone sidumine UI/UX tööga (tähtaeg 15.04.2026)
+- M0 / Nädal 1:
+  - design system primitive’id (`AppShell`, `Panel`, `TelemetryHeader`, `FullscreenButton`, `KeyGateModal`)
+  - route skeleton lehed shared shelliga
+  - staff key gate enne socket connecti
+- Nädal 2:
+  - socket hooks (`useSocket`, `useRaceState` bootstrap/snapshot)
+  - `ConnectionStatus` + baastaseme veaseisud
+- M1 / Nädal 3:
+  - reaalsed route screenid ühendatud realtime state’iga
+- M2 / Nädal 4:
+  - reconnect/resync bannerid
+  - disabled state põhjusega
+  - micro-animations
+  - finished checkered visual
+  - fullscreen robustness
+- M3 / Nädal 5:
+  - `/front-desk` manual car assignment panel ainult flagi taga
+- Nädal 6:
+  - regressioonide sulgemine ja demo stabiliseerimine
+
+## 18. Avalikud UI lepingud (API/tüübid)
+- `RaceMode = "SAFE" | "HAZARD_SLOW" | "HAZARD_STOP" | "FINISHED"`
+- `RaceState = "IDLE" | "STAGING" | "RUNNING" | "FINISHED" | "LOCKED"`
+- `StaffRoute = "front-desk" | "race-control" | "lap-line-tracker"`
+- `FeatureFlags = { FF_PERSISTENCE: boolean; FF_MANUAL_CAR_ASSIGNMENT: boolean }`
+- `useStaffGate()`:
+  - input: `routeKeyName`, `routeId`
+  - output: `authorized`, `authorize(key)`, `isChecking`, `error`
+  - garantii: socket connect ainult `authorized=true` järel
+
+## 19. UI testikriteeriumid
+- Unit:
+  - `useStaffGate` ei loo socketit enne edukat võtme valideerimist
+  - feature flag OFF/ON render-käitumine on korrektne
+  - design tokenid laetakse kõigis route’ides
+- Integration:
+  - vale võti -> serveri viga + kordusprompt
+  - `state:snapshot` jõuab route vaadetesse
+  - `LOCKED` olek blokeerib lap inputi
+- E2E:
+  - public route’idel fullscreen nupp toimib
+  - race mode visualid (SAFE/SLOW/STOP/FINISHED) renderduvad ühtselt
+  - reconnect/resync taastab vaated ilma pollinguta
+  - flagid OFF jätavad MVP käitumise muutmata
+
+## 20. No-Loss reegel milestone sisule
+- Ühtegi olemasolevat milestone punkti ei kustutata.
+- Uus UI/UX töö lisatakse milestone ploki alla add-only põhimõttel.
+- Kui tekib uus UI nõue, lisatakse see:
+  - vastava nädala alla
+  - koos owneriga
+  - koos DoD tõendiga (screenshot/demo/test).
