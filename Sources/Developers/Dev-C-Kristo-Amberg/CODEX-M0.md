@@ -1,34 +1,57 @@
-﻿# CODEX LEAD PROMPT — Project structure & process (Dev C)
+﻿# CODEX MASTERPROMPT — M0 (Dev C)
 
 DEC: Dev C (Kristo Amberg, Lead)  
-REPO: https://github.com/ambergkristo/racetrack
+REPO: https://github.com/ambergkristo/racetrack  
+MILESTONE: M0 (Foundation + route skeletons + fullscreen base)  
+BASE BRANCH: main (read-only)  
+WORKING BRANCH: feat/m0-devC-public-skeleton-ux
 
-## Operating model (authoritative)
-- 4 developers (A,B,C,D) work locally in Codex, each on their own feature branch.
-- Work milestone-by-milestone: M0 -> M1 -> M2 -> M3.
-- Dev C is the only one who merges to `main`.
-- After all M0 PRs are merged and checks are green, we move to M1 prompts.
+## Mission (M0 / Dev C scope)
+Deliver M0 public UI route skeletons + fullscreen base, and establish shared UI primitives that everyone can reuse.
 
-## Branch rules
-- Base branch: main (read-only for devs)
-- Each dev works in feat/m{milestone}-devX-{topic}
-- PR target: main
-- Dev C runs tests and verifies DoD before merge.
+Public routes:
+- /leader-board
+- /next-race
+- /race-countdown
+- /race-flags
 
-## Milestone gating
-- No M1 work until M0 is merged.
-- No M2 work until M1 is merged.
-- No M3 work until M2 is merged.
+M0 demo requirement: all routes open and render; staff gating handled by Dev B.
 
-## UI/UX workflow ownership (Dev C = 100%)
-Dev C must integrate UI/UX tasks into every milestone at the correct moment:
-- Maintain a shared design system primitives layer (AppShell/Panel/etc).
-- Ensure route skeletons use shared shell.
-- Maintain “dashboard/telemetry” visual style constraints (dark, high contrast, large touch targets).
-- For each milestone prompt M0/M1/M2/M3, include a UI/UX section that is executed during that milestone (not later).
+## Branch workflow
+1) git checkout main && git pull
+2) git checkout -b feat/m0-devC-public-skeleton-ux
+3) implement
+4) run tests/lint/build
+5) commit: "M0: public routes skeleton + shared UI primitives (Dev C)"
+6) push + PR -> main
 
-## Lead responsibilities
-- Enforce: staff key gate before socket connect.
-- Enforce: no polling; Socket.IO only.
-- Enforce: CI green on main at each merge step.
-- Keep PR descriptions precise; avoid scope creep.
+## UI/UX integration (M0 — must be done now)
+Create design system primitives (shared):
+- AppShell
+- Panel
+- TelemetryHeader
+- FullscreenButton
+- KeyGateModal (can be shared even if Dev B wires it)
+
+Apply AppShell across ALL route skeletons (public routes at minimum; keep it reusable for staff routes).
+
+Fullscreen base:
+- Provide a consistent fullscreen experience for public screens (button + CSS baseline).
+- Ensure large touch targets and legible typography.
+
+## Hard requirements
+- No polling; do not build fetch loops for live state.
+- Staff routes must connect socket only after gating (Dev B handles; Dev C should not break that architecture).
+- Keep M0 minimal but visually consistent (dashboard look).
+
+## Deliverable / DoD (M0 for Dev C)
+- Public routes render without crashes.
+- Shared UI primitives exist and are used by public routes.
+- Fullscreen baseline exists (toggle button, layout supports kiosk use).
+- CI passes.
+
+## PR checklist
+- [ ] Shared primitives exported cleanly (no circular deps)
+- [ ] Public routes use AppShell + Panel
+- [ ] No polling logic introduced
+- [ ] PR title contains "M0"
