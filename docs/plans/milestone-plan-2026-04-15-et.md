@@ -3,7 +3,7 @@
 ## Tähtaeg
 - Lõpptähtaeg: 15. aprill 2026
 - Algus: 4. märts 2026
-- Kestus: ~6 nädalat
+- Kestus: ~6 sprinti
 
 ## Strateegia
 1. API-first ASAP:
@@ -19,9 +19,9 @@
 - Dev C: public UI’d (`/leader-board`, `/next-race`, `/race-countdown`, `/race-flags`) + fullscreen
 - Dev D: socket event contract, validation, integration testid, observability + CI kvaliteedigate’id
 
-## Ajakava (nädalate kaupa)
+## Ajakava (sprintide kaupa)
 
-### Nädal 1 (4.03–10.03): Foundation + API skeleton
+### Sprint 1 (M0) (4.03–10.03): Foundation + API skeleton
 Eesmärk:
 - repo scaffold, CI, route skeletonid, socket handshake
 - env key check + auth delay behavior
@@ -45,7 +45,7 @@ UI/UX integratsioon (add-only):
 - Rakenda shared shell kõikidele route skeletonitele.
 - Staff route’del peab võtme prompt avanema enne Socket.IO ühendust.
 
-### Nädal 2 (11.03–17.03): Core race API ASAP (kõrgeim prioriteet)
+### Sprint 2 (M0 -> M1 ettevalmistus) (11.03–17.03): Core race API ASAP (kõrgeim prioriteet)
 Eesmärk:
 - state machine + timer + session/racer CRUD + race-control commandid
 - minimaalne snapshot feed klientidele
@@ -68,7 +68,7 @@ UI/UX integratsioon (add-only):
   - `useFeatureFlags()`
 - Lisa `ConnectionStatus` ja baastaseme veaseisud.
 
-### Nädal 3 (18.03–24.03): MVP end-to-end
+### Sprint 3 (M1) (18.03–24.03): MVP end-to-end
 Eesmärk:
 - lap crossing logic, leaderboard sorting, next-race/countdown/flags käitumine
 - finished -> lock reeglid lõpuni
@@ -91,7 +91,7 @@ UI/UX integratsioon (add-only):
   - `/race-countdown`: `CountdownScreen`, `CountdownTimerBig`, `NextRaceRoster`, `SessionStatusBanner`
   - `/race-flags`: `RaceFlagsScreen`, `FlagFullScreen(mode)`, `FullscreenButton`
 
-### Nädal 4 (25.03–31.03): Hardening + edge cases
+### Sprint 4 (M2) (25.03–31.03): Hardening + edge cases
 Eesmärk:
 - reconnect/resync, ebaseaduslike transitionite handling
 - UX selgus (disabled state’id, errorid, loadingud)
@@ -110,7 +110,7 @@ UI/UX integratsioon (add-only):
 - Rakenda `FINISHED` jaoks checkered visual.
 - Paranda fullscreen robustsus (desktop + tahvel).
 
-### Nädal 5 (1.04–7.04): Upgrade architecture (ilma vaikekäitumist muutmata)
+### Sprint 5 (M3) (1.04–7.04): Upgrade architecture (ilma vaikekäitumist muutmata)
 Eesmärk:
 - persistence adapter interface + sqlite implementation behind flag
 - manual car assignment flow behind flag
@@ -130,7 +130,7 @@ UI/UX integratsioon (add-only):
 - Kinnita, et flag OFF korral MVP vaikekäitumine ei muutu.
 - Lisa OFF/ON UI regressioonitestid.
 
-### Nädal 6 (8.04–14.04): Stabiliseerimine + demo prep + buffer
+### Sprint 6 (Stabiliseerimine) (8.04–14.04): Stabiliseerimine + demo prep + buffer
 Eesmärk:
 - bugfix, test coverage gapid, demo script lukku
 - riskibuffer enne 15.04
@@ -203,21 +203,21 @@ Kui kriitiline tee hilineb:
   - state machine/socket contract muudatused min 2 peer’i
 
 ## UI/UX Coverage Matrix (add-only)
-- W1 (M0) katab:
+- Sprint 1 (M0) katab:
   - Design system base
   - Staff pre-connect key gate
   - Route skeleton shell
-- W2 katab:
+- Sprint 2 (M0 -> M1 ettevalmistus) katab:
   - Socket hooks
   - Snapshot/bootstrap vaated
   - Connection status
-- W3 (M1) katab:
+- Sprint 3 (M1) katab:
   - Kõik route screenid live reaalajas andmetega
-- W4 (M2) katab:
+- Sprint 4 (M2) katab:
   - UX hardening (reconnect, disabled-reason, animations, finished visual, fullscreen)
-- W5 (M3) katab:
+- Sprint 5 (M3) katab:
   - Upgrade UI flagi taga (`ManualCarAssignmentPanel`)
-- W6 katab:
+- Sprint 6 (Stabiliseerimine) katab:
   - UI regressioonide sulgemine + demo readiness
 
 ## No Deletion Guard (milestone)
