@@ -1,0 +1,23 @@
+{
+  "name": "racetrack-m0-skeleton",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Beachside Racetrack M0 skeleton: single-host Node + Socket.IO + SPA routes.",
+  "main": "server.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "start": "cross-env NODE_ENV=production node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.1.10"
+  }
+}

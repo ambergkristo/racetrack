@@ -1,99 +1,96 @@
-﻿# Beachside Racetrack
+﻿# Beachside Racetrack - M0 Skeleton
 
-Realtime race management and public display system built with Node.js and Socket.IO.
+Single-host M0 setup:
+- one Node.js server
+- serves the frontend SPA
+- hosts Socket.IO on the same process
 
-## What This Project Does
+## Route List
 
-- Runs a realtime racetrack operations system with multiple UIs:
-  - `/front-desk`
-  - `/race-control`
-  - `/lap-line-tracker`
-  - `/leader-board`
-  - `/next-race`
-  - `/race-countdown`
-  - `/race-flags`
-- Uses Socket.IO for live updates (no polling for live state updates).
-- Uses server-authoritative race state and timer.
-- Enforces staff route access keys before socket connection.
+Staff routes:
+- `/front-desk`
+- `/race-control`
+- `/lap-line-tracker`
 
-## Timer Modes
+Public routes:
+- `/leader-board`
+- `/next-race`
+- `/race-countdown`
+- `/race-flags`
 
-- `npm run dev` => 1 minute race timer
-- `npm start` => 10 minute race timer
+SPA deep-linking is enabled for all routes above (refresh does not 404).
 
-## Project Stages
+## Realtime and API Rules
 
-### MVP
-- In-memory authoritative state
-- Random/auto car assignment
-- No persistence across restart
+- Realtime updates use Socket.IO.
+- Polling for live updates is not allowed.
+- REST is used only for handshake/health style calls:
+  - `GET /healthz`
+  - `GET /api/bootstrap`
+  - `POST /api/auth/verify`
 
-### Upgrade (Feature-Flagged)
-- Persistence across restart
-- Admin manual car selection
-- Default behavior remains unchanged when flags are OFF
+## Required Environment Variables
 
-## Team
-
-4 developers.
-Mentor is advisory/review only and not a task owner.
-
-## UI system & route map
-
-The UI follows a shared React design system used on every route.
-
-Design tokens:
-- background: `#0b0b0f`
-- panel: `#16161c`
-- safe: `#00ff7b`
-- warning: `#ffd400`
-- danger: `#ff2e2e`
-- finished: checkered pattern
-- fonts: `Orbitron` (headings), `Rajdhani` (UI/body)
-- touch targets:
-  - staff buttons min `56px`
-  - lap car buttons `120-160px`
-
-Shared components:
-- `AppShell`, `Panel`, `TelemetryHeader`, `KpiPill`
-- `Button` variants (`Primary`, `Danger`, `Warning`, `Ghost`, `HugeTouch`)
-- `FullscreenButton`, `ConnectionStatus`, `Toast/InlineAlert`
-- `LoadingSkeleton`, `EmptyState`, `Divider/Table`
-
-Staff gate:
-- `KeyGateModal(routeKeyName)` is required on staff routes before any Socket.IO connection.
-- Wrong key responses must honor server-side delayed failure behavior (500ms).
-
-Route map:
-- `/leader-board`: `LeaderboardScreen`, `LeaderboardTable/Row`, `FlagStatusBar`, `FullscreenButton`
-- `/race-flags`: `RaceFlagsScreen`, `FlagFullScreen(mode)`, `FullscreenButton`
-- `/race-countdown`: `CountdownScreen`, `CountdownTimerBig`, `NextRaceRoster`, `SessionStatusBanner`
-- `/next-race`: `NextRaceScreen`, `NextRaceTable`, `CallToPitBanner`, `FullscreenButton`
-- `/race-control`: `RaceControlScreen`, `ModeSelector`, `Start/Finish/EndLock` actions + guards
-- `/lap-line-tracker`: `LapTrackerScreen`, `CarGrid`, `CarButtonHuge`, `SessionEndedOverlay`
-- `/front-desk`: `FrontDeskScreen`, `SessionsList`, `SessionEditor`, `RacerList CRUD`
-- Upgrade-only in `/front-desk`: `ManualCarAssignmentPanel` behind `FF_MANUAL_CAR_ASSIGNMENT`
-
-## How to run + env keys
-
-Required environment keys:
+These keys are required at startup (fail-fast if missing):
 - `FRONT_DESK_KEY`
 - `RACE_CONTROL_KEY`
 - `LAP_LINE_TRACKER_KEY`
 
-Server behavior:
-- Server must not start if required staff keys are missing.
-- In dev mode (`npm run dev`) race timer is 1 minute.
-- In start mode (`npm start`) race timer is 10 minutes.
+Other env vars:
+- `PORT` (default `3000`)
+- `RACE_DURATION_SECONDS` (optional explicit override)
 
-Run commands:
-1. Install dependencies:
-   - `npm install`
-2. Start in development mode:
-   - `npm run dev`
-3. Start in default mode:
+Timer defaults:
+- `npm run dev` => 60 seconds
+- `npm start` => 600 seconds
+
+## Local Run
+
+1. Copy env file:
+   - `cp .env.example .env` (or create `.env` manually on Windows)
+2. Install dependencies:
+   - `npm ci`
+3. Build frontend assets:
+   - `npm run build`
+4. Start production mode:
    - `npm start`
 
-Realtime rule:
-- Do not use polling for live state updates.
-- Only initial bootstrap/handshake may use API fetch; all live updates must use Socket.IO.
+Development mode:
+- `npm run dev`
+
+## Health Check
+
+- `GET /healthz` returns HTTP 200 and runtime metadata.
+
+## Deployed URL + Routes Template
+
+Base URL:
+- `https://<your-render-service>.onrender.com`
+
+Route URLs:
+- `https://<your-render-service>.onrender.com/front-desk`
+- `https://<your-render-service>.onrender.com/race-control`
+- `https://<your-render-service>.onrender.com/lap-line-tracker`
+- `https://<your-render-service>.onrender.com/leader-board`
+- `https://<your-render-service>.onrender.com/next-race`
+- `https://<your-render-service>.onrender.com/race-countdown`
+- `https://<your-render-service>.onrender.com/race-flags`
+
+## Render Deployment Instructions
+
+1. Create a new Web Service in Render from this repo.
+2. Runtime: Node.
+3. Build command:
+   - `npm ci && npm run build`
+4. Start command:
+   - `npm start`
+5. Set environment variables in Render:
+   - `PORT` (Render usually provides this automatically)
+   - `FRONT_DESK_KEY`
+   - `RACE_CONTROL_KEY`
+   - `LAP_LINE_TRACKER_KEY`
+   - optional `RACE_DURATION_SECONDS`
+6. Deploy and verify:
+   - `GET /healthz` returns 200
+   - all top-level routes load
+   - staff key verification fails with delayed error (~500ms)

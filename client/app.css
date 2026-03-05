@@ -1,0 +1,136 @@
+:root {
+  --background: #0b0b0f;
+  --panel: #16161c;
+  --safe: #00ff7b;
+  --warning: #ffd400;
+  --danger: #ff2e2e;
+  --text: #f5f7ff;
+  --muted: #9fa3b3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--background);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.header {
+  border-bottom: 1px solid #2c2e39;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.status {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.status.connected {
+  color: var(--safe);
+}
+
+.status.connecting {
+  color: var(--warning);
+}
+
+.status.error {
+  color: var(--danger);
+}
+
+.content {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid #2c2e39;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.route-title {
+  margin: 0 0 8px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.btn {
+  min-height: 56px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 0;
+  color: #091116;
+  background: var(--safe);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn.secondary {
+  color: #111;
+  background: #eceff7;
+}
+
+.btn.fullscreen {
+  background: var(--warning);
+  color: #1d1b12;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field input {
+  min-height: 48px;
+  border-radius: 8px;
+  border: 1px solid #3a3d4b;
+  background: #0f1016;
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.error {
+  color: var(--danger);
+}
