@@ -1,4 +1,4 @@
-# CODEX MASTERPROMPT — M2 (Dev C)
+﻿# CODEX MASTERPROMPT ā€” M2 (Dev C)
 
 DEC: Dev C (Kristo Amberg, Lead)  
 REPO: https://github.com/ambergkristo/racetrack  
@@ -25,11 +25,23 @@ Harden public UI/UX and enforce visual/system consistency:
 5) commit: "M2: public UX hardening and consistency enforcement (Dev C)"
 6) push + open PR -> main
 
-## UI/UX integration (M2 — required)
+## UI/UX integration (M2 ā€” required)
 - Resolve edge-state presentation issues.
 - Improve reconnect messaging and confidence signals.
 - Keep consistent typography/spacing/layout behavior.
 
+## UI System Completion Checklist (Masterplan p13/p14 - M2 scope)
+- [ ] Complete shared component map items introduced in p14:
+  - `KpiPill`
+  - `Button` variants (`Primary`, `Danger`, `Warning`, `Ghost`, `HugeTouch`)
+  - `Toast` or `InlineAlert`
+  - `LoadingSkeleton`
+  - `EmptyState`
+  - `Divider` and `Table`
+- [ ] `ConnectionStatus` and reconnect UX are unified across public routes.
+- [ ] Finished/checkered visual is implemented consistently.
+- [ ] Fullscreen robustness is validated on desktop + tablet modes.
+- [ ] No duplicated local components when shared version already exists.
 ## Hard requirements
 - No polling introduced.
 - Public routes remain stable under reconnect.
@@ -45,4 +57,6 @@ Harden public UI/UX and enforce visual/system consistency:
 - [ ] Public reconnect UX validated
 - [ ] Fullscreen robustness validated
 - [ ] Shared component consistency maintained
+- [ ] M2 p13/p14 checklist items above are complete
 - [ ] PR title contains "M2"
+

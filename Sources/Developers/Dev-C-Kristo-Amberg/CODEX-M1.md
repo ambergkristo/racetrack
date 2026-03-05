@@ -1,4 +1,4 @@
-# CODEX MASTERPROMPT — M1 (Dev C)
+﻿# CODEX MASTERPROMPT ā€” M1 (Dev C)
 
 DEC: Dev C (Kristo Amberg, Lead)  
 REPO: https://github.com/ambergkristo/racetrack  
@@ -25,12 +25,35 @@ Deliver public-screen MVP experiences and maintain lead governance:
 5) commit: "M1: public MVP route flow and shared UI cohesion (Dev C)"
 6) push + open PR -> main
 
-## UI/UX integration (M1 — required)
+## UI/UX integration (M1 ā€” required)
 - Apply AppShell/Panel/TelemetryHeader consistently.
 - Ensure public routes are fullscreen-friendly.
 - Keep dashboard visual consistency and readability.
 - Coordinate with Dev B on shared component boundaries.
 
+## UI System Completion Checklist (Masterplan p13/p14 - M1 scope)
+- [ ] Design tokens are active in code:
+  - background `#0b0b0f`
+  - panel `#16161c`
+  - safe `#00ff7b`
+  - warning `#ffd400`
+  - danger `#ff2e2e`
+  - finished visual baseline exists (checkered placeholder allowed in M1)
+- [ ] Typography baseline is wired (`Orbitron` for headings, `Rajdhani` for UI/body).
+- [ ] Shared primitives exist and are exported from one common layer:
+  - `AppShell`
+  - `Panel`
+  - `TelemetryHeader`
+  - `FullscreenButton`
+  - `KeyGateModal`
+  - `ConnectionStatus`
+- [ ] Core hooks for realtime UI are available for M1 use:
+  - `useSocket()`
+  - `useRaceState()`
+  - `useTimer()`
+  - `useLeaderboard()`
+  - `useFeatureFlags()`
+- [ ] Public routes use shared shell and avoid local design forks.
 ## Hard requirements
 - Public routes rely on realtime socket updates (no polling).
 - Preserve route-level deep-link behavior.
@@ -46,4 +69,6 @@ Deliver public-screen MVP experiences and maintain lead governance:
 - [ ] Public routes use shared primitives
 - [ ] No polling added
 - [ ] UX consistency maintained
+- [ ] M1 p13/p14 checklist items above are complete
 - [ ] PR title contains "M1"
+
