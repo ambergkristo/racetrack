@@ -224,6 +224,9 @@ KES-MA-OLEN.md
 Example:
 
 CODEX-M0.md
+CODEX-M1.md
+CODEX-M2.md
+CODEX-M3.md
 
 These files contain the exact instructions for Codex agents.
 `KES-MA-OLEN.md` contains the fixed role description and milestone ownership for each developer.
