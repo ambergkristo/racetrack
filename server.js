@@ -3,6 +3,13 @@ const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const { Server } = require("socket.io");
+const {
+  SOCKET_EVENTS,
+  socketAuthSchema,
+  clientHelloSchema,
+  serverHelloSchema,
+  serverErrorSchema,
+} = require("./src/socket/contract");
 
 const REQUIRED_KEYS = [
   "FRONT_DESK_KEY",
@@ -76,6 +83,7 @@ function createApp() {
   const server = http.createServer(app);
   const io = new Server(server, {
     cors: { origin: true, credentials: true },
+    transports: ["websocket"],
   });
   const raceDurationSeconds = parseRaceDurationSeconds();
   const staticDir = resolveStaticDir();
@@ -122,12 +130,17 @@ function createApp() {
   });
 
   io.use(async (socket, next) => {
-    const route = socket.handshake.auth?.route;
+    const authResult = socketAuthSchema.safeParse(socket.handshake.auth || {});
+    if (!authResult.success) {
+      return next(new Error("AUTH_INVALID"));
+    }
+
+    const route = authResult.data.route;
     if (!STAFF_ROUTES.has(route)) {
       return next();
     }
 
-    const key = socket.handshake.auth?.key;
+    const key = authResult.data.key;
     const result = await verifyStaffKey(route, key);
     if (!result.ok) {
       return next(new Error("AUTH_INVALID"));
@@ -137,21 +150,34 @@ function createApp() {
 
   io.on("connection", (socket) => {
     const route = socket.handshake.auth?.route || "unknown";
-    socket.emit("server:hello", {
+    const helloPayload = {
       serverTime: new Date().toISOString(),
       version: "m0",
       raceDurationSeconds,
       route,
-    });
+    };
+    const parsedHello = serverHelloSchema.parse(helloPayload);
+    socket.emit(SOCKET_EVENTS.SERVER_HELLO, parsedHello);
 
-    socket.on("client:hello", (payload) => {
-      socket.emit("server:hello", {
+    socket.on(SOCKET_EVENTS.CLIENT_HELLO, (payload) => {
+      const parsedClientHello = clientHelloSchema.safeParse(payload || {});
+      if (!parsedClientHello.success) {
+        const errorPayload = serverErrorSchema.parse({
+          code: "INVALID_CLIENT_HELLO",
+          message: "client:hello payload failed validation.",
+        });
+        socket.emit(SOCKET_EVENTS.SERVER_ERROR, errorPayload);
+        return;
+      }
+
+      const responsePayload = serverHelloSchema.parse({
         serverTime: new Date().toISOString(),
         version: "m0",
         raceDurationSeconds,
         route,
-        echo: payload || null,
+        echo: parsedClientHello.data,
       });
+      socket.emit(SOCKET_EVENTS.SERVER_HELLO, responsePayload);
     });
   });
 
