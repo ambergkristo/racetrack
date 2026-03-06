@@ -71,7 +71,7 @@
     setConnectionStatus("connecting");
     socket = window.io({
       auth: { route, key },
-      transports: ["websocket", "polling"],
+      transports: ["websocket"],
     });
 
     socket.on("connect", () => {
