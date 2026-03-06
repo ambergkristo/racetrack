@@ -24,5 +24,6 @@ jobs:
           GITEA_MIRROR_USERNAME: ${{ secrets.GITEA_MIRROR_USERNAME }}
           GITEA_MIRROR_TOKEN: ${{ secrets.GITEA_MIRROR_TOKEN }}
         run: |
+          git fetch origin main
           git remote add gitea "https://${GITEA_MIRROR_USERNAME}:${GITEA_MIRROR_TOKEN}@gitea.kood.tech/kristoamberg/info-screens.git"
-          git push --force gitea HEAD:refs/heads/main
+          git push --force gitea refs/remotes/origin/main:refs/heads/main
