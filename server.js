@@ -3,18 +3,7 @@ const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const { Server } = require("socket.io");
-
-const REQUIRED_KEYS = [
-  "FRONT_DESK_KEY",
-  "RACE_CONTROL_KEY",
-  "LAP_LINE_TRACKER_KEY",
-];
-
-const STAFF_ROUTE_TO_KEY = {
-  "/front-desk": "FRONT_DESK_KEY",
-  "/race-control": "RACE_CONTROL_KEY",
-  "/lap-line-tracker": "LAP_LINE_TRACKER_KEY",
-};
+const { loadEnvConfig } = require("./src/config/env");
 
 const PUBLIC_ROUTES = new Set([
   "/leader-board",
@@ -23,23 +12,21 @@ const PUBLIC_ROUTES = new Set([
   "/race-flags",
 ]);
 
-const STAFF_ROUTES = new Set(Object.keys(STAFF_ROUTE_TO_KEY));
-const SPA_ROUTES = new Set(["/", ...PUBLIC_ROUTES, ...STAFF_ROUTES]);
+const SOCKET_TRANSPORTS = ["websocket"];
+
+function createStaffSets(staffRouteToKey) {
+  return {
+    staffRoutes: new Set(Object.keys(staffRouteToKey)),
+    spaRoutes: new Set(["/", ...PUBLIC_ROUTES, ...Object.keys(staffRouteToKey)]),
+  };
+}
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parseRaceDurationSeconds() {
-  const explicit = Number.parseInt(process.env.RACE_DURATION_SECONDS || "", 10);
-  if (Number.isFinite(explicit) && explicit > 0) {
-    return explicit;
-  }
-  return process.env.NODE_ENV === "production" ? 600 : 60;
-}
-
-async function verifyStaffKey(route, key) {
-  const envKeyName = STAFF_ROUTE_TO_KEY[route];
+async function verifyStaffKey(route, key, staffRouteToKey, authFailureDelayMs) {
+  const envKeyName = staffRouteToKey[route];
   if (!envKeyName) {
     return { ok: false, code: "UNKNOWN_STAFF_ROUTE" };
   }
@@ -49,17 +36,8 @@ async function verifyStaffKey(route, key) {
     return { ok: true };
   }
 
-  await delay(500);
+  await delay(authFailureDelayMs);
   return { ok: false, code: "INVALID_KEY" };
-}
-
-function assertRequiredEnv() {
-  const missing = REQUIRED_KEYS.filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(", ")}`
-    );
-  }
 }
 
 function resolveStaticDir() {
@@ -70,14 +48,17 @@ function resolveStaticDir() {
 }
 
 function createApp() {
-  assertRequiredEnv();
+  const env = loadEnvConfig();
+  const { staffRoutes, spaRoutes } = createStaffSets(env.staffRouteToKey);
 
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server, {
     cors: { origin: true, credentials: true },
+    transports: SOCKET_TRANSPORTS,
+    allowUpgrades: false,
   });
-  const raceDurationSeconds = parseRaceDurationSeconds();
+  const raceDurationSeconds = env.raceDurationSeconds;
   const staticDir = resolveStaticDir();
 
   app.use(express.json({ limit: "64kb" }));
@@ -101,7 +82,7 @@ function createApp() {
   app.post("/api/auth/verify", async (req, res) => {
     const route = req.body?.route;
     const key = req.body?.key;
-    if (!STAFF_ROUTES.has(route)) {
+    if (!staffRoutes.has(route)) {
       return res.status(400).json({
         ok: false,
         code: "INVALID_ROUTE",
@@ -109,7 +90,12 @@ function createApp() {
       });
     }
 
-    const result = await verifyStaffKey(route, key);
+    const result = await verifyStaffKey(
+      route,
+      key,
+      env.staffRouteToKey,
+      env.authFailureDelayMs
+    );
     if (!result.ok) {
       return res.status(401).json({
         ok: false,
@@ -123,12 +109,17 @@ function createApp() {
 
   io.use(async (socket, next) => {
     const route = socket.handshake.auth?.route;
-    if (!STAFF_ROUTES.has(route)) {
+    if (!staffRoutes.has(route)) {
       return next();
     }
 
     const key = socket.handshake.auth?.key;
-    const result = await verifyStaffKey(route, key);
+    const result = await verifyStaffKey(
+      route,
+      key,
+      env.staffRouteToKey,
+      env.authFailureDelayMs
+    );
     if (!result.ok) {
       return next(new Error("AUTH_INVALID"));
     }
@@ -164,7 +155,7 @@ function createApp() {
       return next();
     }
 
-    if (SPA_ROUTES.has(req.path) || req.path === "/") {
+    if (spaRoutes.has(req.path) || req.path === "/") {
       return res.sendFile(path.join(staticDir, "index.html"));
     }
 
