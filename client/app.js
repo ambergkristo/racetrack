@@ -77,6 +77,9 @@
     connection: "idle",
     error: "",
     serverHello: null,
+    gateStatus: routeConfig.staff ? "idle" : "success",
+    gateKey: "",
+    gateError: "",
   };
 
   function setState(patch) {
@@ -98,7 +101,11 @@
     if (state.connection === "connected") return "Socket connected";
     if (state.connection === "connecting") return "Socket connecting";
     if (state.connection === "error") return `Socket error: ${state.error || "unknown"}`;
-    return routeConfig.staff ? "Socket locked behind key gate" : "Socket idle";
+    if (routeConfig.staff && state.gateStatus !== "success") {
+      if (state.gateStatus === "verifying") return "Awaiting key verification";
+      return "Socket locked behind key gate";
+    }
+    return "Socket idle";
   }
 
   function TelemetryHeader() {
@@ -133,21 +140,37 @@
   }
 
   function KeyGateModal() {
+    if (!routeConfig.staff || state.gateStatus === "success") {
+      return "";
+    }
+
+    const verifyLabel =
+      state.gateStatus === "verifying" ? "Verifying..." : "Verify and connect";
+    const gateBadge =
+      state.gateStatus === "error"
+        ? '<span class="gate-status error">Verification failed</span>'
+        : state.gateStatus === "verifying"
+          ? '<span class="gate-status verifying">Verifying…</span>'
+          : '<span class="gate-status idle">Awaiting key</span>';
+
     return `
-      <div class="key-gate-shell">
-        <div class="key-gate-copy">
-          <p class="gate-kicker">Staff authentication required</p>
-          <h3>Unlock ${routeConfig.title}</h3>
-          <p class="panel-copy">This route must verify the route key before any Socket.IO connection is allowed.</p>
+      <div class="key-gate-backdrop" role="dialog" aria-modal="true" aria-labelledby="key-gate-title">
+        <div class="key-gate-shell">
+          <div class="key-gate-copy">
+            <p class="gate-kicker">Staff authentication required</p>
+            <h3 id="key-gate-title">Unlock ${routeConfig.title}</h3>
+            <p class="panel-copy">This route must verify the route key before any Socket.IO connection is allowed.</p>
+          </div>
+          ${gateBadge}
+          <label class="field">
+            <span>Access key</span>
+            <input id="staff-key" type="password" autocomplete="off" value="${escapeHtml(state.gateKey)}" ${state.gateStatus === "verifying" ? "disabled" : ""} />
+          </label>
+          <div class="controls">
+            <button class="action-btn" id="verify-btn" type="button" ${state.gateStatus === "verifying" ? "disabled" : ""}>${verifyLabel}</button>
+          </div>
+          <p class="error-text" id="gate-error">${escapeHtml(state.gateError)}</p>
         </div>
-        <label class="field">
-          <span>Access key</span>
-          <input id="staff-key" type="password" autocomplete="off" />
-        </label>
-        <div class="controls">
-          <button class="action-btn" id="verify-btn" type="button">Verify and connect</button>
-        </div>
-        <p class="error-text" id="gate-error"></p>
       </div>
     `;
   }
@@ -160,6 +183,7 @@
         <main class="route-grid">
           ${content}
         </main>
+        ${KeyGateModal()}
       </div>
     `;
   }
@@ -200,10 +224,6 @@
       </div>
     `;
     return Panel("Route Summary", body);
-  }
-
-  function staffGatePanel() {
-    return Panel("Key Gate", KeyGateModal(), routeConfig.accent);
   }
 
   function publicConnectPanel() {
@@ -280,6 +300,14 @@
     return { ok: res.ok };
   }
 
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
   function bindSharedEvents() {
     document.querySelectorAll("#fullscreen-btn").forEach((node) => {
       node.addEventListener("click", async () => {
@@ -299,40 +327,59 @@
     const gateError = document.getElementById("gate-error");
     if (!verifyBtn || !keyInput || !gateError) return;
 
+    keyInput.addEventListener("input", (event) => {
+      setState({
+        gateKey: event.target.value,
+        gateError: "",
+        gateStatus: state.gateStatus === "error" ? "idle" : state.gateStatus,
+      });
+    });
+
+    keyInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        verifyBtn.click();
+      }
+    });
+
     verifyBtn.addEventListener("click", async () => {
-      gateError.textContent = "";
       const key = keyInput.value.trim();
       if (!key) {
-        gateError.textContent = "Access key is required.";
+        setState({ gateError: "Access key is required.", gateStatus: "error" });
         return;
       }
 
-      verifyBtn.disabled = true;
-      verifyBtn.textContent = "Verifying...";
+      setState({ gateStatus: "verifying", gateError: "", error: "" });
       try {
         const result = await verifyStaffKey(key);
         if (!result.ok) {
-          gateError.textContent = "Invalid access key.";
-          setState({ connection: "idle", error: "" });
+          setState({
+            connection: "idle",
+            error: "",
+            gateStatus: "error",
+            gateError: "Invalid access key.",
+          });
           return;
         }
+        setState({
+          gateStatus: "success",
+          gateError: "",
+          gateKey: key,
+        });
         connectSocket(key);
       } catch {
-        gateError.textContent = "Verification failed.";
-        setState({ connection: "error", error: "Verification failed." });
-      } finally {
-        verifyBtn.disabled = false;
-        verifyBtn.textContent = "Verify and connect";
+        setState({
+          connection: "error",
+          error: "Verification failed.",
+          gateStatus: "error",
+          gateError: "Verification failed.",
+        });
       }
     });
   }
 
   function render() {
     const panels = [summaryPanel()];
-
-    if (routeConfig.staff) {
-      panels.push(staffGatePanel());
-    }
 
     if (routeConfig.public) {
       panels.push(publicConnectPanel(), publicSkeletonPanel());

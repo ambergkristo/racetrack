@@ -224,8 +224,56 @@ body {
 }
 
 .key-gate-shell {
+  width: min(520px, 100%);
   display: grid;
   gap: 14px;
+  padding: 24px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(12, 14, 20, 0.96);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.key-gate-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 6, 10, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.gate-status {
+  width: fit-content;
+  min-height: 40px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gate-status.idle {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gate-status.verifying {
+  color: var(--warning);
+  background: rgba(255, 212, 0, 0.08);
+}
+
+.gate-status.error {
+  color: var(--danger);
+  background: rgba(255, 46, 46, 0.08);
 }
 
 .error-text {
