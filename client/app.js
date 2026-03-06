@@ -1,33 +1,82 @@
 (() => {
-  const ROUTE_CONFIG = {
-    "/front-desk": { title: "Front Desk (Staff)", staff: true, public: false },
-    "/race-control": { title: "Race Control (Staff)", staff: true, public: false },
-    "/lap-line-tracker": {
-      title: "Lap Line Tracker (Staff)",
+  const ROUTES = {
+    "/": {
+      title: "Beachside Racetrack",
+      subtitle: "Single-host M0 control surface",
+      staff: false,
+      public: false,
+      accent: "safe",
+      body: "Select a route from the browser path to inspect a public or staff screen skeleton.",
+    },
+    "/front-desk": {
+      title: "Front Desk",
+      subtitle: "Staff route skeleton",
       staff: true,
       public: false,
+      accent: "safe",
+      body: "Session setup, racer intake, and admin workflow will live here.",
     },
-    "/leader-board": { title: "Leader Board (Public)", staff: false, public: true },
-    "/next-race": { title: "Next Race (Public)", staff: false, public: true },
-    "/race-countdown": {
-      title: "Race Countdown (Public)",
+    "/race-control": {
+      title: "Race Control",
+      subtitle: "Staff route skeleton",
+      staff: true,
+      public: false,
+      accent: "warning",
+      body: "Start, mode control, finish, and lock actions will be wired here.",
+    },
+    "/lap-line-tracker": {
+      title: "Lap Line Tracker",
+      subtitle: "Staff route skeleton",
+      staff: true,
+      public: false,
+      accent: "danger",
+      body: "Large lap-entry controls will be mounted here once race flow is active.",
+    },
+    "/leader-board": {
+      title: "Leader Board",
+      subtitle: "Public display skeleton",
       staff: false,
       public: true,
+      accent: "safe",
+      body: "Realtime leaderboard rows, best laps, and flag state will render here.",
     },
-    "/race-flags": { title: "Race Flags (Public)", staff: false, public: true },
-    "/": { title: "Racetrack M0 Home", staff: false, public: false },
+    "/next-race": {
+      title: "Next Race",
+      subtitle: "Public display skeleton",
+      staff: false,
+      public: true,
+      accent: "warning",
+      body: "Upcoming roster, car assignments, and pit call banners will render here.",
+    },
+    "/race-countdown": {
+      title: "Race Countdown",
+      subtitle: "Public display skeleton",
+      staff: false,
+      public: true,
+      accent: "danger",
+      body: "Countdown clock and session status banner will render here.",
+    },
+    "/race-flags": {
+      title: "Race Flags",
+      subtitle: "Public display skeleton",
+      staff: false,
+      public: true,
+      accent: "warning",
+      body: "Fullscreen-safe flag state visuals will render here.",
+    },
   };
 
   const appEl = document.getElementById("app");
-  const path = window.location.pathname;
-  const route = ROUTE_CONFIG[path] ? path : "/";
-  const config = ROUTE_CONFIG[route];
+  const route = ROUTES[window.location.pathname] ? window.location.pathname : "/";
+  const routeConfig = ROUTES[route];
 
   let socket = null;
+  let publicConnectStarted = false;
   let state = {
     bootstrap: null,
     connection: "idle",
     error: "",
+    serverHello: null,
   };
 
   function setState(patch) {
@@ -41,25 +90,155 @@
       const data = await res.json();
       setState({ bootstrap: data });
     } catch {
-      setState({ error: "Failed to load bootstrap info." });
+      setState({ error: "Bootstrap request failed." });
     }
   }
 
-  function isFullscreenAvailable() {
-    return !!document.documentElement.requestFullscreen;
+  function connectionLabel() {
+    if (state.connection === "connected") return "Socket connected";
+    if (state.connection === "connecting") return "Socket connecting";
+    if (state.connection === "error") return `Socket error: ${state.error || "unknown"}`;
+    return routeConfig.staff ? "Socket locked behind key gate" : "Socket idle";
   }
 
-  async function toggleFullscreen() {
-    if (!isFullscreenAvailable()) return;
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await document.documentElement.requestFullscreen();
-    }
+  function TelemetryHeader() {
+    return `
+      <header class="telemetry-header">
+        <div class="telemetry-copy">
+          <p class="eyebrow">Beachside Racetrack</p>
+          <h1>${routeConfig.title}</h1>
+          <p class="subtitle">${routeConfig.subtitle}</p>
+        </div>
+        <div class="telemetry-meta">
+          <div class="status-pill ${state.connection}">${connectionLabel()}</div>
+          ${routeConfig.public ? FullscreenButton() : ""}
+        </div>
+      </header>
+    `;
   }
 
-  function setConnectionStatus(status, error = "") {
-    setState({ connection: status, error });
+  function Panel(title, body, tone = routeConfig.accent, extraClass = "") {
+    return `
+      <section class="panel panel-${tone} ${extraClass}">
+        <div class="panel-heading">
+          <h2>${title}</h2>
+        </div>
+        ${body}
+      </section>
+    `;
+  }
+
+  function FullscreenButton() {
+    return `<button class="action-btn fullscreen-btn" id="fullscreen-btn" type="button">Fullscreen</button>`;
+  }
+
+  function KeyGateModal() {
+    return `
+      <div class="key-gate-shell">
+        <div class="key-gate-copy">
+          <p class="gate-kicker">Staff authentication required</p>
+          <h3>Unlock ${routeConfig.title}</h3>
+          <p class="panel-copy">This route must verify the route key before any Socket.IO connection is allowed.</p>
+        </div>
+        <label class="field">
+          <span>Access key</span>
+          <input id="staff-key" type="password" autocomplete="off" />
+        </label>
+        <div class="controls">
+          <button class="action-btn" id="verify-btn" type="button">Verify and connect</button>
+        </div>
+        <p class="error-text" id="gate-error"></p>
+      </div>
+    `;
+  }
+
+  function AppShell(content) {
+    return `
+      <div class="app-shell route-${route.replace(/\//g, "") || "home"}">
+        <div class="backdrop-grid"></div>
+        ${TelemetryHeader()}
+        <main class="route-grid">
+          ${content}
+        </main>
+      </div>
+    `;
+  }
+
+  function bootstrapPanel() {
+    const bootstrap = state.bootstrap
+      ? JSON.stringify(state.bootstrap, null, 2)
+      : '{"status":"loading"}';
+    const serverHello = state.serverHello
+      ? JSON.stringify(state.serverHello, null, 2)
+      : '{"status":"waiting"}';
+
+    return Panel(
+      "Runtime Snapshot",
+      `
+        <div class="snapshot-stack">
+          <div>
+            <p class="snapshot-label">Bootstrap</p>
+            <pre>${bootstrap}</pre>
+          </div>
+          <div>
+            <p class="snapshot-label">Last server:hello</p>
+            <pre>${serverHello}</pre>
+          </div>
+        </div>
+      `,
+      "warning"
+    );
+  }
+
+  function summaryPanel() {
+    const body = `
+      <p class="panel-copy">${routeConfig.body}</p>
+      <div class="chip-row">
+        <span class="chip">Route: ${route}</span>
+        <span class="chip">${routeConfig.public ? "Public display" : routeConfig.staff ? "Staff route" : "Landing"}</span>
+        <span class="chip">M0 skeleton</span>
+      </div>
+    `;
+    return Panel("Route Summary", body);
+  }
+
+  function staffGatePanel() {
+    return Panel("Key Gate", KeyGateModal(), routeConfig.accent);
+  }
+
+  function publicConnectPanel() {
+    return Panel(
+      "Public Connection Baseline",
+      `
+        <p class="panel-copy">This public route starts a Socket.IO handshake immediately to prove the realtime path is available.</p>
+        <div class="controls">
+          ${FullscreenButton()}
+        </div>
+      `,
+      routeConfig.accent
+    );
+  }
+
+  function publicSkeletonPanel() {
+    const lines = {
+      "/leader-board": ["Position", "Driver", "Best Lap", "Current Lap"],
+      "/next-race": ["Roster", "Car Assignment", "Queue Status", "Pit Call"],
+      "/race-countdown": ["Countdown", "Session Status", "Next Race", "Visual Banner"],
+      "/race-flags": ["SAFE", "HAZARD", "STOP", "FINISHED"],
+    }[route] || ["Placeholder"];
+
+    const cards = lines
+      .map(
+        (line, index) => `
+          <div class="skeleton-tile">
+            <span class="tile-index">0${index + 1}</span>
+            <span>${line}</span>
+          </div>
+        `
+      )
+      .join("");
+
+    return Panel("Display Skeleton", `<div class="skeleton-grid">${cards}</div>`, routeConfig.accent);
   }
 
   function connectSocket(key) {
@@ -68,23 +247,27 @@
       socket = null;
     }
 
-    setConnectionStatus("connecting");
+    setState({ connection: "connecting", error: "" });
     socket = window.io({
       auth: { route, key },
       transports: ["websocket"],
     });
 
     socket.on("connect", () => {
-      setConnectionStatus("connected");
-      socket.emit("client:hello", { route });
+      setState({ connection: "connected", error: "" });
+      socket.emit("client:hello", { route, role: routeConfig.public ? "public" : "staff" });
+    });
+
+    socket.on("server:hello", (payload) => {
+      setState({ serverHello: payload });
     });
 
     socket.on("connect_error", (err) => {
-      setConnectionStatus("error", err?.message || "Socket connection failed.");
+      setState({ connection: "error", error: err?.message || "Socket connection failed." });
     });
 
     socket.on("disconnect", () => {
-      setConnectionStatus("idle");
+      setState({ connection: "idle" });
     });
   }
 
@@ -94,119 +277,89 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ route, key }),
     });
-    const data = await res.json().catch(() => ({}));
-    return { ok: res.ok, data };
+    return { ok: res.ok };
+  }
+
+  function bindSharedEvents() {
+    document.querySelectorAll("#fullscreen-btn").forEach((node) => {
+      node.addEventListener("click", async () => {
+        if (!document.documentElement.requestFullscreen) return;
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        } else {
+          await document.documentElement.requestFullscreen();
+        }
+      });
+    });
+  }
+
+  function bindStaffGate() {
+    const verifyBtn = document.getElementById("verify-btn");
+    const keyInput = document.getElementById("staff-key");
+    const gateError = document.getElementById("gate-error");
+    if (!verifyBtn || !keyInput || !gateError) return;
+
+    verifyBtn.addEventListener("click", async () => {
+      gateError.textContent = "";
+      const key = keyInput.value.trim();
+      if (!key) {
+        gateError.textContent = "Access key is required.";
+        return;
+      }
+
+      verifyBtn.disabled = true;
+      verifyBtn.textContent = "Verifying...";
+      try {
+        const result = await verifyStaffKey(key);
+        if (!result.ok) {
+          gateError.textContent = "Invalid access key.";
+          setState({ connection: "idle", error: "" });
+          return;
+        }
+        connectSocket(key);
+      } catch {
+        gateError.textContent = "Verification failed.";
+        setState({ connection: "error", error: "Verification failed." });
+      } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = "Verify and connect";
+      }
+    });
   }
 
   function render() {
-    const isPublic = config.public;
-    const isStaff = config.staff;
-    const statusClass = `status ${state.connection}`;
-    const statusText =
-      state.connection === "connected"
-        ? "Socket: connected"
-        : state.connection === "connecting"
-        ? "Socket: connecting..."
-        : state.connection === "error"
-        ? `Socket: error (${state.error || "unknown"})`
-        : "Socket: idle";
+    const panels = [summaryPanel()];
 
-    appEl.innerHTML = `
-      <div class="app-shell">
-        <header class="header">
-          <h1>${config.title}</h1>
-          <div class="${statusClass}">${statusText}</div>
-        </header>
-
-        <main class="content">
-          <section class="panel">
-            <h2 class="route-title">${route}</h2>
-            <p class="hint">M0 skeleton route. Deep-link refresh is supported.</p>
-          </section>
-
-          <section class="panel">
-            <div class="controls">
-              ${
-                isPublic
-                  ? `<button class="btn fullscreen" id="fullscreen-btn">Fullscreen</button>`
-                  : ""
-              }
-            </div>
-          </section>
-
-          <section class="panel" id="gate-panel">
-            ${
-              isStaff
-                ? `
-                  <h3>Staff Access Key Required</h3>
-                  <p class="hint">Key check happens before Socket.IO connect.</p>
-                  <div class="field">
-                    <label for="staff-key">Access key</label>
-                    <input id="staff-key" type="password" autocomplete="off" />
-                  </div>
-                  <div class="controls" style="margin-top: 12px;">
-                    <button class="btn" id="verify-btn">Verify & Connect</button>
-                  </div>
-                  <p class="error" id="gate-error"></p>
-                `
-                : `
-                  <h3>Public Screen Connection</h3>
-                  <p class="hint">This route connects immediately via Socket.IO.</p>
-                `
-            }
-          </section>
-
-          <section class="panel">
-            <h3>Bootstrap</h3>
-            <pre>${JSON.stringify(state.bootstrap || {}, null, 2)}</pre>
-          </section>
-        </main>
-      </div>
-    `;
-
-    const fullscreenBtn = document.getElementById("fullscreen-btn");
-    if (fullscreenBtn) {
-      fullscreenBtn.addEventListener("click", () => {
-        toggleFullscreen().catch(() => {});
-      });
+    if (routeConfig.staff) {
+      panels.push(staffGatePanel());
     }
 
-    if (isStaff) {
-      const verifyBtn = document.getElementById("verify-btn");
-      const keyInput = document.getElementById("staff-key");
-      const gateError = document.getElementById("gate-error");
-      verifyBtn.addEventListener("click", async () => {
-        gateError.textContent = "";
-        const key = keyInput.value.trim();
-        if (!key) {
-          gateError.textContent = "Access key is required.";
-          return;
-        }
-        verifyBtn.disabled = true;
-        verifyBtn.textContent = "Verifying...";
-        try {
-          const result = await verifyStaffKey(key);
-          if (!result.ok) {
-            gateError.textContent = "Invalid access key.";
-            setConnectionStatus("idle");
-            return;
-          }
-          connectSocket(key);
-        } catch {
-          gateError.textContent = "Verification failed.";
-          setConnectionStatus("error", "Verification failed.");
-        } finally {
-          verifyBtn.disabled = false;
-          verifyBtn.textContent = "Verify & Connect";
-        }
-      });
-    } else {
-      if (!socket) {
-        connectSocket(undefined);
-      }
+    if (routeConfig.public) {
+      panels.push(publicConnectPanel(), publicSkeletonPanel());
+    }
+
+    panels.push(bootstrapPanel());
+    appEl.innerHTML = AppShell(panels.join(""));
+
+    bindSharedEvents();
+    if (routeConfig.staff) {
+      bindStaffGate();
+    }
+
+    if (routeConfig.public && !publicConnectStarted) {
+      publicConnectStarted = true;
+      connectSocket(undefined);
     }
   }
 
   loadBootstrap();
   render();
+
+  window.RacetrackUI = {
+    AppShell,
+    Panel,
+    TelemetryHeader,
+    FullscreenButton,
+    KeyGateModal,
+  };
 })();
