@@ -1,5 +1,6 @@
 require("./race-state-machine.test");
 require("./race-flow.integration.test");
+require("./realtime-contract.integration.test");
 require("./socket-smoke.test");
 
 const { run } = require("./helpers/testHarness");
