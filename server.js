@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const { Server } = require("socket.io");
 const { loadEnvConfig } = require("./src/config/env");
+const { createPublicRaceFeed } = require("./src/public-race-feed");
 const {
   SOCKET_EVENTS,
   socketAuthSchema,
@@ -64,11 +65,10 @@ function createApp() {
     cors: { origin: true, credentials: true },
     transports: SOCKET_TRANSPORTS,
     allowUpgrades: false,
-    transports: SOCKET_TRANSPORTS,
-    allowUpgrades: false,
   });
   const raceDurationSeconds = env.raceDurationSeconds;
   const staticDir = resolveStaticDir();
+  const publicRaceFeed = createPublicRaceFeed({ raceDurationSeconds });
 
   app.use(express.json({ limit: "64kb" }));
   app.use(express.static(staticDir, { index: false }));
@@ -85,6 +85,11 @@ function createApp() {
     res.status(200).json({
       raceDurationSeconds,
       serverTime: new Date().toISOString(),
+      featureFlags: {
+        persistence: false,
+        manualCarAssignment: false,
+      },
+      transports: SOCKET_TRANSPORTS,
     });
   });
 
@@ -144,12 +149,15 @@ function createApp() {
     const route = socket.handshake.auth?.route || "unknown";
     const helloPayload = {
       serverTime: new Date().toISOString(),
-      version: "m0",
+      version: "m1",
       raceDurationSeconds,
       route,
     };
     const parsedHello = serverHelloSchema.parse(helloPayload);
     socket.emit(SOCKET_EVENTS.SERVER_HELLO, parsedHello);
+    if (PUBLIC_ROUTES.has(route)) {
+      publicRaceFeed.emitCurrentState(socket);
+    }
 
     socket.on(SOCKET_EVENTS.CLIENT_HELLO, (payload) => {
       const parsedClientHello = clientHelloSchema.safeParse(payload || {});
@@ -164,13 +172,21 @@ function createApp() {
 
       const responsePayload = serverHelloSchema.parse({
         serverTime: new Date().toISOString(),
-        version: "m0",
+        version: "m1",
         raceDurationSeconds,
         route,
         echo: parsedClientHello.data,
       });
       socket.emit(SOCKET_EVENTS.SERVER_HELLO, responsePayload);
+      if (PUBLIC_ROUTES.has(route)) {
+        publicRaceFeed.emitCurrentState(socket);
+      }
     });
+  });
+
+  publicRaceFeed.start(io);
+  server.on("close", () => {
+    publicRaceFeed.stop();
   });
 
   app.get("*", (req, res, next) => {
@@ -198,7 +214,7 @@ if (require.main === module) {
     const port = Number.parseInt(process.env.PORT || "3000", 10);
     server.listen(port, () => {
       console.log(
-        `Racetrack M0 server listening on port ${port} (raceDurationSeconds=${raceDurationSeconds})`
+        `Racetrack M1 server listening on port ${port} (raceDurationSeconds=${raceDurationSeconds})`
       );
     });
   } catch (error) {
