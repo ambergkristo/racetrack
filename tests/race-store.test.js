@@ -1,0 +1,57 @@
+const assert = require("node:assert/strict");
+const { createRaceStore } = require("../src/domain/raceStore");
+const { test } = require("./helpers/testHarness");
+
+test("race store ignores non-positive lap deltas without corrupting leaderboard timing", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 60,
+    now: () => 1_000,
+  });
+
+  const session = raceStore.createSession({ name: "Heat 1" });
+  const racer = raceStore.addRacer(session.id, {
+    name: "Amy",
+    carNumber: "7",
+  });
+
+  raceStore.startRace();
+
+  const firstCrossing = raceStore.recordLapCrossing({
+    racerId: racer.id,
+    timestampMs: 10_000,
+  });
+  assert.equal(firstCrossing.lapCount, 1);
+  assert.equal(firstCrossing.currentLapTimeMs, null);
+  assert.equal(firstCrossing.bestLapTimeMs, null);
+
+  const duplicateTimestampCrossing = raceStore.recordLapCrossing({
+    racerId: racer.id,
+    timestampMs: 10_000,
+  });
+  assert.equal(duplicateTimestampCrossing.lapCount, 2);
+  assert.equal(duplicateTimestampCrossing.currentLapTimeMs, null);
+  assert.equal(duplicateTimestampCrossing.bestLapTimeMs, null);
+  assert.equal(duplicateTimestampCrossing.lastCrossingTimestampMs, 10_000);
+
+  const outOfOrderCrossing = raceStore.recordLapCrossing({
+    racerId: racer.id,
+    timestampMs: 9_500,
+  });
+  assert.equal(outOfOrderCrossing.lapCount, 3);
+  assert.equal(outOfOrderCrossing.currentLapTimeMs, null);
+  assert.equal(outOfOrderCrossing.bestLapTimeMs, null);
+  assert.equal(outOfOrderCrossing.lastCrossingTimestampMs, 10_000);
+
+  const validTimedCrossing = raceStore.recordLapCrossing({
+    racerId: racer.id,
+    timestampMs: 10_600,
+  });
+  assert.equal(validTimedCrossing.lapCount, 4);
+  assert.equal(validTimedCrossing.currentLapTimeMs, 600);
+  assert.equal(validTimedCrossing.bestLapTimeMs, 600);
+  assert.equal(validTimedCrossing.lastCrossingTimestampMs, 10_600);
+
+  const snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.leaderboard[0].currentLapTimeMs, 600);
+  assert.equal(snapshot.leaderboard[0].bestLapTimeMs, 600);
+});
