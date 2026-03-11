@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { RACE_MODES, RACE_STATES } = require("../domain/raceStateMachine");
 
 const SOCKET_EVENTS = Object.freeze({
   CLIENT_HELLO: "client:hello",
@@ -37,10 +38,71 @@ const serverErrorSchema = z.object({
   message: z.string().min(1),
 });
 
+const racerSnapshotSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  carNumber: z.string().min(1).nullable(),
+  lapCount: z.number().int().nonnegative(),
+  currentLapTimeMs: z.number().int().positive().nullable(),
+  bestLapTimeMs: z.number().int().positive().nullable(),
+  lastCrossingTimestampMs: z.number().int().nonnegative().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+const sessionSnapshotSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  racers: z.array(racerSnapshotSchema),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+const leaderboardEntrySchema = z.object({
+  position: z.number().int().positive(),
+  racerId: z.string().min(1),
+  name: z.string().min(1),
+  carNumber: z.string().min(1).nullable(),
+  lapCount: z.number().int().nonnegative(),
+  currentLapTimeMs: z.number().int().positive().nullable(),
+  bestLapTimeMs: z.number().int().positive().nullable(),
+});
+
+const raceSnapshotSchema = z.object({
+  serverTime: z.string().datetime(),
+  state: z.enum(Object.values(RACE_STATES)),
+  mode: z.enum(Object.values(RACE_MODES)),
+  raceDurationSeconds: z.number().int().positive(),
+  remainingSeconds: z.number().int().nonnegative(),
+  endsAt: z.string().datetime().nullable(),
+  activeSessionId: z.string().min(1).nullable(),
+  activeSession: sessionSnapshotSchema.nullable(),
+  sessions: z.array(sessionSnapshotSchema),
+  leaderboard: z.array(leaderboardEntrySchema),
+});
+
+const raceTickSchema = z.object({
+  serverTime: z.string().datetime(),
+  state: z.enum(Object.values(RACE_STATES)),
+  raceDurationSeconds: z.number().int().positive(),
+  remainingSeconds: z.number().int().nonnegative(),
+  endsAt: z.string().datetime().nullable(),
+});
+
+const leaderboardUpdateSchema = z.object({
+  serverTime: z.string().datetime(),
+  state: z.enum(Object.values(RACE_STATES)),
+  activeSessionId: z.string().min(1).nullable(),
+  leaderboard: z.array(leaderboardEntrySchema),
+});
+
 module.exports = {
   SOCKET_EVENTS,
   socketAuthSchema,
   clientHelloSchema,
+  leaderboardUpdateSchema,
+  raceSnapshotSchema,
+  raceTickSchema,
   serverHelloSchema,
   serverErrorSchema,
 };
