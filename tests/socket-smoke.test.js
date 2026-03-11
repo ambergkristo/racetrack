@@ -2,7 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { io: createClient } = require("socket.io-client");
 const { createApp } = require("../server");
-const { SOCKET_EVENTS } = require("../src/socket/contract");
+const {
+  SOCKET_EVENTS,
+  leaderboardUpdateSchema,
+  raceSnapshotSchema,
+  raceTickSchema,
+} = require("../src/socket/contract");
 
 function waitForEvent(socket, event, timeoutMs = 3000) {
   return new Promise((resolve, reject) => {
@@ -17,7 +22,7 @@ function waitForEvent(socket, event, timeoutMs = 3000) {
   });
 }
 
-test("socket handshake + schema baseline emits hello and validates inbound payload", async () => {
+test("socket handshake + M1 public feed emits validated realtime payloads", async () => {
   process.env.FRONT_DESK_KEY = "front-desk-test-key";
   process.env.RACE_CONTROL_KEY = "race-control-test-key";
   process.env.LAP_LINE_TRACKER_KEY = "lap-line-test-key";
@@ -41,13 +46,28 @@ test("socket handshake + schema baseline emits hello and validates inbound paylo
       socket.once("connect_error", reject);
     });
     const firstHelloPromise = waitForEvent(socket, SOCKET_EVENTS.SERVER_HELLO);
+    const snapshotPromise = waitForEvent(socket, SOCKET_EVENTS.RACE_SNAPSHOT);
+    const tickPromise = waitForEvent(socket, SOCKET_EVENTS.RACE_TICK);
+    const leaderboardPromise = waitForEvent(socket, SOCKET_EVENTS.LEADERBOARD_UPDATE);
     socket.connect();
     await connected;
 
     const firstHello = await firstHelloPromise;
-    assert.equal(firstHello.version, "m0");
+    assert.equal(firstHello.version, "m1");
     assert.equal(firstHello.route, "/leader-board");
     assert.ok(firstHello.serverTime);
+
+    const snapshot = await snapshotPromise;
+    assert.deepEqual(raceSnapshotSchema.parse(snapshot), snapshot);
+    assert.equal(snapshot.currentRace.racers.length, 6);
+
+    const tick = await tickPromise;
+    assert.deepEqual(raceTickSchema.parse(tick), tick);
+    assert.equal(tick.raceNumber, snapshot.currentRace.number);
+
+    const leaderboard = await leaderboardPromise;
+    assert.deepEqual(leaderboardUpdateSchema.parse(leaderboard), leaderboard);
+    assert.equal(leaderboard.entries.length, 6);
 
     socket.emit(SOCKET_EVENTS.CLIENT_HELLO, {});
     const serverError = await waitForEvent(socket, SOCKET_EVENTS.SERVER_ERROR);
