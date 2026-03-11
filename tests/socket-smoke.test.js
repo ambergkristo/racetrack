@@ -1,8 +1,8 @@
-const test = require("node:test");
 const assert = require("node:assert/strict");
 const { io: createClient } = require("socket.io-client");
 const { createApp } = require("../server");
 const { SOCKET_EVENTS } = require("../src/socket/contract");
+const { test } = require("./helpers/testHarness");
 
 function waitForEvent(socket, event, timeoutMs = 3000) {
   return new Promise((resolve, reject) => {
@@ -45,7 +45,7 @@ test("socket handshake + schema baseline emits hello and validates inbound paylo
     await connected;
 
     const firstHello = await firstHelloPromise;
-    assert.equal(firstHello.version, "m0");
+    assert.equal(firstHello.version, "m1");
     assert.equal(firstHello.route, "/leader-board");
     assert.ok(firstHello.serverTime);
 

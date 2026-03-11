@@ -9,7 +9,7 @@
     "dev": "cross-env NODE_ENV=development nodemon server.js",
     "start": "node server.js",
     "lint": "node scripts/lint.mjs",
-    "test": "node --test"
+    "test": "node tests/run-tests.js"
   },
   "engines": {
     "node": ">=18"
