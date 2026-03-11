@@ -1,3 +1,4 @@
+require("./session-racer-crud.integration.test");
 require("./race-state-machine.test");
 require("./race-flow.integration.test");
 require("./realtime-contract.integration.test");

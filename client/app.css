@@ -7,7 +7,6 @@
   --ink: #f7f8fc;
   --muted: #9298ab;
   --line: rgba(255, 255, 255, 0.08);
-  --glow: rgba(0, 255, 123, 0.15);
 }
 
 * {
@@ -27,6 +26,15 @@ body {
     radial-gradient(circle at 85% 12%, rgba(255, 212, 0, 0.1), transparent 18%),
     linear-gradient(180deg, #09090d 0%, var(--background) 100%);
   color: var(--ink);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+code {
+  font-family: "Consolas", "Courier New", monospace;
 }
 
 .app-shell {
@@ -77,10 +85,22 @@ body {
   font-size: 0.78rem;
 }
 
+.subtitle,
+.panel-copy,
+.hint,
+.snapshot-label,
+.field span,
+.gate-kicker,
+.kpi-pill span,
+.hero-copy,
+.info-row span,
+.empty-state {
+  color: var(--muted);
+}
+
 .subtitle {
   margin: 0;
-  color: var(--muted);
-  max-width: 680px;
+  max-width: 720px;
   font-size: 1.05rem;
 }
 
@@ -134,6 +154,10 @@ body {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
 }
 
+.panel-wide {
+  grid-column: 1 / -1;
+}
+
 .panel-safe {
   box-shadow: 0 18px 48px rgba(0, 255, 123, 0.08);
 }
@@ -146,19 +170,26 @@ body {
   box-shadow: 0 18px 48px rgba(255, 46, 46, 0.08);
 }
 
+.panel-heading,
+.row-actions,
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.panel-heading {
+  margin-bottom: 14px;
+}
+
 .panel-heading h2,
 .key-gate-copy h3 {
-  margin: 0 0 10px;
+  margin: 0;
   font-family: "Orbitron", "Segoe UI", sans-serif;
   font-size: 1rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.panel-copy,
-.hint,
-.snapshot-label {
-  color: var(--muted);
 }
 
 .chip-row,
@@ -177,6 +208,12 @@ body {
   font-size: 0.95rem;
 }
 
+.tiny-chip {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
 .action-btn {
   min-height: 56px;
   padding: 0 20px;
@@ -184,15 +221,35 @@ body {
   border-radius: 14px;
   background: linear-gradient(135deg, var(--safe), #9cffca);
   color: #08130d;
-  font-family: "Rajdhani", "Segoe UI", sans-serif;
-  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
 }
 
-.fullscreen-btn {
+.fullscreen-btn,
+.action-warning {
   background: linear-gradient(135deg, var(--warning), #fff3a0);
   color: #1d1800;
+}
+
+.action-danger {
+  background: linear-gradient(135deg, var(--danger), #ff8b8b);
+  color: #300707;
+}
+
+.action-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.action-ghost.is-active {
+  border-color: rgba(0, 255, 123, 0.36);
+  box-shadow: 0 0 0 2px rgba(0, 255, 123, 0.16) inset;
+}
+
+.mini-btn {
+  min-height: 38px;
+  padding: 0 12px;
 }
 
 .action-btn:disabled {
@@ -207,7 +264,6 @@ body {
 
 .field span,
 .gate-kicker {
-  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.78rem;
@@ -220,7 +276,239 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(9, 11, 18, 0.9);
   color: var(--ink);
-  font-size: 1rem;
+}
+
+.staff-form-grid,
+.snapshot-stack,
+.stack-list {
+  display: grid;
+  gap: 12px;
+}
+
+.stack-list {
+  margin-top: 10px;
+}
+
+.divider {
+  margin: 18px 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.kpi-pill {
+  min-height: 72px;
+  padding: 10px 12px;
+  display: grid;
+  align-content: center;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.kpi-pill strong {
+  margin-top: 4px;
+  font-size: 1.08rem;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+}
+
+.tone-safe strong {
+  color: var(--safe);
+}
+
+.tone-warning strong {
+  color: var(--warning);
+}
+
+.tone-danger strong {
+  color: #ff9d9d;
+}
+
+.inline-alert {
+  margin: 14px 0 0;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.inline-alert.success {
+  color: var(--safe);
+  background: rgba(0, 255, 123, 0.09);
+}
+
+.inline-alert.danger {
+  color: #ff9d9d;
+  background: rgba(255, 46, 46, 0.12);
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.table-wrap {
+  margin-top: 14px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.telemetry-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.telemetry-table.compact {
+  min-width: 360px;
+}
+
+.telemetry-table th,
+.telemetry-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.telemetry-table th {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+}
+
+.telemetry-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.car-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.car-touch-btn {
+  min-height: 140px;
+  padding: 14px;
+  border: 1px solid rgba(255, 46, 46, 0.28);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 46, 46, 0.16), rgba(255, 46, 46, 0.08)),
+    rgba(22, 22, 28, 0.9);
+  color: var(--ink);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.car-touch-btn span,
+.car-touch-btn em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.car-touch-btn strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  color: #ffbcbc;
+  font-size: 1.2rem;
+}
+
+.car-touch-btn:disabled {
+  opacity: 0.55;
+}
+
+.session-overlay,
+.empty-state {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hero-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.hero-value,
+.countdown-digits {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: clamp(2.2rem, 6vw, 4.8rem);
+  letter-spacing: 0.08em;
+}
+
+.countdown-board,
+.flag-board {
+  min-height: 260px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tone-safe {
+  border-color: rgba(0, 255, 123, 0.24);
+}
+
+.tone-warning {
+  border-color: rgba(255, 212, 0, 0.24);
+}
+
+.tone-danger {
+  border-color: rgba(255, 46, 46, 0.24);
+}
+
+.flag-code,
+.flag-board strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.flag-code {
+  font-size: clamp(2.4rem, 7vw, 5rem);
+}
+
+.flag-timer {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.finished-pattern {
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.08) 75%, transparent 75%),
+    rgba(255, 255, 255, 0.03);
+  background-size: 28px 28px;
+}
+
+pre {
+  margin: 6px 0 0;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(5, 7, 12, 0.85);
+  color: #c2f9da;
+  overflow: auto;
 }
 
 .key-gate-shell {
@@ -271,51 +559,14 @@ body {
   background: rgba(255, 212, 0, 0.08);
 }
 
-.gate-status.error {
+.gate-status.error,
+.error-text {
   color: var(--danger);
-  background: rgba(255, 46, 46, 0.08);
 }
 
 .error-text {
   min-height: 24px;
   margin: 0;
-  color: var(--danger);
-}
-
-.snapshot-stack {
-  display: grid;
-  gap: 16px;
-}
-
-pre {
-  margin: 6px 0 0;
-  padding: 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(5, 7, 12, 0.85);
-  color: #c2f9da;
-  overflow: auto;
-}
-
-.skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
-}
-
-.skeleton-tile {
-  min-height: 120px;
-  padding: 16px;
-  display: grid;
-  align-content: space-between;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-}
-
-.tile-index {
-  color: var(--muted);
-  font-family: "Orbitron", "Segoe UI", sans-serif;
 }
 
 @media (max-width: 960px) {
@@ -324,8 +575,8 @@ pre {
   }
 
   .telemetry-header {
-    grid-template-columns: 1fr;
     display: grid;
+    grid-template-columns: 1fr;
   }
 
   .telemetry-meta {
@@ -334,5 +585,9 @@ pre {
 
   .panel {
     grid-column: 1 / -1;
+  }
+
+  .car-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
