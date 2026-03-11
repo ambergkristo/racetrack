@@ -341,16 +341,24 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
 
     racer.lapCount += 1;
     if (racer.lastCrossingTimestampMs !== null) {
-      racer.currentLapTimeMs = timestampMs - racer.lastCrossingTimestampMs;
-      if (
-        racer.bestLapTimeMs === null ||
-        racer.currentLapTimeMs < racer.bestLapTimeMs
-      ) {
-        racer.bestLapTimeMs = racer.currentLapTimeMs;
+      const lapDeltaMs = timestampMs - racer.lastCrossingTimestampMs;
+      // Ignore non-monotonic crossings so realtime schemas never receive invalid lap times.
+      if (lapDeltaMs > 0) {
+        racer.currentLapTimeMs = lapDeltaMs;
+        if (
+          racer.bestLapTimeMs === null ||
+          racer.currentLapTimeMs < racer.bestLapTimeMs
+        ) {
+          racer.bestLapTimeMs = racer.currentLapTimeMs;
+        }
       }
+    } else {
+      racer.lastCrossingTimestampMs = timestampMs;
     }
 
-    racer.lastCrossingTimestampMs = timestampMs;
+    if (racer.lastCrossingTimestampMs === null || timestampMs > racer.lastCrossingTimestampMs) {
+      racer.lastCrossingTimestampMs = timestampMs;
+    }
     racer.updatedAt = new Date(now()).toISOString();
     activeSession.updatedAt = new Date(now()).toISOString();
 
