@@ -1,6 +1,6 @@
-﻿# Beachside Racetrack - M0 Skeleton
+# Beachside Racetrack - M1 MVP Baseline
 
-Single-host M0 setup:
+Single-host M1 setup:
 - one Node.js server
 - serves the frontend SPA
 - hosts Socket.IO on the same process
@@ -28,6 +28,10 @@ SPA deep-linking is enabled for all routes above (refresh does not 404).
   - `GET /healthz`
   - `GET /api/bootstrap`
   - `POST /api/auth/verify`
+
+Socket contract docs:
+- `docs/contracts/socket-contract-m0.md` (M0 baseline freeze)
+- `docs/contracts/socket-contract-m1.md` (M1 realtime lifecycle)
 
 ## Required Environment Variables
 
@@ -103,3 +107,4 @@ Route URLs:
    - `GET /healthz` returns 200
    - all top-level routes load
    - staff key verification fails with delayed error (~500ms)
+
