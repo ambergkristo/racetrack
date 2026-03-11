@@ -146,6 +146,10 @@ body {
   box-shadow: 0 18px 48px rgba(255, 46, 46, 0.08);
 }
 
+.panel-wide {
+  grid-column: 1 / -1;
+}
+
 .panel-heading h2,
 .key-gate-copy h3 {
   margin: 0 0 10px;
@@ -193,6 +197,27 @@ body {
 .fullscreen-btn {
   background: linear-gradient(135deg, var(--warning), #fff3a0);
   color: #1d1800;
+}
+
+.action-warning {
+  background: linear-gradient(135deg, var(--warning), #fff3a0);
+  color: #1d1800;
+}
+
+.action-danger {
+  background: linear-gradient(135deg, var(--danger), #ff8b8b);
+  color: #300707;
+}
+
+.action-ghost {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+
+.action-ghost.is-active {
+  border-color: rgba(0, 255, 123, 0.38);
+  box-shadow: 0 0 0 2px rgba(0, 255, 123, 0.2) inset;
 }
 
 .action-btn:disabled {
@@ -287,6 +312,183 @@ body {
   gap: 16px;
 }
 
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.kpi-pill {
+  min-height: 72px;
+  padding: 10px 12px;
+  display: grid;
+  align-content: center;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.kpi-pill span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+}
+
+.kpi-pill strong {
+  font-size: 1.12rem;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  letter-spacing: 0.02em;
+  margin-top: 4px;
+}
+
+.kpi-pill.tone-safe strong {
+  color: var(--safe);
+}
+
+.kpi-pill.tone-warning strong {
+  color: var(--warning);
+}
+
+.kpi-pill.tone-danger strong {
+  color: #ff8b8b;
+}
+
+.inline-alert {
+  margin: 12px 0 0;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.inline-alert.neutral {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.inline-alert.success {
+  color: var(--safe);
+  background: rgba(0, 255, 123, 0.09);
+}
+
+.inline-alert.danger {
+  color: #ff9d9d;
+  background: rgba(255, 46, 46, 0.12);
+}
+
+.staff-form-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.controls-tight {
+  margin-top: 4px;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.table-wrap {
+  margin-top: 14px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.telemetry-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 380px;
+}
+
+.telemetry-table th,
+.telemetry-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.telemetry-table th {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+}
+
+.telemetry-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.telemetry-table.compact {
+  min-width: 320px;
+}
+
+.car-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.car-touch-btn {
+  min-height: 120px;
+  border: 1px solid rgba(255, 46, 46, 0.28);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 46, 46, 0.18), rgba(255, 46, 46, 0.08)),
+    rgba(22, 22, 28, 0.9);
+  color: var(--ink);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  cursor: pointer;
+}
+
+.car-touch-btn span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+}
+
+.car-touch-btn strong {
+  margin-top: 6px;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 1.5rem;
+  color: #ffbcbc;
+}
+
+.car-touch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.session-overlay {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.08) 25%,
+      rgba(0, 0, 0, 0.08) 25%,
+      rgba(0, 0, 0, 0.08) 50%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.08) 75%,
+      rgba(0, 0, 0, 0.08) 75%
+    );
+  background-size: 24px 24px;
+}
+
 pre {
   margin: 6px 0 0;
   padding: 14px;
@@ -334,5 +536,9 @@ pre {
 
   .panel {
     grid-column: 1 / -1;
+  }
+
+  .car-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
