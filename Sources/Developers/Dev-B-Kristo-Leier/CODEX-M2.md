@@ -31,6 +31,9 @@ Harden staff UX for resilience:
 - No polling for live data.
 - Staff gate cannot be bypassed during reconnect.
 
+Reconnect UX must rely on canonical socket snapshot events.
+Dev B must not implement local reconnect recovery logic that diverges from backend state.
+
 ## Deliverable / DoD (M2 for Dev B)
 - Reconnect behavior is predictable on staff routes.
 - Disabled actions include user-facing reason.
@@ -41,6 +44,12 @@ Harden staff UX for resilience:
 - reconnect banner/status components
 - standardized action-guard UI helpers
 - shared error presentation pattern
+
+## Integration rule
+Dev branches must remain compatible with each other.
+If a change affects another developer's area,
+coordinate through the canonical contract
+rather than introducing alternate logic paths.
 
 ## PR checklist
 - [ ] Reconnect and blocked-state UX covered
