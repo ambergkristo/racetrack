@@ -133,8 +133,36 @@ code {
   color: var(--warning);
 }
 
+.status-pill.reconnecting {
+  color: var(--warning);
+  box-shadow: 0 0 24px rgba(255, 212, 0, 0.12);
+}
+
 .status-pill.error {
   color: var(--danger);
+}
+
+.connection-banner {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.connection-banner strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.connection-banner span {
+  color: var(--muted);
 }
 
 .route-grid {
@@ -347,6 +375,39 @@ code {
 .inline-alert.danger {
   color: #ff9d9d;
   background: rgba(255, 46, 46, 0.12);
+}
+
+.guard-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.guard-item {
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 212, 0, 0.18);
+  background: rgba(255, 212, 0, 0.08);
+}
+
+.guard-item strong {
+  color: var(--warning);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.guard-item span,
+.row-reason {
+  color: var(--muted);
+}
+
+.row-reason {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .mode-grid {
