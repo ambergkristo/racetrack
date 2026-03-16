@@ -6,8 +6,9 @@ const { z } = require("zod");
 const { Server } = require("socket.io");
 const { loadEnvConfig } = require("./src/config/env");
 const { createRaceStore, DomainError } = require("./src/domain/raceStore");
+const { createIdempotencyStore } = require("./src/domain/idempotencyStore");
 const { createTimerService } = require("./src/domain/timerService");
-const { RACE_MODES } = require("./src/domain/raceStateMachine");
+const { RACE_MODES, RACE_STATES } = require("./src/domain/raceStateMachine");
 const {
   SOCKET_EVENTS,
   socketAuthSchema,
@@ -28,42 +29,51 @@ const PUBLIC_ROUTES = new Set([
 
 const SOCKET_TRANSPORTS = ["websocket"];
 const FRONT_DESK_OR_RACE_CONTROL = ["/front-desk", "/race-control"];
+const requestIdSchema = z.string().trim().min(1).max(120);
 
 const createSessionSchema = z.object({
   name: z.string().trim().min(1).max(120),
+  requestId: requestIdSchema.optional(),
 });
 
 const updateSessionSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
+    requestId: requestIdSchema.optional(),
   })
   .strict();
 
 const createRacerSchema = z.object({
   name: z.string().trim().min(1).max(120),
   carNumber: z.string().max(20).optional().nullable(),
+  requestId: requestIdSchema.optional(),
 });
 
 const updateRacerSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
     carNumber: z.string().max(20).optional().nullable(),
+    requestId: requestIdSchema.optional(),
   })
   .strict()
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine((value) => Object.keys(value).some((key) => key !== "requestId"), {
     message: "At least one racer field is required.",
   });
 
 const selectSessionSchema = z.object({
   sessionId: z.string().min(1),
+  requestId: requestIdSchema.optional(),
 });
 
 const raceModeSchema = z.object({
   mode: z.enum(Object.values(RACE_MODES)),
+  requestId: requestIdSchema.optional(),
 });
 
 const lapCrossingSchema = z.object({
   racerId: z.string().min(1),
+  timestampMs: z.number().int().nonnegative().optional(),
+  requestId: requestIdSchema.optional(),
 });
 
 function createStaffSets(staffRouteToKey) {
@@ -121,6 +131,63 @@ function parseBody(schema, req) {
   }
 
   return result.data;
+}
+
+function normalizeOptionalHeaderValue(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized === "" ? null : normalized;
+}
+
+function stableSerialize(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerialize(entry)).join(",")}]`;
+  }
+
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
+    .join(",")}}`;
+}
+
+function extractIdempotencyKey(req) {
+  return (
+    normalizeOptionalHeaderValue(req.headers["idempotency-key"]) ||
+    normalizeOptionalHeaderValue(req.headers["x-idempotency-key"]) ||
+    normalizeOptionalHeaderValue(req.headers["x-request-id"]) ||
+    normalizeOptionalHeaderValue(req.body?.requestId)
+  );
+}
+
+function buildRequestFingerprint(req) {
+  return stableSerialize({
+    method: req.method,
+    path: req.path,
+    staffRoute: req.staffRoute || null,
+    body: req.body || null,
+  });
+}
+
+function toErrorResponse(error) {
+  if (error instanceof DomainError) {
+    return {
+      status: error.status,
+      body: {
+        ok: false,
+        code: error.code,
+        message: error.message,
+      },
+    };
+  }
+
+  throw error;
 }
 
 function sendError(res, error) {
@@ -195,6 +262,7 @@ function createApp(options = {}) {
     raceDurationSeconds,
     now: options.now,
   });
+  const idempotencyStore = createIdempotencyStore();
   const staticDir = resolveStaticDir();
 
   function buildRaceSnapshotPayload() {
@@ -228,6 +296,39 @@ function createApp(options = {}) {
   function broadcastCanonicalState() {
     io.emit(SOCKET_EVENTS.RACE_SNAPSHOT, buildRaceSnapshotPayload());
     io.emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, buildLeaderboardPayload());
+  }
+
+  function emitResyncState(socket) {
+    socket.emit(SOCKET_EVENTS.RACE_SNAPSHOT, buildRaceSnapshotPayload());
+    socket.emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, buildLeaderboardPayload());
+
+    const snapshot = raceStore.getSnapshot();
+    if (
+      snapshot.state === RACE_STATES.RUNNING ||
+      snapshot.state === RACE_STATES.FINISHED
+    ) {
+      socket.emit(SOCKET_EVENTS.RACE_TICK, buildRaceTickPayload());
+    }
+  }
+
+  async function executeMutation(req, res, operation) {
+    try {
+      const response = await idempotencyStore.run({
+        key: extractIdempotencyKey(req),
+        fingerprint: buildRequestFingerprint(req),
+        execute: async () => {
+          try {
+            return await operation();
+          } catch (error) {
+            return toErrorResponse(error);
+          }
+        },
+      });
+
+      return res.status(response.status).json(response.body);
+    } catch (error) {
+      return sendError(res, error);
+    }
   }
 
   const timerService = createTimerService({
@@ -326,199 +427,210 @@ function createApp(options = {}) {
     return res.status(200).json({ ok: true });
   });
 
-  app.post("/api/sessions", frontDeskOrRaceControlAuth, (req, res) => {
-    try {
-      const body = parseBody(createSessionSchema, req);
-      const session = raceStore.createSession(body);
+  app.post("/api/sessions", frontDeskOrRaceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
+      const { name } = parseBody(createSessionSchema, req);
+      const session = raceStore.createSession({ name });
       broadcastCanonicalState();
-      return res.status(201).json({
-        ok: true,
-        session,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 201,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
-  app.patch("/api/sessions/:sessionId", frontDeskOrRaceControlAuth, (req, res) => {
-    try {
-      const body = parseBody(updateSessionSchema, req);
-      const session = raceStore.updateSession(req.params.sessionId, body);
+  app.patch("/api/sessions/:sessionId", frontDeskOrRaceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
+      const { name } = parseBody(updateSessionSchema, req);
+      const session = raceStore.updateSession(req.params.sessionId, { name });
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        session,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
-  app.delete("/api/sessions/:sessionId", frontDeskOrRaceControlAuth, (req, res) => {
-    try {
+  app.delete("/api/sessions/:sessionId", frontDeskOrRaceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
       const session = raceStore.deleteSession(req.params.sessionId);
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        session,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
-  app.post("/api/race/session/select", frontDeskOrRaceControlAuth, (req, res) => {
-    try {
-      const body = parseBody(selectSessionSchema, req);
-      const session = raceStore.selectSession(body.sessionId);
+  app.post("/api/race/session/select", frontDeskOrRaceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
+      const { sessionId } = parseBody(selectSessionSchema, req);
+      const session = raceStore.selectSession(sessionId);
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        session,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
   app.post(
     "/api/sessions/:sessionId/racers",
     frontDeskOrRaceControlAuth,
-    (req, res) => {
-      try {
-        const body = parseBody(createRacerSchema, req);
-        const racer = raceStore.addRacer(req.params.sessionId, body);
-        broadcastCanonicalState();
-        return res.status(201).json({
-          ok: true,
-          racer,
-          raceSnapshot: buildRaceSnapshotPayload(),
+    (req, res) =>
+      executeMutation(req, res, async () => {
+        const { name, carNumber } = parseBody(createRacerSchema, req);
+        const racer = raceStore.addRacer(req.params.sessionId, {
+          name,
+          carNumber,
         });
-      } catch (error) {
-        return sendError(res, error);
-      }
-    }
+        broadcastCanonicalState();
+        return {
+          status: 201,
+          body: {
+            ok: true,
+            racer,
+            raceSnapshot: buildRaceSnapshotPayload(),
+          },
+        };
+      })
   );
 
   app.patch(
     "/api/sessions/:sessionId/racers/:racerId",
     frontDeskOrRaceControlAuth,
-    (req, res) => {
-      try {
-        const body = parseBody(updateRacerSchema, req);
-        const racer = raceStore.updateRacer(
-          req.params.sessionId,
-          req.params.racerId,
-          body
-        );
-        broadcastCanonicalState();
-        return res.status(200).json({
-          ok: true,
-          racer,
-          raceSnapshot: buildRaceSnapshotPayload(),
+    (req, res) =>
+      executeMutation(req, res, async () => {
+        const { name, carNumber } = parseBody(updateRacerSchema, req);
+        const racer = raceStore.updateRacer(req.params.sessionId, req.params.racerId, {
+          name,
+          carNumber,
         });
-      } catch (error) {
-        return sendError(res, error);
-      }
-    }
+        broadcastCanonicalState();
+        return {
+          status: 200,
+          body: {
+            ok: true,
+            racer,
+            raceSnapshot: buildRaceSnapshotPayload(),
+          },
+        };
+      })
   );
 
   app.delete(
     "/api/sessions/:sessionId/racers/:racerId",
     frontDeskOrRaceControlAuth,
-    (req, res) => {
-      try {
+    (req, res) =>
+      executeMutation(req, res, async () => {
         const racer = raceStore.removeRacer(req.params.sessionId, req.params.racerId);
         broadcastCanonicalState();
-        return res.status(200).json({
-          ok: true,
-          racer,
-          raceSnapshot: buildRaceSnapshotPayload(),
-        });
-      } catch (error) {
-        return sendError(res, error);
-      }
-    }
+        return {
+          status: 200,
+          body: {
+            ok: true,
+            racer,
+            raceSnapshot: buildRaceSnapshotPayload(),
+          },
+        };
+      })
   );
 
-  app.post("/api/race/start", raceControlAuth, (_req, res) => {
-    try {
+  app.post("/api/race/start", raceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
       const session = raceStore.startRace();
       const timerState = timerService.start();
       raceStore.syncTimer(timerState);
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        session,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
-  app.post("/api/race/mode", raceControlAuth, (req, res) => {
-    try {
-      const body = parseBody(raceModeSchema, req);
-      const mode = raceStore.setRaceMode(body.mode);
+  app.post("/api/race/mode", raceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
+      const { mode } = parseBody(raceModeSchema, req);
+      const nextMode = raceStore.setRaceMode(mode);
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        mode,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          mode: nextMode,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
-  app.post("/api/race/finish", raceControlAuth, (_req, res) => {
-    try {
+  app.post("/api/race/finish", raceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
       timerService.stop();
       raceStore.finishRace({ reason: "manual" });
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
-  app.post("/api/race/lock", raceControlAuth, (_req, res) => {
-    try {
+  app.post("/api/race/lock", raceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
       timerService.stop();
       const session = raceStore.lockRace();
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        session,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
-  app.post("/api/laps/crossing", lapTrackerAuth, (req, res) => {
-    try {
-      const body = parseBody(lapCrossingSchema, req);
-      const racer = raceStore.recordLapCrossing(body);
+  app.post("/api/laps/crossing", lapTrackerAuth, (req, res) =>
+    executeMutation(req, res, async () => {
+      const { racerId, timestampMs } = parseBody(lapCrossingSchema, req);
+      const racer = raceStore.recordLapCrossing({ racerId, timestampMs });
       broadcastCanonicalState();
-      return res.status(200).json({
-        ok: true,
-        racer,
-        raceSnapshot: buildRaceSnapshotPayload(),
-      });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          racer,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
 
   io.use(async (socket, next) => {
     const authResult = socketAuthSchema.safeParse(socket.handshake.auth || {});
@@ -556,8 +668,7 @@ function createApp(options = {}) {
         route,
       })
     );
-    socket.emit(SOCKET_EVENTS.RACE_SNAPSHOT, buildRaceSnapshotPayload());
-    socket.emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, buildLeaderboardPayload());
+    emitResyncState(socket);
 
     socket.on(SOCKET_EVENTS.CLIENT_HELLO, (payload) => {
       const parsedClientHello = clientHelloSchema.safeParse(payload || {});
@@ -582,6 +693,7 @@ function createApp(options = {}) {
           echo: parsedClientHello.data,
         })
       );
+      emitResyncState(socket);
     });
   });
 
