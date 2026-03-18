@@ -124,11 +124,15 @@
   let state = {
     bootstrap: null,
     connection: "idle",
+    connectionDetail: "",
     error: "",
     serverHello: null,
     gateStatus: routeConfig.staff ? "idle" : "success",
     gateKey: "",
     gateError: "",
+    reconnectAttempt: 0,
+    needsResync: false,
+    lastSyncAt: null,
     pending: false,
     opNotice: null,
     sessionForm: {
@@ -366,6 +370,9 @@
 
     setState({
       raceSnapshot: normalized,
+      reconnectAttempt: 0,
+      needsResync: false,
+      lastSyncAt: new Date().toISOString(),
       sessionForm: nextSessionForm,
       racerForm: nextRacerForm,
     });
@@ -377,6 +384,7 @@
     }
 
     setState({
+      lastSyncAt: new Date().toISOString(),
       raceSnapshot: {
         ...state.raceSnapshot,
         state: payload.state || state.raceSnapshot.state,
@@ -396,6 +404,7 @@
 
     const remainingSeconds = parseNumber(payload.remainingSeconds);
     setState({
+      lastSyncAt: new Date().toISOString(),
       raceSnapshot: {
         ...state.raceSnapshot,
         state: payload.state || state.raceSnapshot.state,
@@ -439,11 +448,18 @@
 
   function connectionLabel() {
     if (state.connection === "connected") {
+      if (state.needsResync) {
+        return "Socket connected, waiting for live sync";
+      }
       return "Socket connected";
     }
 
     if (state.connection === "connecting") {
       return "Socket connecting";
+    }
+
+    if (state.connection === "reconnecting") {
+      return `Socket reconnecting${state.reconnectAttempt ? ` (${state.reconnectAttempt})` : ""}`;
     }
 
     if (state.connection === "error") {
@@ -462,6 +478,116 @@
 
   function staffReady() {
     return routeConfig.staff && state.gateStatus === "success" && state.gateKey.trim() !== "";
+  }
+
+  function firstReason(...reasons) {
+    return reasons.find((reason) => typeof reason === "string" && reason.trim() !== "") || "";
+  }
+
+  function formatTimeStamp(value) {
+    if (!value) {
+      return "n/a";
+    }
+
+    return new Date(value).toLocaleTimeString();
+  }
+
+  function staffAccessReason() {
+    if (!routeConfig.staff) {
+      return "Only staff routes can send commands.";
+    }
+
+    if (state.gateStatus === "verifying") {
+      return "Finish staff key verification before sending commands.";
+    }
+
+    if (state.gateStatus !== "success" || state.gateKey.trim() === "") {
+      return state.gateError || "Verify the staff key before sending commands.";
+    }
+
+    if (state.connection === "connecting") {
+      return "Socket is still connecting.";
+    }
+
+    if (state.connection === "reconnecting") {
+      return "Socket is reconnecting. Commands stay blocked until live sync returns.";
+    }
+
+    if (state.connection === "error") {
+      return state.error || "Socket connection failed. Verify again or wait for reconnect.";
+    }
+
+    if (state.connection !== "connected" || !socket) {
+      return "Socket is not connected.";
+    }
+
+    if (state.needsResync) {
+      return "Live controls are waiting for the next canonical snapshot.";
+    }
+
+    return "";
+  }
+
+  function actionGuardList(items) {
+    const blocked = items.filter((item) => item.reason);
+    if (blocked.length === 0) {
+      return "";
+    }
+
+    return `
+      <div class="guard-list" aria-live="polite">
+        ${blocked
+          .map(
+            (item) => `
+              <div class="guard-item">
+                <strong>${escapeHtml(item.label)}</strong>
+                <span>${escapeHtml(item.reason)}</span>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function connectionBanner() {
+    if (!routeConfig.staff || state.gateStatus !== "success") {
+      return "";
+    }
+
+    if (state.connection === "reconnecting") {
+      return `
+        <section class="connection-banner tone-warning">
+          <strong>Realtime reconnect in progress</strong>
+          <span>${escapeHtml(
+            state.connectionDetail ||
+              "Staff commands are paused until the socket reconnects and a fresh snapshot arrives."
+          )}</span>
+        </section>
+      `;
+    }
+
+    if (state.connection === "connected" && state.needsResync) {
+      return `
+        <section class="connection-banner tone-warning">
+          <strong>Connected, waiting for resync</strong>
+          <span>Controls stay blocked until the next canonical race snapshot confirms current state.</span>
+        </section>
+      `;
+    }
+
+    if (state.connection === "error") {
+      return `
+        <section class="connection-banner tone-danger">
+          <strong>Realtime connection needs attention</strong>
+          <span>${escapeHtml(
+            state.connectionDetail || state.error || "Reconnect failed. Verify the route status and try again."
+          )}</span>
+        </section>
+      `;
+    }
+
+    return "";
   }
 
   function fullscreenButton() {
@@ -536,6 +662,7 @@
       <div class="app-shell route-${route.replace(/\//g, "") || "home"}">
         <div class="backdrop-grid"></div>
         ${telemetryHeader()}
+        ${connectionBanner()}
         <main class="route-grid">
           ${content}
         </main>
@@ -618,6 +745,11 @@
         </div>
         ${noticeMarkup()}
         <p class="hint">${escapeHtml(flagMeta.detail)}</p>
+        <div class="chip-row">
+          <span class="chip">Gate: ${escapeHtml(state.gateStatus)}</span>
+          <span class="chip">Sync: ${state.needsResync ? "waiting" : "live"}</span>
+          <span class="chip">Last sync: ${escapeHtml(formatTimeStamp(state.lastSyncAt))}</span>
+        </div>
       `,
       "safe",
       "panel-wide"
@@ -642,8 +774,9 @@
   }
 
   async function apiRequest(pathname, options = {}) {
-    if (!staffReady()) {
-      throw new Error("Verify the staff key before sending commands.");
+    const accessReason = staffAccessReason();
+    if (accessReason) {
+      throw new Error(accessReason);
     }
 
     const method = options.method || "GET";
@@ -693,11 +826,25 @@
     return state.raceSnapshot.sessions
       .map((session) => {
         const active = session.id === state.raceSnapshot.activeSessionId;
-        const editBlocked =
+        const accessReason = staffAccessReason();
+        const stageReason = firstReason(
+          accessReason,
+          state.pending ? "Wait for the current request to finish." : "",
+          active ? "This session is already active." : "",
+          state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED"
+            ? "Staging is blocked while the race is RUNNING or FINISHED."
+            : ""
+        );
+        const editReason = firstReason(
+          accessReason,
+          state.pending ? "Wait for the current request to finish." : "",
           active &&
-          (state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED");
-        const stageBlocked =
-          state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED";
+            (state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED")
+            ? "Active session edits lock once the race is RUNNING or FINISHED."
+            : ""
+        );
+        const deleteReason = editReason;
+        const summaryReason = firstReason(stageReason, editReason, deleteReason);
 
         return `
           <tr>
@@ -706,10 +853,11 @@
             <td>${session.racers.length}</td>
             <td>
               <div class="row-actions">
-                <button class="action-btn action-ghost mini-btn" data-action="stage-session" data-session-id="${escapeHtml(session.id)}" ${active || stageBlocked || state.pending ? "disabled" : ""}>Stage</button>
-                <button class="action-btn action-ghost mini-btn" data-action="edit-session" data-session-id="${escapeHtml(session.id)}" ${editBlocked || state.pending ? "disabled" : ""}>Edit</button>
-                <button class="action-btn action-danger mini-btn" data-action="delete-session" data-session-id="${escapeHtml(session.id)}" ${editBlocked || state.pending ? "disabled" : ""}>Delete</button>
+                <button class="action-btn action-ghost mini-btn" data-action="stage-session" data-session-id="${escapeHtml(session.id)}" ${stageReason ? "disabled" : ""}>Stage</button>
+                <button class="action-btn action-ghost mini-btn" data-action="edit-session" data-session-id="${escapeHtml(session.id)}" ${editReason ? "disabled" : ""}>Edit</button>
+                <button class="action-btn action-danger mini-btn" data-action="delete-session" data-session-id="${escapeHtml(session.id)}" ${deleteReason ? "disabled" : ""}>Delete</button>
               </div>
+              ${summaryReason ? `<p class="row-reason">${escapeHtml(summaryReason)}</p>` : ""}
             </td>
           </tr>
         `;
@@ -728,22 +876,32 @@
 
     const editBlocked =
       state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED";
+    const accessReason = staffAccessReason();
 
     return activeSession.racers
       .map(
-        (racer) => `
-          <tr>
-            <td>${escapeHtml(racer.name)}</td>
-            <td>${escapeHtml(racer.carNumber || "--")}</td>
-            <td>${racer.lapCount}</td>
-            <td>
-              <div class="row-actions">
-                <button class="action-btn action-ghost mini-btn" data-action="edit-racer" data-racer-id="${escapeHtml(racer.id)}" ${editBlocked || state.pending ? "disabled" : ""}>Edit</button>
-                <button class="action-btn action-danger mini-btn" data-action="delete-racer" data-racer-id="${escapeHtml(racer.id)}" ${editBlocked || state.pending ? "disabled" : ""}>Delete</button>
-              </div>
-            </td>
-          </tr>
-        `
+        (racer) => {
+          const editReason = firstReason(
+            accessReason,
+            state.pending ? "Wait for the current request to finish." : "",
+            editBlocked ? "Racer edits lock once the race is RUNNING or FINISHED." : ""
+          );
+
+          return `
+            <tr>
+              <td>${escapeHtml(racer.name)}</td>
+              <td>${escapeHtml(racer.carNumber || "--")}</td>
+              <td>${racer.lapCount}</td>
+              <td>
+                <div class="row-actions">
+                  <button class="action-btn action-ghost mini-btn" data-action="edit-racer" data-racer-id="${escapeHtml(racer.id)}" ${editReason ? "disabled" : ""}>Edit</button>
+                  <button class="action-btn action-danger mini-btn" data-action="delete-racer" data-racer-id="${escapeHtml(racer.id)}" ${editReason ? "disabled" : ""}>Delete</button>
+                </div>
+                ${editReason ? `<p class="row-reason">${escapeHtml(editReason)}</p>` : ""}
+              </td>
+            </tr>
+          `;
+        }
       )
       .join("");
   }
@@ -752,10 +910,30 @@
     const activeSession = getActiveSession();
     const updateMode = state.sessionForm.id !== null;
     const racerUpdateMode = state.racerForm.id !== null;
+    const accessReason = staffAccessReason();
     const activeEditable =
       activeSession &&
       state.raceSnapshot.state !== "RUNNING" &&
       state.raceSnapshot.state !== "FINISHED";
+    const saveSessionReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      state.sessionForm.name.trim() ? "" : "Enter a session name."
+    );
+    const racerEditReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Create or stage a session before adding racers.",
+      activeEditable ? "" : "Racer edits lock once the race is RUNNING or FINISHED."
+    );
+    const saveRacerReason = firstReason(
+      racerEditReason,
+      state.racerForm.name.trim() ? "" : "Enter a racer name."
+    );
+    const frontDeskReasons = actionGuardList([
+      { label: updateMode ? "Save Session" : "Create Session", reason: saveSessionReason },
+      { label: racerUpdateMode ? "Save Racer" : "Add Racer", reason: saveRacerReason },
+    ]);
 
     return panel(
       "Front Desk Ops",
@@ -766,10 +944,11 @@
             <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
           </label>
           <div class="controls">
-            <button class="action-btn" id="save-session-btn" type="button" ${state.pending ? "disabled" : ""}>${updateMode ? "Save Session" : "Create Session"}</button>
+            <button class="action-btn" id="save-session-btn" type="button" ${saveSessionReason ? "disabled" : ""}>${updateMode ? "Save Session" : "Create Session"}</button>
             ${updateMode ? '<button class="action-btn action-ghost" id="cancel-session-edit-btn" type="button">Cancel</button>' : ""}
           </div>
         </div>
+        ${frontDeskReasons}
         <div class="table-wrap">
           <table class="telemetry-table compact">
             <thead>
@@ -782,18 +961,18 @@
         <div class="staff-form-grid">
           <label class="field">
             <span>Racer name</span>
-            <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${activeEditable ? "" : "disabled"} />
+            <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${racerEditReason ? "disabled" : ""} />
           </label>
           <label class="field">
             <span>Car number</span>
-            <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${activeEditable ? "" : "disabled"} />
+            <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${racerEditReason ? "disabled" : ""} />
           </label>
           <div class="controls">
-            <button class="action-btn" id="save-racer-btn" type="button" ${activeEditable && !state.pending ? "" : "disabled"}>${racerUpdateMode ? "Save Racer" : "Add Racer"}</button>
+            <button class="action-btn" id="save-racer-btn" type="button" ${saveRacerReason ? "disabled" : ""}>${racerUpdateMode ? "Save Racer" : "Add Racer"}</button>
             ${racerUpdateMode ? '<button class="action-btn action-ghost" id="cancel-racer-edit-btn" type="button">Cancel</button>' : ""}
           </div>
         </div>
-        <p class="hint">${activeSession ? "Racer edits apply to the active staged session." : "Create or stage a session before adding racers."}</p>
+        <p class="hint">${escapeHtml(racerEditReason || "Racer edits apply to the active staged session.")}</p>
         <div class="table-wrap">
           <table class="telemetry-table compact">
             <thead>
@@ -849,15 +1028,33 @@
   function raceControlPanel() {
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
-    const canStart = staffReady() && snapshot.state === "STAGING" && activeSession && !state.pending;
-    const canFinish = staffReady() && snapshot.state === "RUNNING" && !state.pending;
-    const canLock = staffReady() && snapshot.state === "FINISHED" && !state.pending;
+    const accessReason = staffAccessReason();
+    const startReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before starting the race.",
+      snapshot.state === "STAGING" ? "" : "Start Race is only available from STAGING."
+    );
+    const finishReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      snapshot.state === "RUNNING" ? "" : "Finish Race is only available while RUNNING."
+    );
+    const lockReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      snapshot.state === "FINISHED" ? "" : "End + Lock is only available after FINISHED."
+    );
+    const modeReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      snapshot.state === "RUNNING" ? "" : "Mode changes are only available while RUNNING."
+    );
 
     const modeButtons = RACE_CONTROL_MODES.map((mode) => {
       const active = snapshot.mode === mode;
-      const disabled = snapshot.state !== "RUNNING" || !staffReady() || state.pending;
       return `
-        <button class="action-btn action-ghost ${active ? "is-active" : ""}" data-action="set-mode" data-mode="${mode}" type="button" ${disabled ? "disabled" : ""}>
+        <button class="action-btn action-ghost ${active ? "is-active" : ""}" data-action="set-mode" data-mode="${mode}" type="button" ${modeReason ? "disabled" : ""}>
           ${escapeHtml(MODE_META[mode].label)}
         </button>
       `;
@@ -867,11 +1064,17 @@
       "Race Control Ops",
       `
         <div class="controls controls-tight">
-          <button class="action-btn" id="race-start-btn" type="button" ${canStart ? "" : "disabled"}>Start Race</button>
-          <button class="action-btn action-warning" id="race-finish-btn" type="button" ${canFinish ? "" : "disabled"}>Finish Race</button>
-          <button class="action-btn action-danger" id="race-lock-btn" type="button" ${canLock ? "" : "disabled"}>End + Lock</button>
+          <button class="action-btn" id="race-start-btn" type="button" ${startReason ? "disabled" : ""}>Start Race</button>
+          <button class="action-btn action-warning" id="race-finish-btn" type="button" ${finishReason ? "disabled" : ""}>Finish Race</button>
+          <button class="action-btn action-danger" id="race-lock-btn" type="button" ${lockReason ? "disabled" : ""}>End + Lock</button>
         </div>
         <p class="hint">${activeSession ? `Active session: ${activeSession.name}` : "No session is staged yet. Use front desk to create or stage one."}</p>
+        ${actionGuardList([
+          { label: "Start Race", reason: startReason },
+          { label: "Finish Race", reason: finishReason },
+          { label: "End + Lock", reason: lockReason },
+          { label: "Mode controls", reason: modeReason },
+        ])}
         <div class="mode-grid">${modeButtons}</div>
         ${leaderboardTable(snapshot.leaderboard)}
       `,
@@ -883,13 +1086,19 @@
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
     const lapAllowed = snapshot.state === "RUNNING" || snapshot.state === "FINISHED";
+    const lapReason = firstReason(
+      staffAccessReason(),
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before lap entry.",
+      lapAllowed ? "" : "Lap entry is only available while RUNNING or FINISHED."
+    );
     const racers = activeSession ? activeSession.racers : [];
 
     const buttons = racers.length
       ? racers
           .map(
             (racer) => `
-              <button class="car-touch-btn" data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}" type="button" ${staffReady() && lapAllowed && !state.pending ? "" : "disabled"}>
+              <button class="car-touch-btn" data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}" type="button" ${lapReason ? "disabled" : ""}>
                 <span>${escapeHtml(racer.carNumber || "Car")}</span>
                 <strong>${escapeHtml(racer.name)}</strong>
                 <em>Laps ${racer.lapCount}</em>
@@ -908,6 +1117,7 @@
       "Lap Line Tracker",
       `
         <p class="hint">Each button sends a real <code>/api/laps/crossing</code> command for the selected racer.</p>
+        ${actionGuardList([{ label: "Lap crossing", reason: lapReason }])}
         <div class="car-grid">${buttons}</div>
         ${overlay}
       `,
@@ -1149,7 +1359,15 @@
       socket = null;
     }
 
-    setState({ connection: "connecting", error: "" });
+    setState({
+      connection: "connecting",
+      connectionDetail: routeConfig.staff
+        ? "Opening the staff realtime channel."
+        : "Opening the public realtime channel.",
+      error: "",
+      needsResync: routeConfig.staff,
+      reconnectAttempt: 0,
+    });
     socket = window.io({
       auth: { route, key },
       transports: ["websocket"],
@@ -1160,7 +1378,14 @@
     });
 
     socket.on("connect", () => {
-      setState({ connection: "connected", error: "" });
+      setState({
+        connection: "connected",
+        connectionDetail: state.needsResync
+          ? "Socket restored. Waiting for the next canonical snapshot."
+          : "Socket connected.",
+        error: "",
+        needsResync: routeConfig.staff,
+      });
       socket.emit("client:hello", {
         route,
         role: routeConfig.public ? "public" : "staff",
@@ -1188,12 +1413,69 @@
     });
 
     socket.on("connect_error", (err) => {
-      setState({ connection: "error", error: err?.message || "Socket connection failed." });
+      const message = err?.message || "Socket connection failed.";
+      if (routeConfig.staff && message === "AUTH_INVALID") {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+
+        setState({
+          connection: "idle",
+          connectionDetail: "",
+          error: "",
+          gateStatus: "error",
+          gateKey: "",
+          gateError: "Stored staff key was rejected. Verify again to reconnect.",
+          reconnectAttempt: 0,
+          needsResync: false,
+        });
+        setNotice("danger", "Staff route locked again. Re-verify the access key.", 4200);
+        return;
+      }
+
+      setState({
+        connection: "error",
+        connectionDetail: "Socket could not reconnect cleanly.",
+        error: message,
+      });
     });
 
-    socket.on("disconnect", () => {
-      setState({ connection: "idle" });
+    socket.on("disconnect", (reason) => {
+      if (routeConfig.staff && staffReady() && reason !== "io client disconnect") {
+        setState({
+          connection: "reconnecting",
+          connectionDetail: "Connection dropped. Waiting for automatic reconnect and fresh sync.",
+          error: "",
+          needsResync: true,
+        });
+        return;
+      }
+
+      setState({
+        connection: "idle",
+        connectionDetail: "",
+      });
     });
+
+    if (socket.io) {
+      socket.io.on("reconnect_attempt", (attempt) => {
+        setState({
+          connection: "reconnecting",
+          connectionDetail: `Reconnect attempt ${attempt} in progress.`,
+          reconnectAttempt: attempt,
+          needsResync: true,
+        });
+      });
+
+      socket.io.on("reconnect_failed", () => {
+        setState({
+          connection: "error",
+          connectionDetail: "Automatic reconnect stopped after repeated failures.",
+          error: "Realtime reconnect failed.",
+        });
+      });
+    }
   }
 
   function bindStaffGate() {
