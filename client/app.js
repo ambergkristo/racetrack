@@ -117,22 +117,27 @@
   const appEl = document.getElementById("app");
   const route = ROUTES[window.location.pathname] ? window.location.pathname : "/";
   const routeConfig = ROUTES[route];
+  const fullscreenEnabled = Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen);
 
   let socket = null;
   let publicConnectStarted = false;
   let noticeTimer = null;
   let state = {
     bootstrap: null,
+    bootstrapStatus: "loading",
+    bootstrapError: "",
     connection: "idle",
     connectionDetail: "",
+    reconnectAttempt: 0,
     error: "",
     serverHello: null,
+    lastSyncAt: null,
+    socketConnectedOnce: false,
+    awaitingLiveResync: false,
+    fullscreenError: "",
     gateStatus: routeConfig.staff ? "idle" : "success",
     gateKey: "",
     gateError: "",
-    reconnectAttempt: 0,
-    needsResync: false,
-    lastSyncAt: null,
     pending: false,
     opNotice: null,
     sessionForm: {
@@ -205,6 +210,23 @@
 
     const seconds = (milliseconds / 1000).toFixed(3);
     return `${seconds}s`;
+  }
+
+  function formatTimestamp(timestamp) {
+    if (!timestamp) {
+      return "Awaiting live sync";
+    }
+
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return "Awaiting live sync";
+    }
+
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   }
 
   function sortLeaderboard(entries) {
@@ -355,6 +377,26 @@
     };
   }
 
+  function hasRaceData() {
+    return Boolean(state.lastSyncAt);
+  }
+
+  function isInitialPublicLoad() {
+    return routeConfig.public && state.bootstrapStatus === "loading" && !hasRaceData();
+  }
+
+  function isFinishedState(snapshot = state.raceSnapshot) {
+    return snapshot.state === "FINISHED";
+  }
+
+  function finishedClass(snapshot = state.raceSnapshot) {
+    return isFinishedState(snapshot) ? " finished-pattern" : "";
+  }
+
+  function markSync(timestamp) {
+    return timestamp || new Date().toISOString();
+  }
+
   function applyCanonicalSnapshot(snapshot) {
     const normalized = normalizeSnapshot(snapshot);
     const nextSessionForm = normalized.sessions.some(
@@ -367,15 +409,24 @@
       activeSession && activeSession.racers.some((racer) => racer.id === state.racerForm.id)
         ? state.racerForm
         : { id: null, name: "", carNumber: "" };
+    const recoveredPublicFeed =
+      routeConfig.public && state.socketConnectedOnce && state.awaitingLiveResync;
 
     setState({
+      bootstrapStatus: "ready",
+      bootstrapError: "",
+      connection: socket?.connected ? "connected" : state.connection,
+      lastSyncAt: markSync(snapshot?.serverTime ?? normalized.serverTime),
+      socketConnectedOnce: socket?.connected ? true : state.socketConnectedOnce,
+      awaitingLiveResync: false,
       raceSnapshot: normalized,
-      reconnectAttempt: 0,
-      needsResync: false,
-      lastSyncAt: new Date().toISOString(),
       sessionForm: nextSessionForm,
       racerForm: nextRacerForm,
     });
+
+    if (recoveredPublicFeed) {
+      setNotice("success", "Live feed restored. Board is back on the canonical snapshot.", 2200);
+    }
   }
 
   function applyLeaderboardUpdate(payload) {
@@ -384,7 +435,7 @@
     }
 
     setState({
-      lastSyncAt: new Date().toISOString(),
+      lastSyncAt: markSync(payload.serverTime),
       raceSnapshot: {
         ...state.raceSnapshot,
         state: payload.state || state.raceSnapshot.state,
@@ -404,7 +455,7 @@
 
     const remainingSeconds = parseNumber(payload.remainingSeconds);
     setState({
-      lastSyncAt: new Date().toISOString(),
+      lastSyncAt: markSync(payload.serverTime),
       raceSnapshot: {
         ...state.raceSnapshot,
         state: payload.state || state.raceSnapshot.state,
@@ -435,45 +486,109 @@
     try {
       const res = await fetch("/api/bootstrap");
       const data = await res.json();
-      const nextState = { bootstrap: data };
+      const nextState = {
+        bootstrap: data,
+        bootstrapStatus: "ready",
+        bootstrapError: "",
+        lastSyncAt: markSync(data.serverTime || data.raceSnapshot?.serverTime),
+      };
       if (data.raceSnapshot) {
         nextState.raceSnapshot = normalizeSnapshot(data.raceSnapshot);
       }
       setState(nextState);
     } catch {
       setNotice("danger", "Bootstrap request failed.", 4000);
-      setState({ error: "Bootstrap request failed." });
+      setState({
+        bootstrapStatus: "error",
+        bootstrapError: "Bootstrap request failed.",
+        error: "Bootstrap request failed.",
+      });
     }
   }
 
-  function connectionLabel() {
-    if (state.connection === "connected") {
-      if (state.needsResync) {
-        return "Socket connected, waiting for live sync";
+  function getConnectionMeta() {
+    if (routeConfig.staff && state.gateStatus !== "success") {
+      if (state.gateStatus === "verifying") {
+        return {
+          label: "Awaiting key verification",
+          detail: "The staff gate must succeed before the websocket can open.",
+          tone: "warning",
+        };
       }
-      return "Socket connected";
+
+      return {
+        label: "Socket locked behind key gate",
+        detail: "Realtime control stays blocked until the route key is verified.",
+        tone: "idle",
+      };
     }
 
-    if (state.connection === "connecting") {
-      return "Socket connecting";
+    if (isInitialPublicLoad()) {
+      return {
+        label: "Loading race state",
+        detail: "Fetching the first canonical board snapshot from the server.",
+        tone: "connecting",
+      };
+    }
+
+    if (state.connection === "connected" && state.awaitingLiveResync) {
+      return {
+        label: state.socketConnectedOnce ? "Resyncing live board" : "Syncing live board",
+        detail:
+          state.connectionDetail ||
+          (state.socketConnectedOnce
+            ? "Signal recovered. Confirming the latest canonical race snapshot now."
+            : "Websocket connected. Confirming the live board snapshot now."),
+        tone: "warning",
+      };
+    }
+
+    if (state.connection === "connected") {
+      return {
+        label: "Live feed healthy",
+        detail: routeConfig.public
+          ? "Public screen is following server updates with websocket-only live data."
+          : "Socket connected and staff controls are in sync.",
+        tone: "safe",
+      };
     }
 
     if (state.connection === "reconnecting") {
-      return `Socket reconnecting${state.reconnectAttempt ? ` (${state.reconnectAttempt})` : ""}`;
+      return {
+        label: `Reconnecting live feed${state.reconnectAttempt ? ` (${state.reconnectAttempt})` : ""}`,
+        detail:
+          state.connectionDetail ||
+          (routeConfig.public
+            ? "Holding the last confirmed race state while the websocket reconnects."
+            : "Trying to restore the websocket session."),
+        tone: "warning",
+      };
+    }
+
+    if (state.connection === "connecting") {
+      return {
+        label: "Connecting live feed",
+        detail: state.connectionDetail || "Opening the websocket channel for realtime race updates.",
+        tone: "connecting",
+      };
     }
 
     if (state.connection === "error") {
-      return `Socket error: ${state.error || "unknown"}`;
+      return {
+        label: "Live feed unavailable",
+        detail:
+          state.connectionDetail ||
+          state.error ||
+          "The websocket failed and could not recover automatically.",
+        tone: "danger",
+      };
     }
 
-    if (routeConfig.staff && state.gateStatus !== "success") {
-      if (state.gateStatus === "verifying") {
-        return "Awaiting key verification";
-      }
-      return "Socket locked behind key gate";
-    }
-
-    return "Socket idle";
+    return {
+      label: "Socket idle",
+      detail: "Waiting for the live connection to start.",
+      tone: "idle",
+    };
   }
 
   function staffReady() {
@@ -482,14 +597,6 @@
 
   function firstReason(...reasons) {
     return reasons.find((reason) => typeof reason === "string" && reason.trim() !== "") || "";
-  }
-
-  function formatTimeStamp(value) {
-    if (!value) {
-      return "n/a";
-    }
-
-    return new Date(value).toLocaleTimeString();
   }
 
   function staffAccessReason() {
@@ -514,84 +621,87 @@
     }
 
     if (state.connection === "error") {
-      return state.error || "Socket connection failed. Verify again or wait for reconnect.";
+      return state.connectionDetail || state.error || "Socket connection failed.";
     }
 
     if (state.connection !== "connected" || !socket) {
       return "Socket is not connected.";
     }
 
-    if (state.needsResync) {
+    if (state.awaitingLiveResync) {
       return "Live controls are waiting for the next canonical snapshot.";
     }
 
     return "";
   }
 
-  function actionGuardList(items) {
-    const blocked = items.filter((item) => item.reason);
-    if (blocked.length === 0) {
-      return "";
+  function buttonMarkup({
+    id = "",
+    label = "",
+    innerHtml = "",
+    variant = "primary",
+    size = "default",
+    disabled = false,
+    active = false,
+    attrs = "",
+  }) {
+    const classes = ["action-btn"];
+
+    if (variant === "warning") {
+      classes.push("action-warning");
+    } else if (variant === "danger") {
+      classes.push("action-danger");
+    } else if (variant === "ghost") {
+      classes.push("action-ghost");
+    }
+
+    if (size === "mini") {
+      classes.push("mini-btn");
+    }
+
+    if (size === "huge-touch") {
+      classes.push("huge-touch-btn");
+    }
+
+    if (active) {
+      classes.push("is-active");
     }
 
     return `
-      <div class="guard-list" aria-live="polite">
-        ${blocked
-          .map(
-            (item) => `
-              <div class="guard-item">
-                <strong>${escapeHtml(item.label)}</strong>
-                <span>${escapeHtml(item.reason)}</span>
-              </div>
-            `
-          )
-          .join("")}
-      </div>
+      <button class="${classes.join(" ")}" ${id ? `id="${id}"` : ""} type="button" ${disabled ? "disabled" : ""} ${attrs}>
+        ${innerHtml || escapeHtml(label)}
+      </button>
     `;
   }
 
-  function connectionBanner() {
-    if (!routeConfig.staff || state.gateStatus !== "success") {
-      return "";
-    }
+  function fullscreenButton() {
+    const isFullscreen = Boolean(document.fullscreenElement);
+    const label = isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen";
+    const detail = fullscreenEnabled ? "Desktop + tablet ready" : "Fullscreen unavailable";
 
-    if (state.connection === "reconnecting") {
-      return `
-        <section class="connection-banner tone-warning">
-          <strong>Realtime reconnect in progress</strong>
-          <span>${escapeHtml(
-            state.connectionDetail ||
-              "Staff commands are paused until the socket reconnects and a fresh snapshot arrives."
-          )}</span>
-        </section>
-      `;
-    }
-
-    if (state.connection === "connected" && state.needsResync) {
-      return `
-        <section class="connection-banner tone-warning">
-          <strong>Connected, waiting for resync</strong>
-          <span>Controls stay blocked until the next canonical race snapshot confirms current state.</span>
-        </section>
-      `;
-    }
-
-    if (state.connection === "error") {
-      return `
-        <section class="connection-banner tone-danger">
-          <strong>Realtime connection needs attention</strong>
-          <span>${escapeHtml(
-            state.connectionDetail || state.error || "Reconnect failed. Verify the route status and try again."
-          )}</span>
-        </section>
-      `;
-    }
-
-    return "";
+    return buttonMarkup({
+      id: "fullscreen-btn",
+      variant: "warning",
+      active: isFullscreen,
+      disabled: !fullscreenEnabled,
+      innerHtml: `
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(detail)}</strong>
+      `,
+      attrs: 'data-action="toggle-fullscreen"',
+    });
   }
 
-  function fullscreenButton() {
-    return '<button class="action-btn fullscreen-btn" id="fullscreen-btn" type="button">Fullscreen</button>';
+  function connectionStatus() {
+    const meta = getConnectionMeta();
+
+    return `
+      <div class="connection-status tone-${meta.tone}">
+        <strong>${escapeHtml(meta.label)}</strong>
+        <span>${escapeHtml(meta.detail)}</span>
+        <em>Last sync ${escapeHtml(formatTimestamp(state.lastSyncAt))}</em>
+      </div>
+    `;
   }
 
   function telemetryHeader() {
@@ -603,7 +713,7 @@
           <p class="subtitle">${routeConfig.subtitle}</p>
         </div>
         <div class="telemetry-meta">
-          <div class="status-pill ${state.connection}">${escapeHtml(connectionLabel())}</div>
+          ${connectionStatus()}
           ${routeConfig.public ? fullscreenButton() : ""}
         </div>
       </header>
@@ -649,7 +759,11 @@
             <input id="staff-key" type="password" autocomplete="off" value="${escapeHtml(state.gateKey)}" ${state.gateStatus === "verifying" ? "disabled" : ""} />
           </label>
           <div class="controls">
-            <button class="action-btn" id="verify-btn" type="button" ${state.gateStatus === "verifying" ? "disabled" : ""}>${verifyLabel}</button>
+            ${buttonMarkup({
+              id: "verify-btn",
+              label: verifyLabel,
+              disabled: state.gateStatus === "verifying",
+            })}
           </div>
           <p class="error-text">${escapeHtml(state.gateError)}</p>
         </div>
@@ -659,10 +773,9 @@
 
   function appShell(content) {
     return `
-      <div class="app-shell route-${route.replace(/\//g, "") || "home"}">
+      <div class="app-shell route-${route.replace(/\//g, "") || "home"} ${document.fullscreenElement ? "is-fullscreen" : ""}">
         <div class="backdrop-grid"></div>
         ${telemetryHeader()}
-        ${connectionBanner()}
         <main class="route-grid">
           ${content}
         </main>
@@ -676,7 +789,11 @@
       return "";
     }
 
-    return `<p class="inline-alert ${state.opNotice.tone}">${escapeHtml(state.opNotice.text)}</p>`;
+    return inlineAlert({
+      tone: state.opNotice.tone,
+      title: state.opNotice.tone === "success" ? "Update confirmed" : "Action needs attention",
+      detail: state.opNotice.text,
+    });
   }
 
   function kpiPill(label, value, tone = "safe") {
@@ -684,6 +801,95 @@
       <div class="kpi-pill tone-${tone}">
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
+      </div>
+    `;
+  }
+
+  function inlineAlert({ tone = "warning", title = "", detail = "" }) {
+    return `
+      <div class="inline-alert ${tone}">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(detail)}</span>
+      </div>
+    `;
+  }
+
+  function actionGuardList(items) {
+    const blocked = items.filter((item) => item.reason);
+    if (blocked.length === 0) {
+      return "";
+    }
+
+    return `
+      <div class="guard-list" aria-live="polite">
+        ${blocked
+          .map(
+            (item) => `
+              <div class="guard-item">
+                <strong>${escapeHtml(item.label)}</strong>
+                <span>${escapeHtml(item.reason)}</span>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function staffConnectionAlert() {
+    if (!routeConfig.staff || state.gateStatus !== "success") {
+      return "";
+    }
+
+    const meta = getConnectionMeta();
+    if (
+      state.connection !== "reconnecting" &&
+      state.connection !== "error" &&
+      !state.awaitingLiveResync
+    ) {
+      return "";
+    }
+
+    return inlineAlert({
+      tone: meta.tone === "danger" ? "danger" : "warning",
+      title: meta.label,
+      detail: meta.detail,
+    });
+  }
+
+  function emptyState(title, detail) {
+    return `
+      <div class="empty-state">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(detail)}</span>
+      </div>
+    `;
+  }
+
+  function loadingSkeleton(lines = 3) {
+    return `
+      <div class="loading-skeleton" aria-hidden="true">
+        ${Array.from({ length: lines }, (_unused, index) => {
+          const widths = ["100%", "82%", "64%", "92%"];
+          return `<span class="skeleton-line" style="width:${widths[index % widths.length]}"></span>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function divider() {
+    return '<div class="divider" role="presentation"></div>';
+  }
+
+  function dataTable(headers, rows, { compact = false } = {}) {
+    return `
+      <div class="table-wrap">
+        <table class="telemetry-table ${compact ? "compact" : ""}">
+          <thead>
+            <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+          </thead>
+          <tbody>${rows.join("")}</tbody>
+        </table>
       </div>
     `;
   }
@@ -732,6 +938,7 @@
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
     const flagMeta = getFlagMeta(snapshot);
+    const syncLabel = state.awaitingLiveResync ? "waiting" : "live";
     return panel(
       "Staff Runtime",
       `
@@ -743,12 +950,13 @@
           ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), "safe")}
           ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
         </div>
+        ${staffConnectionAlert()}
         ${noticeMarkup()}
         <p class="hint">${escapeHtml(flagMeta.detail)}</p>
         <div class="chip-row">
           <span class="chip">Gate: ${escapeHtml(state.gateStatus)}</span>
-          <span class="chip">Sync: ${state.needsResync ? "waiting" : "live"}</span>
-          <span class="chip">Last sync: ${escapeHtml(formatTimeStamp(state.lastSyncAt))}</span>
+          <span class="chip">Sync: ${escapeHtml(syncLabel)}</span>
+          <span class="chip">Last sync: ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
         </div>
       `,
       "safe",
@@ -853,9 +1061,27 @@
             <td>${session.racers.length}</td>
             <td>
               <div class="row-actions">
-                <button class="action-btn action-ghost mini-btn" data-action="stage-session" data-session-id="${escapeHtml(session.id)}" ${stageReason ? "disabled" : ""}>Stage</button>
-                <button class="action-btn action-ghost mini-btn" data-action="edit-session" data-session-id="${escapeHtml(session.id)}" ${editReason ? "disabled" : ""}>Edit</button>
-                <button class="action-btn action-danger mini-btn" data-action="delete-session" data-session-id="${escapeHtml(session.id)}" ${deleteReason ? "disabled" : ""}>Delete</button>
+                ${buttonMarkup({
+                  label: "Stage",
+                  variant: "ghost",
+                  size: "mini",
+                  disabled: Boolean(stageReason),
+                  attrs: `data-action="stage-session" data-session-id="${escapeHtml(session.id)}"`,
+                })}
+                ${buttonMarkup({
+                  label: "Edit",
+                  variant: "ghost",
+                  size: "mini",
+                  disabled: Boolean(editReason),
+                  attrs: `data-action="edit-session" data-session-id="${escapeHtml(session.id)}"`,
+                })}
+                ${buttonMarkup({
+                  label: "Delete",
+                  variant: "danger",
+                  size: "mini",
+                  disabled: Boolean(deleteReason),
+                  attrs: `data-action="delete-session" data-session-id="${escapeHtml(session.id)}"`,
+                })}
               </div>
               ${summaryReason ? `<p class="row-reason">${escapeHtml(summaryReason)}</p>` : ""}
             </td>
@@ -879,30 +1105,40 @@
     const accessReason = staffAccessReason();
 
     return activeSession.racers
-      .map(
-        (racer) => {
-          const editReason = firstReason(
-            accessReason,
-            state.pending ? "Wait for the current request to finish." : "",
-            editBlocked ? "Racer edits lock once the race is RUNNING or FINISHED." : ""
-          );
+      .map((racer) => {
+        const editReason = firstReason(
+          accessReason,
+          state.pending ? "Wait for the current request to finish." : "",
+          editBlocked ? "Racer edits lock once the race is RUNNING or FINISHED." : ""
+        );
 
-          return `
-            <tr>
-              <td>${escapeHtml(racer.name)}</td>
-              <td>${escapeHtml(racer.carNumber || "--")}</td>
-              <td>${racer.lapCount}</td>
-              <td>
-                <div class="row-actions">
-                  <button class="action-btn action-ghost mini-btn" data-action="edit-racer" data-racer-id="${escapeHtml(racer.id)}" ${editReason ? "disabled" : ""}>Edit</button>
-                  <button class="action-btn action-danger mini-btn" data-action="delete-racer" data-racer-id="${escapeHtml(racer.id)}" ${editReason ? "disabled" : ""}>Delete</button>
-                </div>
-                ${editReason ? `<p class="row-reason">${escapeHtml(editReason)}</p>` : ""}
-              </td>
-            </tr>
-          `;
-        }
-      )
+        return `
+          <tr>
+            <td>${escapeHtml(racer.name)}</td>
+            <td>${escapeHtml(racer.carNumber || "--")}</td>
+            <td>${racer.lapCount}</td>
+            <td>
+              <div class="row-actions">
+                ${buttonMarkup({
+                  label: "Edit",
+                  variant: "ghost",
+                  size: "mini",
+                  disabled: Boolean(editReason),
+                  attrs: `data-action="edit-racer" data-racer-id="${escapeHtml(racer.id)}"`,
+                })}
+                ${buttonMarkup({
+                  label: "Delete",
+                  variant: "danger",
+                  size: "mini",
+                  disabled: Boolean(editReason),
+                  attrs: `data-action="delete-racer" data-racer-id="${escapeHtml(racer.id)}"`,
+                })}
+              </div>
+              ${editReason ? `<p class="row-reason">${escapeHtml(editReason)}</p>` : ""}
+            </td>
+          </tr>
+        `;
+      })
       .join("");
   }
 
@@ -944,20 +1180,17 @@
             <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
           </label>
           <div class="controls">
-            <button class="action-btn" id="save-session-btn" type="button" ${saveSessionReason ? "disabled" : ""}>${updateMode ? "Save Session" : "Create Session"}</button>
-            ${updateMode ? '<button class="action-btn action-ghost" id="cancel-session-edit-btn" type="button">Cancel</button>' : ""}
+            ${buttonMarkup({
+              id: "save-session-btn",
+              label: updateMode ? "Save Session" : "Create Session",
+              disabled: Boolean(saveSessionReason),
+            })}
+            ${updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
           </div>
         </div>
         ${frontDeskReasons}
-        <div class="table-wrap">
-          <table class="telemetry-table compact">
-            <thead>
-              <tr><th>Session</th><th>Status</th><th>Racers</th><th>Actions</th></tr>
-            </thead>
-            <tbody>${sessionRows()}</tbody>
-          </table>
-        </div>
-        <div class="divider"></div>
+        ${dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true })}
+        ${divider()}
         <div class="staff-form-grid">
           <label class="field">
             <span>Racer name</span>
@@ -968,61 +1201,48 @@
             <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${racerEditReason ? "disabled" : ""} />
           </label>
           <div class="controls">
-            <button class="action-btn" id="save-racer-btn" type="button" ${saveRacerReason ? "disabled" : ""}>${racerUpdateMode ? "Save Racer" : "Add Racer"}</button>
-            ${racerUpdateMode ? '<button class="action-btn action-ghost" id="cancel-racer-edit-btn" type="button">Cancel</button>' : ""}
+            ${buttonMarkup({
+              id: "save-racer-btn",
+              label: racerUpdateMode ? "Save Racer" : "Add Racer",
+              disabled: Boolean(saveRacerReason),
+            })}
+            ${racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
           </div>
         </div>
         <p class="hint">${escapeHtml(racerEditReason || "Racer edits apply to the active staged session.")}</p>
-        <div class="table-wrap">
-          <table class="telemetry-table compact">
-            <thead>
-              <tr><th>Racer</th><th>Car</th><th>Laps</th><th>Actions</th></tr>
-            </thead>
-            <tbody>${racerRows(activeSession)}</tbody>
-          </table>
-        </div>
+        ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(activeSession)], { compact: true })}
       `,
       "safe"
     );
   }
 
   function leaderboardTable(entries) {
-    if (entries.length === 0) {
-      return '<p class="hint">Leaderboard is waiting for lap data.</p>';
+    if (isInitialPublicLoad()) {
+      return loadingSkeleton(5);
     }
 
-    return `
-      <div class="table-wrap">
-        <table class="telemetry-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Driver</th>
-              <th>Car</th>
-              <th>Laps</th>
-              <th>Best</th>
-              <th>Current</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${entries
-              .map(
-                (entry) => `
-                  <tr>
-                    <td>${entry.position}</td>
-                    <td>${escapeHtml(entry.name)}</td>
-                    <td>${escapeHtml(entry.carNumber || "--")}</td>
-                    <td>${entry.lapCount}</td>
-                    <td>${escapeHtml(formatLap(entry.bestLapTimeMs))}</td>
-                    <td>${escapeHtml(formatLap(entry.currentLapTimeMs))}</td>
-                  </tr>
-                `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
+    if (entries.length === 0) {
+      return emptyState(
+        "Leaderboard waiting for the first lap",
+        "As soon as lap crossings arrive, positions and best laps will populate here."
+      );
+    }
+
+    return dataTable(
+      ["#", "Driver", "Car", "Laps", "Best", "Current"],
+      entries.map(
+        (entry) => `
+          <tr>
+            <td>${entry.position}</td>
+            <td>${escapeHtml(entry.name)}</td>
+            <td>${escapeHtml(entry.carNumber || "--")}</td>
+            <td>${entry.lapCount}</td>
+            <td>${escapeHtml(formatLap(entry.bestLapTimeMs))}</td>
+            <td>${escapeHtml(formatLap(entry.currentLapTimeMs))}</td>
+          </tr>
+        `
+      )
+    );
   }
 
   function raceControlPanel() {
@@ -1053,20 +1273,22 @@
 
     const modeButtons = RACE_CONTROL_MODES.map((mode) => {
       const active = snapshot.mode === mode;
-      return `
-        <button class="action-btn action-ghost ${active ? "is-active" : ""}" data-action="set-mode" data-mode="${mode}" type="button" ${modeReason ? "disabled" : ""}>
-          ${escapeHtml(MODE_META[mode].label)}
-        </button>
-      `;
+      return buttonMarkup({
+        label: MODE_META[mode].label,
+        variant: "ghost",
+        active,
+        disabled: Boolean(modeReason),
+        attrs: `data-action="set-mode" data-mode="${mode}"`,
+      });
     }).join("");
 
     return panel(
       "Race Control Ops",
       `
         <div class="controls controls-tight">
-          <button class="action-btn" id="race-start-btn" type="button" ${startReason ? "disabled" : ""}>Start Race</button>
-          <button class="action-btn action-warning" id="race-finish-btn" type="button" ${finishReason ? "disabled" : ""}>Finish Race</button>
-          <button class="action-btn action-danger" id="race-lock-btn" type="button" ${lockReason ? "disabled" : ""}>End + Lock</button>
+          ${buttonMarkup({ id: "race-start-btn", label: "Start Race", disabled: Boolean(startReason) })}
+          ${buttonMarkup({ id: "race-finish-btn", label: "Finish Race", variant: "warning", disabled: Boolean(finishReason) })}
+          ${buttonMarkup({ id: "race-lock-btn", label: "End + Lock", variant: "danger", disabled: Boolean(lockReason) })}
         </div>
         <p class="hint">${activeSession ? `Active session: ${activeSession.name}` : "No session is staged yet. Use front desk to create or stage one."}</p>
         ${actionGuardList([
@@ -1098,15 +1320,24 @@
       ? racers
           .map(
             (racer) => `
-              <button class="car-touch-btn" data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}" type="button" ${lapReason ? "disabled" : ""}>
+              ${buttonMarkup({
+                variant: "danger",
+                size: "huge-touch",
+                disabled: Boolean(lapReason),
+                attrs: `data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}"`,
+                innerHtml: `
                 <span>${escapeHtml(racer.carNumber || "Car")}</span>
                 <strong>${escapeHtml(racer.name)}</strong>
                 <em>Laps ${racer.lapCount}</em>
-              </button>
+                `,
+              })}
             `
           )
           .join("")
-      : '<div class="empty-state">No staged racers available for lap entry.</div>';
+      : emptyState(
+          "No staged racers available",
+          "Stage a session first, then lap tracker buttons will appear here."
+        );
 
     const overlay =
       snapshot.state === "LOCKED"
@@ -1129,6 +1360,34 @@
     const snapshot = state.raceSnapshot;
     const flagMeta = getFlagMeta(snapshot);
     const activeSession = getActiveSession();
+    const connectionMeta = getConnectionMeta();
+    const syncBanner =
+      state.connection === "reconnecting" || state.awaitingLiveResync || state.connection === "error"
+        ? inlineAlert({
+            tone:
+              state.connection === "error"
+                ? "danger"
+                : state.awaitingLiveResync
+                  ? "warning"
+                  : "warning",
+            title: connectionMeta.label,
+            detail: connectionMeta.detail,
+          })
+        : "";
+    const fullscreenBanner = state.fullscreenError
+      ? inlineAlert({
+          tone: "danger",
+          title: "Fullscreen needs manual recovery",
+          detail: state.fullscreenError,
+        })
+      : "";
+    const confidenceMarkup = `
+      <div class="confidence-row">
+        <span class="chip">Last sync ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
+        <span class="chip">${routeConfig.public ? "No polling" : "Socket only"}</span>
+        <span class="chip">${escapeHtml(state.socketConnectedOnce ? "Resync ready" : "First sync pending")}</span>
+      </div>
+    `;
 
     return panel(
       "Live State",
@@ -1139,41 +1398,42 @@
           ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
           ${kpiPill("Session", activeSession ? activeSession.name : "No active session", activeSession ? "warning" : "danger")}
         </div>
+        ${syncBanner}
+        ${fullscreenBanner}
+        ${confidenceMarkup}
         <p class="hint">${escapeHtml(flagMeta.detail)}</p>
       `,
       flagMeta.tone,
-      "panel-wide"
+      `panel-wide${finishedClass(snapshot)}`
     );
   }
 
   function activeRosterTable(session) {
-    if (!session || session.racers.length === 0) {
-      return '<div class="empty-state">No racers staged.</div>';
+    if (isInitialPublicLoad()) {
+      return loadingSkeleton(4);
     }
 
-    return `
-      <div class="table-wrap">
-        <table class="telemetry-table compact">
-          <thead>
-            <tr><th>Racer</th><th>Car</th><th>Laps</th><th>Best</th></tr>
-          </thead>
-          <tbody>
-            ${session.racers
-              .map(
-                (racer) => `
-                  <tr>
-                    <td>${escapeHtml(racer.name)}</td>
-                    <td>${escapeHtml(racer.carNumber || "--")}</td>
-                    <td>${racer.lapCount}</td>
-                    <td>${escapeHtml(formatLap(racer.bestLapTimeMs))}</td>
-                  </tr>
-                `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
+    if (!session || session.racers.length === 0) {
+      return emptyState(
+        "No racers staged",
+        "When a session is staged, the current roster will appear here."
+      );
+    }
+
+    return dataTable(
+      ["Racer", "Car", "Laps", "Best"],
+      session.racers.map(
+        (racer) => `
+          <tr>
+            <td>${escapeHtml(racer.name)}</td>
+            <td>${escapeHtml(racer.carNumber || "--")}</td>
+            <td>${racer.lapCount}</td>
+            <td>${escapeHtml(formatLap(racer.bestLapTimeMs))}</td>
+          </tr>
+        `
+      ),
+      { compact: true }
+    );
   }
 
   function leaderBoardPanels() {
@@ -1184,7 +1444,7 @@
         "Current Leader",
         `
           <div class="hero-stack">
-            <div class="hero-value">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</div>
+            <div class="hero-value${finishedClass()}">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</div>
             <p class="hero-copy">${escapeHtml(flagMeta.detail)}</p>
             <div class="chip-row">
               <span class="chip">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
@@ -1194,7 +1454,7 @@
           </div>
         `,
         flagMeta.tone,
-        "panel-wide"
+        `panel-wide${finishedClass()}`
       ),
       panel("Leaderboard", leaderboardTable(state.raceSnapshot.leaderboard), "safe", "panel-wide"),
     ].join("");
@@ -1215,7 +1475,8 @@
           </div>
           ${activeRosterTable(activeSession)}
         `,
-        "warning"
+        "warning",
+        isFinishedState() ? finishedClass() : ""
       ),
       panel(
         "Next Queued Session",
@@ -1239,7 +1500,7 @@
       panel(
         "Server Countdown",
         `
-          <div class="countdown-board tone-${escapeHtml(flagMeta.tone)}">
+          <div class="countdown-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
             <div class="countdown-digits">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</div>
             <p class="hero-copy">${escapeHtml(STATE_META[state.raceSnapshot.state]?.detail || "")}</p>
           </div>
@@ -1267,7 +1528,7 @@
       panel(
         "Track Flag",
         `
-          <div class="flag-board tone-${escapeHtml(flagMeta.tone)} ${state.raceSnapshot.state === "FINISHED" ? "finished-pattern" : ""}">
+          <div class="flag-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
             <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
             <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
             <p>${escapeHtml(flagMeta.detail)}</p>
@@ -1306,6 +1567,25 @@
   }
 
   function buildContent() {
+    if (routeConfig.public && state.bootstrapStatus === "error" && !hasRaceData()) {
+      return panel(
+        "Live Feed Unavailable",
+        `
+          ${inlineAlert({
+            tone: "danger",
+            title: "The public board could not load",
+            detail: state.bootstrapError || state.error || "No bootstrap or websocket data is available yet.",
+          })}
+          ${emptyState(
+            "Waiting for a usable race snapshot",
+            "Keep this screen open. As soon as bootstrap or websocket state becomes available, the board will recover without polling."
+          )}
+        `,
+        "danger",
+        "panel-wide"
+      );
+    }
+
     if (route === "/front-desk") {
       return [staffStatusPanel(), frontDeskPanel(), runtimePanel()].join("");
     }
@@ -1340,14 +1620,28 @@
   function bindSharedEvents() {
     document.querySelectorAll("#fullscreen-btn").forEach((node) => {
       node.addEventListener("click", async () => {
-        if (!document.documentElement.requestFullscreen) {
+        if (!fullscreenEnabled) {
+          setState({ fullscreenError: "Fullscreen is not supported in this browser." });
+          setNotice("danger", "Fullscreen is not supported in this browser.", 3200);
           return;
         }
 
-        if (document.fullscreenElement && document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else {
-          await document.documentElement.requestFullscreen();
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else {
+            await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+          }
+          setState({ fullscreenError: "" });
+        } catch {
+          setState({
+            fullscreenError: "Fullscreen request was blocked by the browser.",
+          });
+          setNotice(
+            "danger",
+            "Fullscreen request was blocked. Retry from a direct tap or click.",
+            3600
+          );
         }
       });
     });
@@ -1360,13 +1654,13 @@
     }
 
     setState({
-      connection: "connecting",
+      connection: state.socketConnectedOnce ? "reconnecting" : "connecting",
       connectionDetail: routeConfig.staff
         ? "Opening the staff realtime channel."
         : "Opening the public realtime channel.",
-      error: "",
-      needsResync: routeConfig.staff,
       reconnectAttempt: 0,
+      error: "",
+      awaitingLiveResync: false,
     });
     socket = window.io({
       auth: { route, key },
@@ -1380,11 +1674,12 @@
     socket.on("connect", () => {
       setState({
         connection: "connected",
-        connectionDetail: state.needsResync
+        connectionDetail: routeConfig.staff
           ? "Socket restored. Waiting for the next canonical snapshot."
-          : "Socket connected.",
+          : "",
+        reconnectAttempt: 0,
         error: "",
-        needsResync: routeConfig.staff,
+        awaitingLiveResync: true,
       });
       socket.emit("client:hello", {
         route,
@@ -1423,21 +1718,26 @@
         setState({
           connection: "idle",
           connectionDetail: "",
+          reconnectAttempt: 0,
           error: "",
           gateStatus: "error",
           gateKey: "",
           gateError: "Stored staff key was rejected. Verify again to reconnect.",
-          reconnectAttempt: 0,
-          needsResync: false,
+          awaitingLiveResync: false,
         });
         setNotice("danger", "Staff route locked again. Re-verify the access key.", 4200);
         return;
       }
 
+      const nextConnection = socket?.active ? "reconnecting" : "error";
       setState({
-        connection: "error",
-        connectionDetail: "Socket could not reconnect cleanly.",
+        connection: nextConnection,
+        connectionDetail:
+          nextConnection === "reconnecting"
+            ? "Socket could not reconnect cleanly yet."
+            : "Socket could not reconnect cleanly.",
         error: message,
+        awaitingLiveResync: false,
       });
     });
 
@@ -1445,37 +1745,48 @@
       if (routeConfig.staff && staffReady() && reason !== "io client disconnect") {
         setState({
           connection: "reconnecting",
-          connectionDetail: "Connection dropped. Waiting for automatic reconnect and fresh sync.",
+          connectionDetail:
+            "Connection dropped. Waiting for automatic reconnect and fresh sync.",
           error: "",
-          needsResync: true,
+          awaitingLiveResync: false,
         });
         return;
       }
 
       setState({
-        connection: "idle",
-        connectionDetail: "",
+        connection: routeConfig.public || state.socketConnectedOnce ? "reconnecting" : "idle",
+        connectionDetail:
+          routeConfig.public || state.socketConnectedOnce
+            ? "Holding the last confirmed race state while the websocket reconnects."
+            : "",
+        error:
+          reason === "io server disconnect"
+            ? "Server closed the live feed."
+            : "Signal dropped. Trying to reconnect.",
+        awaitingLiveResync: false,
       });
     });
 
-    if (socket.io) {
-      socket.io.on("reconnect_attempt", (attempt) => {
-        setState({
-          connection: "reconnecting",
-          connectionDetail: `Reconnect attempt ${attempt} in progress.`,
-          reconnectAttempt: attempt,
-          needsResync: true,
-        });
+    socket.io.on("reconnect_attempt", (attempt) => {
+      setState({
+        connection: "reconnecting",
+        connectionDetail:
+          routeConfig.staff
+            ? `Reconnect attempt ${attempt} in progress.`
+            : "Holding the last confirmed race state while the websocket reconnects.",
+        reconnectAttempt: attempt,
+        awaitingLiveResync: false,
       });
+    });
 
-      socket.io.on("reconnect_failed", () => {
-        setState({
-          connection: "error",
-          connectionDetail: "Automatic reconnect stopped after repeated failures.",
-          error: "Realtime reconnect failed.",
-        });
+    socket.io.on("reconnect_failed", () => {
+      setState({
+        connection: "error",
+        connectionDetail: "Automatic reconnect stopped after repeated failures.",
+        error: "Live feed could not reconnect after multiple attempts.",
+        awaitingLiveResync: false,
       });
-    }
+    });
   }
 
   function bindStaffGate() {
@@ -1873,6 +2184,11 @@
   }
 
   document.addEventListener("fullscreenchange", render);
+  document.addEventListener("fullscreenerror", () => {
+    setState({
+      fullscreenError: "Fullscreen failed to change state.",
+    });
+  });
 
   loadBootstrap();
   render();
