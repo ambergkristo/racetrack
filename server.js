@@ -9,6 +9,7 @@ const { createRaceStore, DomainError } = require("./src/domain/raceStore");
 const { createIdempotencyStore } = require("./src/domain/idempotencyStore");
 const { createTimerService } = require("./src/domain/timerService");
 const { RACE_MODES, RACE_STATES } = require("./src/domain/raceStateMachine");
+const { createLogger } = require("./src/observability/logger");
 const {
   SOCKET_EVENTS,
   socketAuthSchema,
@@ -175,8 +176,15 @@ function buildRequestFingerprint(req) {
   });
 }
 
-function toErrorResponse(error) {
+function toErrorResponse(error, logger, req) {
   if (error instanceof DomainError) {
+    logger.warn("http.domain_error", {
+      method: req.method,
+      path: req.path,
+      code: error.code,
+      status: error.status,
+      message: error.message,
+    });
     return {
       status: error.status,
       body: {
@@ -190,8 +198,15 @@ function toErrorResponse(error) {
   throw error;
 }
 
-function sendError(res, error) {
+function sendError(res, error, logger, req) {
   if (error instanceof DomainError) {
+    logger.warn("http.domain_error", {
+      method: req.method,
+      path: req.path,
+      code: error.code,
+      status: error.status,
+      message: error.message,
+    });
     return res.status(error.status).json({
       ok: false,
       code: error.code,
@@ -199,6 +214,11 @@ function sendError(res, error) {
     });
   }
 
+  logger.error("http.internal_error", {
+    method: req.method,
+    path: req.path,
+    error,
+  });
   return res.status(500).json({
     ok: false,
     code: "INTERNAL_ERROR",
@@ -206,10 +226,16 @@ function sendError(res, error) {
   });
 }
 
-function createStaffAuthMiddleware({ allowedRoutes, env }) {
+function createStaffAuthMiddleware({ allowedRoutes, env, logger }) {
   return async (req, res, next) => {
     const { route, key } = extractStaffCredentials(req);
     if (!route || !key) {
+      logger.warn("http.staff_auth_failed", {
+        method: req.method,
+        path: req.path,
+        route: route || null,
+        reason: "STAFF_AUTH_REQUIRED",
+      });
       return res.status(401).json({
         ok: false,
         code: "STAFF_AUTH_REQUIRED",
@@ -218,6 +244,12 @@ function createStaffAuthMiddleware({ allowedRoutes, env }) {
     }
 
     if (!allowedRoutes.includes(route)) {
+      logger.warn("http.staff_auth_failed", {
+        method: req.method,
+        path: req.path,
+        route,
+        reason: "STAFF_ROUTE_FORBIDDEN",
+      });
       return res.status(403).json({
         ok: false,
         code: "STAFF_ROUTE_FORBIDDEN",
@@ -232,6 +264,12 @@ function createStaffAuthMiddleware({ allowedRoutes, env }) {
       env.authFailureDelayMs
     );
     if (!result.ok) {
+      logger.warn("http.staff_auth_failed", {
+        method: req.method,
+        path: req.path,
+        route,
+        reason: result.code,
+      });
       return res.status(401).json({
         ok: false,
         code: result.code,
@@ -248,6 +286,7 @@ function createApp(options = {}) {
   const env = loadEnvConfig();
   const { staffRoutes, spaRoutes } = createStaffSets(env.staffRouteToKey);
   const tickIntervalMs = options.tickIntervalMs || 1000;
+  const logger = options.logger || createLogger({ baseFields: { service: "racetrack" } });
 
   const app = express();
   const server = http.createServer(app);
@@ -293,22 +332,33 @@ function createApp(options = {}) {
     });
   }
 
-  function broadcastCanonicalState() {
-    io.emit(SOCKET_EVENTS.RACE_SNAPSHOT, buildRaceSnapshotPayload());
-    io.emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, buildLeaderboardPayload());
+  function emitCanonicalState(
+    target,
+    { reason, socketId = null, route = null, includeTick = false }
+  ) {
+    const snapshot = buildRaceSnapshotPayload();
+    const leaderboard = buildLeaderboardPayload();
+    target.emit(SOCKET_EVENTS.RACE_SNAPSHOT, snapshot);
+    target.emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, leaderboard);
+    if (
+      includeTick &&
+      (snapshot.state === RACE_STATES.RUNNING || snapshot.state === RACE_STATES.FINISHED)
+    ) {
+      target.emit(SOCKET_EVENTS.RACE_TICK, buildRaceTickPayload());
+    }
+    logger.info("socket.resync_emitted", {
+      delivery: socketId ? "socket" : "broadcast",
+      reason,
+      socketId,
+      route,
+      state: snapshot.state,
+      activeSessionId: snapshot.activeSessionId,
+      leaderboardSize: leaderboard.leaderboard.length,
+    });
   }
 
-  function emitResyncState(socket) {
-    socket.emit(SOCKET_EVENTS.RACE_SNAPSHOT, buildRaceSnapshotPayload());
-    socket.emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, buildLeaderboardPayload());
-
-    const snapshot = raceStore.getSnapshot();
-    if (
-      snapshot.state === RACE_STATES.RUNNING ||
-      snapshot.state === RACE_STATES.FINISHED
-    ) {
-      socket.emit(SOCKET_EVENTS.RACE_TICK, buildRaceTickPayload());
-    }
+  function broadcastCanonicalState(reason) {
+    emitCanonicalState(io, { reason });
   }
 
   async function executeMutation(req, res, operation) {
@@ -320,14 +370,14 @@ function createApp(options = {}) {
           try {
             return await operation();
           } catch (error) {
-            return toErrorResponse(error);
+            return toErrorResponse(error, logger, req);
           }
         },
       });
 
       return res.status(response.status).json(response.body);
     } catch (error) {
-      return sendError(res, error);
+      return sendError(res, error, logger, req);
     }
   }
 
@@ -344,7 +394,10 @@ function createApp(options = {}) {
         raceStore.syncTimer({ remainingSeconds: 0, endsAt: null });
         io.emit(SOCKET_EVENTS.RACE_TICK, buildRaceTickPayload());
         raceStore.finishRace({ reason: "timer_elapsed" });
-        broadcastCanonicalState();
+        logger.info("race.timer_elapsed", {
+          state: raceStore.getSnapshot().state,
+        });
+        broadcastCanonicalState("race_finished_timer_elapsed");
       } catch (error) {
         if (!(error instanceof DomainError)) {
           throw error;
@@ -356,14 +409,17 @@ function createApp(options = {}) {
   const frontDeskOrRaceControlAuth = createStaffAuthMiddleware({
     allowedRoutes: FRONT_DESK_OR_RACE_CONTROL,
     env,
+    logger,
   });
   const raceControlAuth = createStaffAuthMiddleware({
     allowedRoutes: ["/race-control"],
     env,
+    logger,
   });
   const lapTrackerAuth = createStaffAuthMiddleware({
     allowedRoutes: ["/lap-line-tracker"],
     env,
+    logger,
   });
 
   app.use(express.json({ limit: "64kb" }));
@@ -403,6 +459,12 @@ function createApp(options = {}) {
     const route = req.body?.route;
     const key = req.body?.key;
     if (!staffRoutes.has(route)) {
+      logger.warn("http.staff_auth_failed", {
+        method: req.method,
+        path: req.path,
+        route: route || null,
+        reason: "INVALID_ROUTE",
+      });
       return res.status(400).json({
         ok: false,
         code: "INVALID_ROUTE",
@@ -417,6 +479,12 @@ function createApp(options = {}) {
       env.authFailureDelayMs
     );
     if (!result.ok) {
+      logger.warn("http.staff_auth_failed", {
+        method: req.method,
+        path: req.path,
+        route,
+        reason: result.code,
+      });
       return res.status(401).json({
         ok: false,
         code: result.code,
@@ -431,7 +499,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       const { name } = parseBody(createSessionSchema, req);
       const session = raceStore.createSession({ name });
-      broadcastCanonicalState();
+      broadcastCanonicalState("session_created");
       return {
         status: 201,
         body: {
@@ -447,7 +515,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       const { name } = parseBody(updateSessionSchema, req);
       const session = raceStore.updateSession(req.params.sessionId, { name });
-      broadcastCanonicalState();
+      broadcastCanonicalState("session_updated");
       return {
         status: 200,
         body: {
@@ -462,7 +530,7 @@ function createApp(options = {}) {
   app.delete("/api/sessions/:sessionId", frontDeskOrRaceControlAuth, (req, res) =>
     executeMutation(req, res, async () => {
       const session = raceStore.deleteSession(req.params.sessionId);
-      broadcastCanonicalState();
+      broadcastCanonicalState("session_deleted");
       return {
         status: 200,
         body: {
@@ -478,7 +546,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       const { sessionId } = parseBody(selectSessionSchema, req);
       const session = raceStore.selectSession(sessionId);
-      broadcastCanonicalState();
+      broadcastCanonicalState("session_selected");
       return {
         status: 200,
         body: {
@@ -500,7 +568,7 @@ function createApp(options = {}) {
           name,
           carNumber,
         });
-        broadcastCanonicalState();
+        broadcastCanonicalState("racer_added");
         return {
           status: 201,
           body: {
@@ -522,7 +590,7 @@ function createApp(options = {}) {
           name,
           carNumber,
         });
-        broadcastCanonicalState();
+        broadcastCanonicalState("racer_updated");
         return {
           status: 200,
           body: {
@@ -540,7 +608,7 @@ function createApp(options = {}) {
     (req, res) =>
       executeMutation(req, res, async () => {
         const racer = raceStore.removeRacer(req.params.sessionId, req.params.racerId);
-        broadcastCanonicalState();
+        broadcastCanonicalState("racer_removed");
         return {
           status: 200,
           body: {
@@ -557,7 +625,7 @@ function createApp(options = {}) {
       const session = raceStore.startRace();
       const timerState = timerService.start();
       raceStore.syncTimer(timerState);
-      broadcastCanonicalState();
+      broadcastCanonicalState("race_started");
       return {
         status: 200,
         body: {
@@ -573,7 +641,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       const { mode } = parseBody(raceModeSchema, req);
       const nextMode = raceStore.setRaceMode(mode);
-      broadcastCanonicalState();
+      broadcastCanonicalState("race_mode_changed");
       return {
         status: 200,
         body: {
@@ -589,7 +657,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       timerService.stop();
       raceStore.finishRace({ reason: "manual" });
-      broadcastCanonicalState();
+      broadcastCanonicalState("race_finished_manual");
       return {
         status: 200,
         body: {
@@ -604,7 +672,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       timerService.stop();
       const session = raceStore.lockRace();
-      broadcastCanonicalState();
+      broadcastCanonicalState("race_locked");
       return {
         status: 200,
         body: {
@@ -620,7 +688,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       const { racerId, timestampMs } = parseBody(lapCrossingSchema, req);
       const racer = raceStore.recordLapCrossing({ racerId, timestampMs });
-      broadcastCanonicalState();
+      broadcastCanonicalState("lap_recorded");
       return {
         status: 200,
         body: {
@@ -635,6 +703,11 @@ function createApp(options = {}) {
   io.use(async (socket, next) => {
     const authResult = socketAuthSchema.safeParse(socket.handshake.auth || {});
     if (!authResult.success) {
+      logger.warn("socket.auth_invalid", {
+        socketId: socket.id,
+        route: socket.handshake.auth?.route || null,
+        reason: "schema_validation_failed",
+      });
       return next(new Error("AUTH_INVALID"));
     }
 
@@ -651,6 +724,11 @@ function createApp(options = {}) {
       env.authFailureDelayMs
     );
     if (!result.ok) {
+      logger.warn("socket.auth_invalid", {
+        socketId: socket.id,
+        route,
+        reason: result.code,
+      });
       return next(new Error("AUTH_INVALID"));
     }
 
@@ -659,6 +737,10 @@ function createApp(options = {}) {
 
   io.on("connection", (socket) => {
     const route = socket.handshake.auth?.route || "unknown";
+    logger.info("socket.connected", {
+      socketId: socket.id,
+      route,
+    });
     socket.emit(
       SOCKET_EVENTS.SERVER_HELLO,
       serverHelloSchema.parse({
@@ -668,32 +750,72 @@ function createApp(options = {}) {
         route,
       })
     );
-    emitResyncState(socket);
+    emitCanonicalState(socket, {
+      reason: "socket_connected",
+      socketId: socket.id,
+      route,
+      includeTick: true,
+    });
 
     socket.on(SOCKET_EVENTS.CLIENT_HELLO, (payload) => {
-      const parsedClientHello = clientHelloSchema.safeParse(payload || {});
-      if (!parsedClientHello.success) {
+      try {
+        const parsedClientHello = clientHelloSchema.safeParse(payload || {});
+        if (!parsedClientHello.success) {
+          logger.warn("socket.client_payload_invalid", {
+            socketId: socket.id,
+            route,
+            eventName: SOCKET_EVENTS.CLIENT_HELLO,
+            issues: parsedClientHello.error.issues.map((issue) => issue.message),
+          });
+          socket.emit(
+            SOCKET_EVENTS.SERVER_ERROR,
+            serverErrorSchema.parse({
+              code: "INVALID_CLIENT_HELLO",
+              message: "client:hello payload failed validation.",
+            })
+          );
+          return;
+        }
+
+        socket.emit(
+          SOCKET_EVENTS.SERVER_HELLO,
+          serverHelloSchema.parse({
+            serverTime: new Date().toISOString(),
+            version: "m1",
+            raceDurationSeconds,
+            route,
+            echo: parsedClientHello.data,
+          })
+        );
+        emitCanonicalState(socket, {
+          reason: "client_hello_resync",
+          socketId: socket.id,
+          route,
+          includeTick: true,
+        });
+      } catch (error) {
+        logger.error("socket.internal_error", {
+          socketId: socket.id,
+          route,
+          eventName: SOCKET_EVENTS.CLIENT_HELLO,
+          error,
+        });
         socket.emit(
           SOCKET_EVENTS.SERVER_ERROR,
           serverErrorSchema.parse({
-            code: "INVALID_CLIENT_HELLO",
-            message: "client:hello payload failed validation.",
+            code: "INTERNAL_SOCKET_ERROR",
+            message: "Unexpected socket error.",
           })
         );
-        return;
       }
+    });
 
-      socket.emit(
-        SOCKET_EVENTS.SERVER_HELLO,
-        serverHelloSchema.parse({
-          serverTime: new Date().toISOString(),
-          version: "m1",
-          raceDurationSeconds,
-          route,
-          echo: parsedClientHello.data,
-        })
-      );
-      emitResyncState(socket);
+    socket.on("disconnect", (reason) => {
+      logger.info("socket.disconnected", {
+        socketId: socket.id,
+        route,
+        reason,
+      });
     });
   });
 
@@ -713,19 +835,26 @@ function createApp(options = {}) {
     return res.status(404).json({ error: "Not found" });
   });
 
-  return { app, server, raceDurationSeconds, raceStore, timerService };
+  return { app, server, raceDurationSeconds, raceStore, timerService, logger };
 }
 
 if (require.main === module) {
   try {
-    const { server, raceDurationSeconds } = createApp();
+    const { server, raceDurationSeconds, logger } = createApp();
     const port = Number.parseInt(process.env.PORT || "3000", 10);
     server.listen(port, () => {
+      logger.info("server.started", {
+        port,
+        raceDurationSeconds,
+      });
       console.log(
         `Racetrack M1 server listening on port ${port} (raceDurationSeconds=${raceDurationSeconds})`
       );
     });
   } catch (error) {
+    createLogger({ baseFields: { service: "racetrack" } }).error("server.start_failed", {
+      error,
+    });
     console.error(`Startup failed: ${error.message}`);
     process.exit(1);
   }

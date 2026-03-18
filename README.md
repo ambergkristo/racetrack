@@ -33,6 +33,9 @@ Socket contract docs:
 - `docs/contracts/socket-contract-m0.md` (M0 baseline freeze)
 - `docs/contracts/socket-contract-m1.md` (M1 realtime lifecycle)
 
+Diagnostics docs:
+- `docs/diagnostics/observability-baseline.md` (M2 structured logs and key error surfaces)
+
 ## Required Environment Variables
 
 These keys are required at startup (fail-fast if missing):
