@@ -39,9 +39,13 @@ code {
 
 .app-shell {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 28px;
   overflow: hidden;
+}
+
+.app-shell.is-fullscreen {
+  padding: 18px;
 }
 
 .backdrop-grid {
@@ -107,34 +111,49 @@ code {
 .telemetry-meta {
   display: grid;
   gap: 12px;
-  justify-items: end;
+  justify-items: stretch;
+  min-width: min(360px, 100%);
 }
 
-.status-pill {
-  min-height: 56px;
-  min-width: 220px;
-  padding: 0 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
+.connection-status {
+  min-height: 88px;
+  padding: 14px 18px;
+  display: grid;
+  gap: 4px;
+  border-radius: 20px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
-  font-weight: 700;
-  text-align: center;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
 }
 
-.status-pill.connected {
+.connection-status strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connection-status span,
+.connection-status em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.connection-status.tone-safe strong {
   color: var(--safe);
-  box-shadow: 0 0 24px rgba(0, 255, 123, 0.12);
 }
 
-.status-pill.connecting {
+.connection-status.tone-warning strong,
+.connection-status.tone-connecting strong {
   color: var(--warning);
 }
 
-.status-pill.error {
-  color: var(--danger);
+.connection-status.tone-danger strong {
+  color: #ff9d9d;
+}
+
+.connection-status.tone-idle strong {
+  color: var(--ink);
 }
 
 .route-grid {
@@ -223,12 +242,47 @@ code {
   color: #08130d;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .fullscreen-btn,
 .action-warning {
   background: linear-gradient(135deg, var(--warning), #fff3a0);
   color: #1d1800;
+}
+
+.fullscreen-btn {
+  min-height: 72px;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+.fullscreen-btn span,
+.fullscreen-btn strong {
+  display: block;
+  text-align: left;
+}
+
+.fullscreen-btn strong {
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .action-danger {
@@ -250,6 +304,22 @@ code {
 .mini-btn {
   min-height: 38px;
   padding: 0 12px;
+}
+
+.huge-touch-btn {
+  min-height: 140px;
+  padding: 14px;
+  border: 1px solid rgba(255, 46, 46, 0.28);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 46, 46, 0.16), rgba(255, 46, 46, 0.08)),
+    rgba(22, 22, 28, 0.9);
+  color: var(--ink);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
 }
 
 .action-btn:disabled {
@@ -335,13 +405,29 @@ code {
   border-radius: 12px;
   border: 1px solid var(--line);
   padding: 12px;
-  display: flex;
-  align-items: center;
+  display: grid;
+  gap: 4px;
+}
+
+.inline-alert strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inline-alert span {
+  color: inherit;
 }
 
 .inline-alert.success {
   color: var(--safe);
   background: rgba(0, 255, 123, 0.09);
+}
+
+.inline-alert.warning {
+  color: var(--warning);
+  background: rgba(255, 212, 0, 0.12);
 }
 
 .inline-alert.danger {
@@ -398,35 +484,19 @@ code {
   gap: 12px;
 }
 
-.car-touch-btn {
-  min-height: 140px;
-  padding: 14px;
-  border: 1px solid rgba(255, 46, 46, 0.28);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 46, 46, 0.16), rgba(255, 46, 46, 0.08)),
-    rgba(22, 22, 28, 0.9);
-  color: var(--ink);
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 6px;
-  text-align: center;
-}
-
-.car-touch-btn span,
-.car-touch-btn em {
+.huge-touch-btn span,
+.huge-touch-btn em {
   color: var(--muted);
   font-style: normal;
 }
 
-.car-touch-btn strong {
+.huge-touch-btn strong {
   font-family: "Orbitron", "Segoe UI", sans-serif;
   color: #ffbcbc;
   font-size: 1.2rem;
 }
 
-.car-touch-btn:disabled {
+.huge-touch-btn:disabled {
   opacity: 0.55;
 }
 
@@ -437,6 +507,48 @@ code {
   border-radius: 12px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.empty-state {
+  display: grid;
+  gap: 4px;
+}
+
+.empty-state strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.empty-state span {
+  color: var(--muted);
+}
+
+.loading-skeleton {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.skeleton-line {
+  height: 16px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  background-size: 180% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+
+  100% {
+    background-position: -20% 0;
+  }
 }
 
 .hero-stack {
@@ -499,6 +611,21 @@ code {
     linear-gradient(45deg, rgba(255, 255, 255, 0.08) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.08) 75%, transparent 75%),
     rgba(255, 255, 255, 0.03);
   background-size: 28px 28px;
+}
+
+.hero-value.finished-pattern,
+.countdown-board.finished-pattern,
+.flag-board.finished-pattern,
+.panel.finished-pattern {
+  position: relative;
+  overflow: hidden;
+}
+
+.confidence-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 pre {
@@ -581,6 +708,7 @@ pre {
 
   .telemetry-meta {
     justify-items: stretch;
+    min-width: 0;
   }
 
   .panel {
@@ -589,5 +717,40 @@ pre {
 
   .car-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fullscreen-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell,
+  .app-shell.is-fullscreen {
+    padding: 14px;
+  }
+
+  .car-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .telemetry-table {
+    min-width: 320px;
+  }
+
+  .countdown-board,
+  .flag-board {
+    min-height: 220px;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 1180px) {
+  .app-shell.is-fullscreen .route-grid {
+    align-items: stretch;
+  }
+
+  .app-shell.is-fullscreen .countdown-board,
+  .app-shell.is-fullscreen .flag-board {
+    min-height: 320px;
   }
 }
