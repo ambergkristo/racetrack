@@ -1,11 +1,13 @@
 :root {
   --background: #0b0b0f;
   --panel: #16161c;
+  --elevated: #1c1c24;
+  --soft-border: #2a2a33;
   --safe: #00ff7b;
   --warning: #ffd400;
   --danger: #ff2e2e;
-  --ink: #f7f8fc;
-  --muted: #9298ab;
+  --ink: #ffffff;
+  --muted: #9ca3af;
   --line: rgba(255, 255, 255, 0.08);
 }
 
@@ -818,5 +820,675 @@ pre {
   .app-shell.is-fullscreen .countdown-board,
   .app-shell.is-fullscreen .flag-board {
     min-height: 320px;
+  }
+}
+
+/* Telemetry refinement layer */
+
+body {
+  background:
+    radial-gradient(circle at 14% 18%, rgba(0, 255, 123, 0.08), transparent 22%),
+    radial-gradient(circle at 84% 14%, rgba(255, 212, 0, 0.08), transparent 20%),
+    radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.04), transparent 36%),
+    linear-gradient(180deg, #06070a 0%, var(--background) 44%, #090a10 100%);
+  color: var(--ink);
+  letter-spacing: 0.015em;
+}
+
+.app-shell {
+  width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.app-shell.is-fullscreen {
+  width: 100%;
+  padding: 20px;
+}
+
+.telemetry-header {
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+
+.telemetry-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.telemetry-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.telemetry-copy h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  line-height: 0.96;
+}
+
+.telemetry-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.telemetry-tag {
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--soft-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.telemetry-tag.tone-safe {
+  color: var(--safe);
+  border-color: rgba(0, 255, 123, 0.28);
+  background: rgba(0, 255, 123, 0.08);
+}
+
+.telemetry-tag.tone-warning {
+  color: var(--warning);
+  border-color: rgba(255, 212, 0, 0.3);
+  background: rgba(255, 212, 0, 0.08);
+}
+
+.telemetry-tag.tone-danger {
+  color: #ffb1b1;
+  border-color: rgba(255, 46, 46, 0.28);
+  background: rgba(255, 46, 46, 0.08);
+}
+
+.telemetry-tag.tone-idle {
+  color: var(--muted);
+}
+
+.route-caption {
+  margin: 0;
+  max-width: 880px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.telemetry-meta {
+  align-self: stretch;
+}
+
+.connection-status,
+.panel,
+.table-wrap,
+.key-gate-shell,
+.action-ghost,
+.chip,
+.kpi-pill,
+.field input,
+.session-overlay,
+.empty-state,
+.guard-item,
+.inline-alert {
+  border-color: var(--soft-border);
+}
+
+.connection-status {
+  min-height: 108px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(12, 13, 18, 0.92);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+}
+
+.route-grid {
+  gap: 20px;
+}
+
+.panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    var(--panel);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.28);
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  pointer-events: none;
+}
+
+.panel-heading {
+  margin-bottom: 16px;
+}
+
+.panel-heading h2 {
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+}
+
+.section-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.overview-shell,
+.public-state-shell,
+.status-marquee,
+.command-stage,
+.ops-board,
+.lap-stage,
+.tower-hero,
+.event-marquee,
+.countdown-shell,
+.flag-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.overview-shell,
+.public-state-shell,
+.status-marquee,
+.command-stage,
+.event-marquee {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 1fr);
+  align-items: stretch;
+}
+
+.overview-copy,
+.public-state-copy,
+.status-marquee-copy,
+.command-stage-copy,
+.lap-stage-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.overview-title,
+.status-marquee-title,
+.command-stage-title,
+.tower-hero-title,
+.summary-value {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.overview-title,
+.status-marquee-title,
+.command-stage-title,
+.tower-hero-title {
+  font-size: clamp(1.5rem, 3vw, 2.6rem);
+}
+
+.status-marquee,
+.command-stage,
+.lap-stage,
+.event-marquee,
+.countdown-side,
+.flag-detail-panel {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    var(--elevated);
+}
+
+.status-marquee-detail,
+.command-stage-detail,
+.public-state-detail,
+.route-card-note,
+.route-card-body,
+.tower-caption,
+.flag-detail-panel span,
+.countdown-side span {
+  color: var(--muted);
+}
+
+.route-card-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.single-card-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.route-card {
+  min-height: 210px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  border-radius: 20px;
+  border: 1px solid var(--soft-border);
+  text-decoration: none;
+  color: inherit;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(15, 16, 22, 0.92);
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.route-card:hover,
+.route-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.22);
+}
+
+.route-card:focus-visible {
+  outline: 2px solid var(--warning);
+  outline-offset: 2px;
+}
+
+.route-card.tone-safe:hover,
+.route-card.tone-safe:focus-visible {
+  border-color: rgba(0, 255, 123, 0.35);
+}
+
+.route-card.tone-warning:hover,
+.route-card.tone-warning:focus-visible {
+  border-color: rgba(255, 212, 0, 0.35);
+}
+
+.route-card.tone-danger:hover,
+.route-card.tone-danger:focus-visible {
+  border-color: rgba(255, 46, 46, 0.35);
+}
+
+.route-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.route-kind,
+.route-path {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.route-kind {
+  color: var(--muted);
+}
+
+.route-path {
+  color: var(--ink);
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+}
+
+.route-card-title {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.route-card-note {
+  font-size: 1rem;
+}
+
+.route-card-body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.ops-board {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+}
+
+.form-stack,
+.summary-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.summary-stack {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--soft-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.summary-value {
+  font-size: clamp(1.3rem, 2vw, 2rem);
+}
+
+.compact-list {
+  gap: 10px;
+  margin-top: 0;
+}
+
+.racer-board {
+  grid-template-columns: 1.2fr 0.7fr auto;
+}
+
+.field {
+  gap: 10px;
+}
+
+.field input {
+  min-height: 60px;
+  padding: 0 16px;
+  border-radius: 16px;
+  background: rgba(8, 10, 16, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.field input:focus {
+  outline: 2px solid rgba(0, 255, 123, 0.24);
+  outline-offset: 1px;
+  border-color: rgba(0, 255, 123, 0.32);
+}
+
+.action-btn {
+  min-height: 58px;
+  border-radius: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+}
+
+.action-ghost {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015)),
+    rgba(20, 21, 29, 0.96);
+}
+
+.controls-tight,
+.command-row {
+  margin-top: 0;
+}
+
+.kpi-grid {
+  gap: 12px;
+}
+
+.kpi-pill {
+  min-height: 84px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(20, 21, 29, 0.96);
+}
+
+.kpi-pill strong {
+  font-size: 1.16rem;
+}
+
+.table-wrap {
+  background: rgba(10, 12, 18, 0.88);
+}
+
+.telemetry-table {
+  min-width: 640px;
+}
+
+.telemetry-table.compact {
+  min-width: 420px;
+}
+
+.telemetry-table thead {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.telemetry-table th,
+.telemetry-table td {
+  padding: 12px 14px;
+}
+
+.telemetry-table tbody tr {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.telemetry-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.position-badge,
+.car-badge {
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--soft-border);
+  background: rgba(255, 255, 255, 0.04);
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  letter-spacing: 0.05em;
+}
+
+.position-badge {
+  color: var(--ink);
+}
+
+.car-badge {
+  color: var(--warning);
+}
+
+.driver-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.driver-cell strong {
+  color: var(--ink);
+}
+
+.driver-cell span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.timing-cell {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.timing-cell.is-best {
+  color: var(--safe);
+}
+
+.leader-row {
+  background:
+    linear-gradient(90deg, rgba(0, 255, 123, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.01) !important;
+}
+
+.tower-hero {
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(140px, 0.5fr));
+  align-items: center;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    var(--elevated);
+}
+
+.tower-hero-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.tower-hero-detail {
+  color: var(--muted);
+}
+
+.tower-stat {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--soft-border);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+.tower-stat span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.tower-stat strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 1.25rem;
+}
+
+.tower-caption {
+  margin: 14px 0 0;
+}
+
+.lap-grid {
+  margin-top: 0;
+}
+
+.lap-stage {
+  align-items: center;
+}
+
+.public-state-shell,
+.countdown-shell,
+.flag-shell {
+  align-items: stretch;
+}
+
+.event-marquee,
+.countdown-shell {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    var(--elevated);
+}
+
+.countdown-shell {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+}
+
+.countdown-board {
+  min-height: 320px;
+}
+
+.countdown-side,
+.flag-detail-panel {
+  align-content: center;
+}
+
+.countdown-side strong,
+.flag-detail-panel strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+}
+
+.flag-shell {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+}
+
+.flag-board {
+  min-height: 360px;
+}
+
+.flag-detail-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.session-overlay {
+  color: #ffb1b1;
+  background: rgba(255, 46, 46, 0.08);
+}
+
+.inline-alert,
+.guard-item,
+.empty-state,
+.chip,
+.telemetry-table tbody tr,
+.position-badge,
+.car-badge,
+.tower-stat,
+.summary-stack,
+.route-card {
+  backdrop-filter: blur(4px);
+}
+
+@media (max-width: 1180px) {
+  .overview-shell,
+  .public-state-shell,
+  .status-marquee,
+  .command-stage,
+  .event-marquee,
+  .countdown-shell,
+  .flag-shell,
+  .tower-hero,
+  .racer-board {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell,
+  .app-shell.is-fullscreen {
+    padding: 14px;
+  }
+
+  .telemetry-title-row {
+    align-items: flex-start;
+  }
+
+  .route-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .telemetry-table {
+    min-width: 360px;
+  }
+
+  .status-marquee,
+  .command-stage,
+  .lap-stage,
+  .event-marquee,
+  .countdown-shell,
+  .flag-shell,
+  .tower-hero {
+    padding: 16px;
   }
 }
