@@ -32,6 +32,13 @@ Harden backend behavior for reliability:
 - Illegal transitions must fail predictably with clear error responses.
 - Coordinate with Dev D test suite expectations.
 
+Dev A owns canonical reconnect safety on the backend.
+
+Backend must ensure:
+- reconnect always produces a consistent race snapshot
+- no duplicated lifecycle mutations occur during reconnect
+- reconnect does not change canonical race state
+
 ## Deliverable / DoD (M2 for Dev A)
 - Duplicate/retry-safe handling for key mutation flows.
 - Edge-case lifecycle operations are deterministic.
@@ -42,6 +49,12 @@ Harden backend behavior for reliability:
 - domain guard/refinement modules
 - explicit error codes for blocked actions
 - idempotency helpers where needed
+
+## Integration rule
+Dev branches must remain compatible with each other.
+If a change affects another developer's area,
+coordinate through the canonical contract
+rather than introducing alternate logic paths.
 
 ## PR checklist
 - [ ] Regression risk documented

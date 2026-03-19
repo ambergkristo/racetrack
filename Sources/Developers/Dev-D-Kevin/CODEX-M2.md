@@ -31,6 +31,9 @@ Harden reliability through tests and diagnostics:
 - Error logging paths must be explicit and actionable.
 - CI remains blocking for failures.
 
+Dev D may introduce structured logging and observability hooks,
+but must not change backend lifecycle behavior owned by Dev A.
+
 ## Deliverable / DoD (M2 for Dev D)
 - Reconnect/edge tests added and passing.
 - Idempotency-sensitive flows have regression coverage.
@@ -41,6 +44,12 @@ Harden reliability through tests and diagnostics:
 - integration/resilience test suites
 - structured logging helpers
 - docs updates for diagnostics
+
+## Integration rule
+Dev branches must remain compatible with each other.
+If a change affects another developer's area,
+coordinate through the canonical contract
+rather than introducing alternate logic paths.
 
 ## PR checklist
 - [ ] Reconnect and edge-case tests included

@@ -1,4 +1,4 @@
-﻿# CODEX MASTERPROMPT ā€” M2 (Dev C)
+# CODEX MASTERPROMPT - M2 (Dev C)
 
 DEC: Dev C (Kristo Amberg, Lead)  
 REPO: https://github.com/ambergkristo/racetrack  
@@ -25,13 +25,19 @@ Harden public UI/UX and enforce visual/system consistency:
 5) commit: "M2: public UX hardening and consistency enforcement (Dev C)"
 6) push + open PR -> main
 
-## UI/UX integration (M2 ā€” required)
+## UI/UX integration (M2 - required)
 - Resolve edge-state presentation issues.
 - Improve reconnect messaging and confidence signals.
 - Keep consistent typography/spacing/layout behavior.
 
 ## UI System Completion Checklist (Masterplan p13/p14 - M2 scope)
-- [ ] Complete shared component map items introduced in p14:
+- Shared UI components must only be introduced when needed
+  for reconnect/error/fullscreen UX.
+- Do not refactor the entire UI component system in M2.
+- Tighten shared-component work to M2-required pieces only:
+  no full design-system rewrite
+  no broad component-library migration
+- [ ] Complete M2-required shared component map items from p14 only where needed:
   - `KpiPill`
   - `Button` variants (`Primary`, `Danger`, `Warning`, `Ghost`, `HugeTouch`)
   - `Toast` or `InlineAlert`
@@ -42,10 +48,17 @@ Harden public UI/UX and enforce visual/system consistency:
 - [ ] Finished/checkered visual is implemented consistently.
 - [ ] Fullscreen robustness is validated on desktop + tablet modes.
 - [ ] No duplicated local components when shared version already exists.
+
 ## Hard requirements
 - No polling introduced.
 - Public routes remain stable under reconnect.
 - Lead review ensures cross-route consistency before merge.
+
+## Integration rule
+Dev branches must remain compatible with each other.
+If a change affects another developer's area,
+coordinate through the canonical contract
+rather than introducing alternate logic paths.
 
 ## Deliverable / DoD (M2 for Dev C)
 - Reconnect and error UX is improved and consistent.
@@ -59,4 +72,3 @@ Harden public UI/UX and enforce visual/system consistency:
 - [ ] Shared component consistency maintained
 - [ ] M2 p13/p14 checklist items above are complete
 - [ ] PR title contains "M2"
-
