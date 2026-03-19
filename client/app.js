@@ -1161,7 +1161,7 @@
       .join("");
   }
 
-  function frontDeskPanel() {
+  function getFrontDeskFormState() {
     const activeSession = getActiveSession();
     const updateMode = state.sessionForm.id !== null;
     const racerUpdateMode = state.racerForm.id !== null;
@@ -1190,6 +1190,20 @@
       { label: racerUpdateMode ? "Save Racer" : "Add Racer", reason: saveRacerReason },
     ]);
 
+    return {
+      activeSession,
+      updateMode,
+      racerUpdateMode,
+      saveSessionReason,
+      racerEditReason,
+      saveRacerReason,
+      frontDeskReasons,
+    };
+  }
+
+  function frontDeskPanel() {
+    const formState = getFrontDeskFormState();
+
     return panel(
       "Front Desk Ops",
       `
@@ -1201,38 +1215,79 @@
           <div class="controls">
             ${buttonMarkup({
               id: "save-session-btn",
-              label: updateMode ? "Save Session" : "Create Session",
-              disabled: Boolean(saveSessionReason),
+              label: formState.updateMode ? "Save Session" : "Create Session",
+              disabled: Boolean(formState.saveSessionReason),
             })}
-            ${updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+            ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
           </div>
         </div>
-        ${frontDeskReasons}
+        <div id="front-desk-guards">
+          ${formState.frontDeskReasons}
+        </div>
         ${dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true })}
         ${divider()}
         <div class="staff-form-grid">
           <label class="field">
             <span>Racer name</span>
-            <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${racerEditReason ? "disabled" : ""} />
+            <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
           </label>
           <label class="field">
             <span>Car number</span>
-            <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${racerEditReason ? "disabled" : ""} />
+            <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
           </label>
           <div class="controls">
             ${buttonMarkup({
               id: "save-racer-btn",
-              label: racerUpdateMode ? "Save Racer" : "Add Racer",
-              disabled: Boolean(saveRacerReason),
+              label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
+              disabled: Boolean(formState.saveRacerReason),
             })}
-            ${racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+            ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
           </div>
         </div>
-        <p class="hint">${escapeHtml(racerEditReason || "Racer edits apply to the active staged session.")}</p>
-        ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(activeSession)], { compact: true })}
+        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits apply to the active staged session.")}</p>
+        ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
       `,
       "safe"
     );
+  }
+
+  function syncFrontDeskFormUi() {
+    if (route !== "/front-desk") {
+      return;
+    }
+
+    const formState = getFrontDeskFormState();
+    const saveSessionBtn = document.getElementById("save-session-btn");
+    const saveRacerBtn = document.getElementById("save-racer-btn");
+    const racerInput = document.getElementById("racer-name-input");
+    const carInput = document.getElementById("car-number-input");
+    const guards = document.getElementById("front-desk-guards");
+    const racerHint = document.getElementById("racer-edit-hint");
+
+    if (saveSessionBtn) {
+      saveSessionBtn.disabled = Boolean(formState.saveSessionReason);
+    }
+
+    if (saveRacerBtn) {
+      saveRacerBtn.disabled = Boolean(formState.saveRacerReason);
+    }
+
+    if (racerInput) {
+      racerInput.disabled = Boolean(formState.racerEditReason);
+    }
+
+    if (carInput) {
+      carInput.disabled = Boolean(formState.racerEditReason);
+    }
+
+    if (guards) {
+      guards.innerHTML = formState.frontDeskReasons;
+    }
+
+    if (racerHint) {
+      racerHint.textContent =
+        formState.racerEditReason || "Racer edits apply to the active staged session.";
+    }
   }
 
   function leaderboardTable(entries) {
@@ -1878,34 +1933,40 @@
 
     if (sessionInput) {
       sessionInput.addEventListener("input", (event) => {
-        setState({
+        state = {
+          ...state,
           sessionForm: {
             ...state.sessionForm,
             name: event.target.value,
           },
-        });
+        };
+        syncFrontDeskFormUi();
       });
     }
 
     if (racerInput) {
       racerInput.addEventListener("input", (event) => {
-        setState({
+        state = {
+          ...state,
           racerForm: {
             ...state.racerForm,
             name: event.target.value,
           },
-        });
+        };
+        syncFrontDeskFormUi();
       });
     }
 
     if (carInput) {
       carInput.addEventListener("input", (event) => {
-        setState({
+        state = {
+          ...state,
           racerForm: {
             ...state.racerForm,
             carNumber: event.target.value,
           },
-        });
+        };
+        syncFrontDeskFormUi();
       });
     }
 
