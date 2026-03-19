@@ -202,6 +202,39 @@ code {
   margin-bottom: 14px;
 }
 
+.route-link-list {
+  gap: 12px;
+}
+
+.route-link-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.route-link-row:hover,
+.route-link-row:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.route-link-row:focus-visible {
+  outline: 2px solid var(--warning);
+  outline-offset: 2px;
+}
+
 .panel-heading h2,
 .key-gate-copy h3 {
   margin: 0;
