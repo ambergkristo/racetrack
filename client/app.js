@@ -117,6 +117,7 @@
   const appEl = document.getElementById("app");
   const route = ROUTES[window.location.pathname] ? window.location.pathname : "/";
   const routeConfig = ROUTES[route];
+  const debugMode = new URLSearchParams(window.location.search).get("debug") === "1";
   const fullscreenEnabled = Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen);
 
   let socket = null;
@@ -393,6 +394,57 @@
 
   function finishedClass(snapshot = state.raceSnapshot) {
     return isFinishedState(snapshot) ? " finished-pattern" : "";
+  }
+
+  function formatDeltaToLeader(entry, leaderBestLapMs) {
+    if (!Number.isFinite(entry?.bestLapTimeMs) || !Number.isFinite(leaderBestLapMs)) {
+      return "Benchmark pending";
+    }
+
+    const deltaMs = entry.bestLapTimeMs - leaderBestLapMs;
+    if (deltaMs <= 0) {
+      return "Benchmark lap";
+    }
+
+    return `+${(deltaMs / 1000).toFixed(3)}s`;
+  }
+
+  function routeTypeLabel(pathname) {
+    if (pathname === "/") {
+      return "Hub";
+    }
+
+    return ROUTES[pathname].staff ? "Staff" : "Public";
+  }
+
+  function routeCard(pathname) {
+    const config = ROUTES[pathname];
+    const tone = pathname === "/" ? "warning" : config.accent;
+
+    return `
+      <a class="route-card tone-${tone}" href="${escapeHtml(pathname)}">
+        <div class="route-card-head">
+          <span class="route-kind">${escapeHtml(routeTypeLabel(pathname))}</span>
+          <span class="route-path">${escapeHtml(pathname)}</span>
+        </div>
+        <strong class="route-card-title">${escapeHtml(config.title)}</strong>
+        <span class="route-card-note">${escapeHtml(config.subtitle)}</span>
+        <p class="route-card-body">${escapeHtml(config.body)}</p>
+      </a>
+    `;
+  }
+
+  function routeDeck(title, detail, tone, paths, extraClass = "") {
+    return panel(
+      title,
+      `
+        <p class="panel-copy">${escapeHtml(detail)}</p>
+        <div class="route-card-grid ${extraClass}">
+          ${paths.map((pathname) => routeCard(pathname)).join("")}
+        </div>
+      `,
+      tone
+    );
   }
 
   function markSync(timestamp) {
@@ -724,12 +776,26 @@
   }
 
   function telemetryHeader() {
+    const snapshot = state.raceSnapshot;
+    const flagMeta = getFlagMeta(snapshot);
+    const routeTone = routeConfig.public ? "warning" : routeConfig.staff ? "safe" : "idle";
+    const routeLabel = route === "/" ? "Launch Surface" : routeConfig.public ? "Public Display" : "Staff Operation";
+    const phaseLabel = route === "/" ? "Control Hub" : STATE_META[snapshot.state]?.label || snapshot.state;
+
     return `
       <header class="telemetry-header">
         <div class="telemetry-copy">
           <p class="eyebrow">Beachside Racetrack</p>
-          <h1>${routeConfig.title}</h1>
+          <div class="telemetry-title-row">
+            <h1>${routeConfig.title}</h1>
+            <div class="telemetry-tags">
+              <span class="telemetry-tag tone-${routeTone}">${escapeHtml(routeLabel)}</span>
+              <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(phaseLabel)}</span>
+              ${debugMode ? '<span class="telemetry-tag tone-warning">Debug View</span>' : ""}
+            </div>
+          </div>
           <p class="subtitle">${routeConfig.subtitle}</p>
+          <p class="route-caption">${routeConfig.body}</p>
         </div>
         <div class="telemetry-meta">
           ${connectionStatus()}
@@ -914,16 +980,30 @@
   }
 
   function summaryPanel() {
+    const snapshot = state.raceSnapshot;
+    const activeSession = getActiveSession();
+    const queuedCount = getQueuedSessions().length;
+    const flagMeta = getFlagMeta(snapshot);
+
     return panel(
-      "Route Summary",
+      "Race Overview",
       `
-        <p class="panel-copy">${routeConfig.body}</p>
-        <div class="chip-row">
-          <span class="chip">Route: ${escapeHtml(route)}</span>
-          <span class="chip">${routeConfig.public ? "Public display" : routeConfig.staff ? "Staff route" : "Landing"}</span>
-          <span class="chip">M1 canonical flow</span>
+        <div class="overview-shell">
+          <div class="overview-copy">
+            <p class="section-kicker">Live launch hub</p>
+            <strong class="overview-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
+            <p class="panel-copy">Open a staff surface to operate the race or a public surface to present the current live state. The hub stays intentionally concise.</p>
+          </div>
+          <div class="kpi-grid">
+            ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
+            ${kpiPill("Active Session", activeSession ? activeSession.name : "None staged", activeSession ? "warning" : "danger")}
+            ${kpiPill("Queued Sessions", String(queuedCount), queuedCount ? "warning" : "safe")}
+            ${kpiPill("Route Count", String(Object.keys(ROUTES).length), "safe")}
+          </div>
         </div>
-      `
+      `,
+      flagMeta.tone,
+      "panel-wide"
     );
   }
 
@@ -936,8 +1016,9 @@
       : '{"status":"waiting"}';
 
     return panel(
-      "Runtime Snapshot",
+      "Debug Runtime",
       `
+        <p class="panel-copy">Visible only when the route is opened with <code>?debug=1</code>.</p>
         <div class="snapshot-stack">
           <div>
             <p class="snapshot-label">Bootstrap</p>
@@ -959,19 +1040,27 @@
     const flagMeta = getFlagMeta(snapshot);
     const syncLabel = state.awaitingLiveResync ? "waiting" : "live";
     return panel(
-      "Staff Runtime",
+      "Control State",
       `
-        <div class="kpi-grid">
-          ${kpiPill("Race State", STATE_META[snapshot.state]?.label || snapshot.state, STATE_META[snapshot.state]?.tone || "safe")}
-          ${kpiPill("Mode", MODE_META[snapshot.mode]?.label || snapshot.mode, flagMeta.tone)}
-          ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
-          ${kpiPill("Active Session", activeSession ? activeSession.name : "None", activeSession ? "warning" : "danger")}
-          ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), "safe")}
-          ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
+        <div class="status-marquee tone-${flagMeta.tone}">
+          <div class="status-marquee-copy">
+            <p class="section-kicker">Live authority</p>
+            <strong class="status-marquee-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
+            <span class="status-marquee-detail">${escapeHtml(flagMeta.detail)}</span>
+            <div class="telemetry-tags">
+              <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</span>
+              <span class="telemetry-tag tone-${activeSession ? "warning" : "idle"}">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+            </div>
+          </div>
+          <div class="kpi-grid">
+            ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
+            ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "danger")}
+            ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
+            ${kpiPill("Sync", syncLabel.toUpperCase(), syncLabel === "live" ? "safe" : "warning")}
+          </div>
         </div>
         ${staffConnectionAlert()}
         ${noticeMarkup()}
-        <p class="hint">${escapeHtml(flagMeta.detail)}</p>
         <div class="chip-row">
           <span class="chip">Gate: ${escapeHtml(state.staffAuthDisabled ? "bypassed" : state.gateStatus)}</span>
           <span class="chip">Sync: ${escapeHtml(syncLabel)}</span>
@@ -1203,52 +1292,77 @@
 
   function frontDeskPanel() {
     const formState = getFrontDeskFormState();
+    const activeSession = formState.activeSession;
 
-    return panel(
-      "Front Desk Ops",
-      `
-        <div class="staff-form-grid">
-          <label class="field">
-            <span>Session name</span>
-            <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
-          </label>
-          <div class="controls">
-            ${buttonMarkup({
-              id: "save-session-btn",
-              label: formState.updateMode ? "Save Session" : "Create Session",
-              disabled: Boolean(formState.saveSessionReason),
-            })}
-            ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+    return [
+      panel(
+        "Session Setup",
+        `
+          <div class="ops-board">
+            <div class="form-stack">
+              <p class="section-kicker">Session control</p>
+              <label class="field">
+                <span>Session name</span>
+                <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
+              </label>
+              <div class="controls">
+                ${buttonMarkup({
+                  id: "save-session-btn",
+                  label: formState.updateMode ? "Save Session" : "Create Session",
+                  disabled: Boolean(formState.saveSessionReason),
+                })}
+                ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+              </div>
+            </div>
+            <div class="summary-stack">
+              <p class="section-kicker">Staged session</p>
+              <strong class="summary-value">${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
+              <div class="stack-list compact-list">
+                <div class="info-row"><span>Race state</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
+                <div class="info-row"><span>Racers</span><strong>${activeSession ? activeSession.racers.length : 0}</strong></div>
+                <div class="info-row"><span>Queued sessions</span><strong>${getQueuedSessions().length}</strong></div>
+              </div>
+            </div>
           </div>
-        </div>
-        <div id="front-desk-guards">
-          ${formState.frontDeskReasons}
-        </div>
-        ${dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true })}
-        ${divider()}
-        <div class="staff-form-grid">
-          <label class="field">
-            <span>Racer name</span>
-            <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
-          </label>
-          <label class="field">
-            <span>Car number</span>
-            <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
-          </label>
-          <div class="controls">
-            ${buttonMarkup({
-              id: "save-racer-btn",
-              label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
-              disabled: Boolean(formState.saveRacerReason),
-            })}
-            ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+          <div id="front-desk-guards">
+            ${formState.frontDeskReasons}
           </div>
-        </div>
-        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits apply to the active staged session.")}</p>
-        ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
-      `,
-      "safe"
-    );
+        `,
+        "safe"
+      ),
+      panel(
+        "Session Queue",
+        dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true }),
+        "warning"
+      ),
+      panel(
+        "Racer Garage",
+        `
+          <div class="ops-board racer-board">
+            <label class="field">
+              <span>Racer name</span>
+              <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
+            </label>
+            <label class="field">
+              <span>Car number</span>
+              <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
+            </label>
+            <div class="controls">
+              ${buttonMarkup({
+                id: "save-racer-btn",
+                label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
+                disabled: Boolean(formState.saveRacerReason),
+              })}
+              ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+            </div>
+          </div>
+          <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits apply to the active staged session.")}</p>
+          ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
+        `,
+        "safe",
+        "panel-wide"
+      ),
+    ].join("");
   }
 
   function syncFrontDeskFormUi() {
@@ -1302,17 +1416,25 @@
       );
     }
 
+    const leaderBestLapMs =
+      entries.find((entry) => Number.isFinite(entry.bestLapTimeMs))?.bestLapTimeMs ?? null;
+
     return dataTable(
-      ["#", "Driver", "Car", "Laps", "Best", "Current"],
+      ["Pos", "Car", "Racer", "Best Lap", "Live Lap", "Laps"],
       entries.map(
         (entry) => `
-          <tr>
-            <td>${entry.position}</td>
-            <td>${escapeHtml(entry.name)}</td>
-            <td>${escapeHtml(entry.carNumber || "--")}</td>
-            <td>${entry.lapCount}</td>
-            <td>${escapeHtml(formatLap(entry.bestLapTimeMs))}</td>
-            <td>${escapeHtml(formatLap(entry.currentLapTimeMs))}</td>
+          <tr class="${entry.position === 1 ? "leader-row" : ""}">
+            <td><span class="position-badge">${entry.position}</span></td>
+            <td><span class="car-badge">${escapeHtml(entry.carNumber || "--")}</span></td>
+            <td>
+              <div class="driver-cell">
+                <strong>${escapeHtml(entry.name)}</strong>
+                <span>${escapeHtml(formatDeltaToLeader(entry, leaderBestLapMs))}</span>
+              </div>
+            </td>
+            <td class="timing-cell ${entry.bestLapTimeMs === leaderBestLapMs ? "is-best" : ""}">${escapeHtml(formatLap(entry.bestLapTimeMs))}</td>
+            <td class="timing-cell">${escapeHtml(formatLap(entry.currentLapTimeMs))}</td>
+            <td class="timing-cell">${entry.lapCount}</td>
           </tr>
         `
       )
@@ -1323,6 +1445,7 @@
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
     const accessReason = staffAccessReason();
+    const flagMeta = getFlagMeta(snapshot);
     const startReason = firstReason(
       accessReason,
       state.pending ? "Wait for the current request to finish." : "",
@@ -1356,32 +1479,48 @@
       });
     }).join("");
 
-    return panel(
-      "Race Control Ops",
-      `
-        <div class="controls controls-tight">
-          ${buttonMarkup({ id: "race-start-btn", label: "Start Race", disabled: Boolean(startReason) })}
-          ${buttonMarkup({ id: "race-finish-btn", label: "Finish Race", variant: "warning", disabled: Boolean(finishReason) })}
-          ${buttonMarkup({ id: "race-lock-btn", label: "End + Lock", variant: "danger", disabled: Boolean(lockReason) })}
-        </div>
-        <p class="hint">${activeSession ? `Active session: ${activeSession.name}` : "No session is staged yet. Use front desk to create or stage one."}</p>
-        ${actionGuardList([
-          { label: "Start Race", reason: startReason },
-          { label: "Finish Race", reason: finishReason },
-          { label: "End + Lock", reason: lockReason },
-          { label: "Mode controls", reason: modeReason },
-        ])}
-        <div class="mode-grid">${modeButtons}</div>
-        ${leaderboardTable(snapshot.leaderboard)}
-      `,
-      "warning"
-    );
+    return [
+      panel(
+        "Lifecycle Commands",
+        `
+          <div class="command-stage tone-${flagMeta.tone}">
+            <div class="command-stage-copy">
+              <p class="section-kicker">Current authority</p>
+              <strong class="command-stage-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
+              <span class="command-stage-detail">${escapeHtml(activeSession ? activeSession.name : "No session staged")}</span>
+            </div>
+            <div class="controls controls-tight command-row">
+              ${buttonMarkup({ id: "race-start-btn", label: "Start Race", disabled: Boolean(startReason) })}
+              ${buttonMarkup({ id: "race-finish-btn", label: "Finish Race", variant: "warning", disabled: Boolean(finishReason) })}
+              ${buttonMarkup({ id: "race-lock-btn", label: "End + Lock", variant: "danger", disabled: Boolean(lockReason) })}
+            </div>
+          </div>
+          ${actionGuardList([
+            { label: "Start Race", reason: startReason },
+            { label: "Finish Race", reason: finishReason },
+            { label: "End + Lock", reason: lockReason },
+          ])}
+        `,
+        "warning"
+      ),
+      panel(
+        "Mode Control",
+        `
+          <p class="panel-copy">Flag mode changes stay available only while the race is live. The current state remains visually pinned above.</p>
+          ${actionGuardList([{ label: "Mode controls", reason: modeReason }])}
+          <div class="mode-grid">${modeButtons}</div>
+        `,
+        flagMeta.tone
+      ),
+      panel("Live Order", leaderboardTable(snapshot.leaderboard), "safe", "panel-wide"),
+    ].join("");
   }
 
   function lapTrackerPanel() {
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
     const lapAllowed = snapshot.state === "RUNNING" || snapshot.state === "FINISHED";
+    const flagMeta = getFlagMeta(snapshot);
     const lapReason = firstReason(
       staffAccessReason(),
       state.pending ? "Wait for the current request to finish." : "",
@@ -1418,16 +1557,35 @@
         ? '<div class="session-overlay">Session is LOCKED. Lap input is blocked.</div>'
         : "";
 
-    return panel(
-      "Lap Line Tracker",
-      `
-        <p class="hint">Each button sends a real <code>/api/laps/crossing</code> command for the selected racer.</p>
-        ${actionGuardList([{ label: "Lap crossing", reason: lapReason }])}
-        <div class="car-grid">${buttons}</div>
-        ${overlay}
-      `,
-      "danger"
-    );
+    return [
+      panel(
+        "Lap Entry Status",
+        `
+          <div class="lap-stage tone-${flagMeta.tone}">
+            <div class="lap-stage-copy">
+              <p class="section-kicker">Authoritative entry</p>
+              <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
+              <span class="command-stage-detail">${escapeHtml(STATE_META[snapshot.state]?.detail || "Lap entry will unlock when the race enters a live phase.")}</span>
+            </div>
+            <div class="telemetry-tags">
+              <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
+              <span class="telemetry-tag tone-${lapAllowed ? "safe" : "danger"}">${escapeHtml(lapAllowed ? "Lap entry open" : "Lap entry blocked")}</span>
+            </div>
+          </div>
+          ${actionGuardList([{ label: "Lap crossing", reason: lapReason }])}
+        `,
+        "danger"
+      ),
+      panel(
+        "Crossing Console",
+        `
+          <div class="car-grid lap-grid">${buttons}</div>
+          ${overlay}
+        `,
+        "danger",
+        "panel-wide"
+      ),
+    ].join("");
   }
 
   function publicStatusPanel() {
@@ -1466,11 +1624,18 @@
     return panel(
       "Live State",
       `
-        <div class="kpi-grid">
-          ${kpiPill("Phase", STATE_META[snapshot.state]?.label || snapshot.state, STATE_META[snapshot.state]?.tone || "safe")}
-          ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
-          ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
-          ${kpiPill("Session", activeSession ? activeSession.name : "No active session", activeSession ? "warning" : "danger")}
+        <div class="public-state-shell">
+          <div class="public-state-copy">
+            <p class="section-kicker">Presentation mode</p>
+            <strong class="overview-title">${escapeHtml(flagMeta.label)}</strong>
+            <span class="public-state-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+          </div>
+          <div class="kpi-grid">
+            ${kpiPill("Phase", STATE_META[snapshot.state]?.label || snapshot.state, STATE_META[snapshot.state]?.tone || "safe")}
+            ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
+            ${kpiPill("Sync", state.awaitingLiveResync ? "PENDING" : "LIVE", state.awaitingLiveResync ? "warning" : "safe")}
+            ${kpiPill("Rows", String(snapshot.leaderboard.length), snapshot.leaderboard.length ? "safe" : "warning")}
+          </div>
         </div>
         ${syncBanner}
         ${fullscreenBanner}
@@ -1512,48 +1677,67 @@
 
   function leaderBoardPanels() {
     const activeSession = getActiveSession();
+    const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
     return [
       panel(
-        "Current Leader",
+        "Timing Tower",
         `
-          <div class="hero-stack">
-            <div class="hero-value${finishedClass()}">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</div>
-            <p class="hero-copy">${escapeHtml(flagMeta.detail)}</p>
-            <div class="chip-row">
-              <span class="chip">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
-              <span class="chip">${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</span>
-              <span class="chip">${escapeHtml(flagMeta.label)}</span>
+          <div class="tower-hero${finishedClass()}">
+            <div class="tower-hero-copy">
+              <p class="section-kicker">Current benchmark</p>
+              <strong class="tower-hero-title">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
+              <span class="tower-hero-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+            </div>
+            <div class="tower-stat">
+              <span>Best lap</span>
+              <strong>${escapeHtml(leader ? formatLap(leader.bestLapTimeMs) : "--")}</strong>
+            </div>
+            <div class="tower-stat">
+              <span>Car</span>
+              <strong>${escapeHtml(leader?.carNumber || "--")}</strong>
             </div>
           </div>
+          <div class="tower-caption">${escapeHtml(flagMeta.detail)}</div>
+          ${leaderboardTable(state.raceSnapshot.leaderboard)}
         `,
         flagMeta.tone,
         `panel-wide${finishedClass()}`
       ),
-      panel("Leaderboard", leaderboardTable(state.raceSnapshot.leaderboard), "safe", "panel-wide"),
     ].join("");
   }
 
   function nextRacePanels() {
     const activeSession = getActiveSession();
     const queued = getQueuedSessions()[0] || null;
+    const flagMeta = getFlagMeta();
 
     return [
       panel(
-        "Current Session",
+        "Track Window",
         `
-          <div class="stack-list">
-            <div class="info-row"><span>Name</span><strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong></div>
-            <div class="info-row"><span>State</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
-            <div class="info-row"><span>Racers</span><strong>${activeSession ? activeSession.racers.length : 0}</strong></div>
+          <div class="event-marquee${finishedClass()}">
+            <div>
+              <p class="section-kicker">Current session</p>
+              <strong class="overview-title">${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
+              <span class="public-state-detail">${escapeHtml(flagMeta.detail)}</span>
+            </div>
+            <div class="tower-stat">
+              <span>Racers</span>
+              <strong>${activeSession ? activeSession.racers.length : 0}</strong>
+            </div>
+            <div class="tower-stat">
+              <span>State</span>
+              <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
+            </div>
           </div>
-          ${activeRosterTable(activeSession)}
         `,
         "warning",
-        isFinishedState() ? finishedClass() : ""
+        `panel-wide${finishedClass()}`
       ),
+      panel("Current Lineup", activeRosterTable(activeSession), "warning"),
       panel(
-        "Next Queued Session",
+        "Next On Deck",
         `
           <div class="stack-list">
             <div class="info-row"><span>Name</span><strong>${escapeHtml(queued ? queued.name : "No queued session")}</strong></div>
@@ -1572,22 +1756,19 @@
     const flagMeta = getFlagMeta();
     return [
       panel(
-        "Server Countdown",
+        "Race Countdown",
         `
-          <div class="countdown-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
-            <div class="countdown-digits">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</div>
-            <p class="hero-copy">${escapeHtml(STATE_META[state.raceSnapshot.state]?.detail || "")}</p>
-          </div>
-        `,
-        flagMeta.tone
-      ),
-      panel(
-        "Session Status",
-        `
-          <div class="stack-list">
-            <div class="info-row"><span>Session</span><strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong></div>
-            <div class="info-row"><span>Mode</span><strong>${escapeHtml(MODE_META[state.raceSnapshot.mode]?.label || state.raceSnapshot.mode)}</strong></div>
-            <div class="info-row"><span>Leaderboard Rows</span><strong>${state.raceSnapshot.leaderboard.length}</strong></div>
+          <div class="countdown-shell tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
+            <div class="countdown-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
+              <p class="section-kicker">Official timer</p>
+              <div class="countdown-digits">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</div>
+              <p class="hero-copy">${escapeHtml(STATE_META[state.raceSnapshot.state]?.detail || "")}</p>
+            </div>
+            <div class="countdown-side">
+              <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
+              <strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
+              <span>${escapeHtml(MODE_META[state.raceSnapshot.mode]?.label || state.raceSnapshot.mode)}</span>
+            </div>
           </div>
         `,
         "warning"
@@ -1600,13 +1781,21 @@
     const flagMeta = getFlagMeta();
     return [
       panel(
-        "Track Flag",
+        "Track State Board",
         `
-          <div class="flag-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
-            <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
-            <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
-            <p>${escapeHtml(flagMeta.detail)}</p>
-            <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
+          <div class="flag-shell">
+            <div class="flag-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
+              <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
+              <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
+              <p>${escapeHtml(flagMeta.detail)}</p>
+              <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
+            </div>
+            <div class="flag-detail-panel">
+              <p class="section-kicker">Track summary</p>
+              <strong>${escapeHtml(getActiveSession() ? getActiveSession().name : "No active session")}</strong>
+              <span>${escapeHtml(MODE_META[state.raceSnapshot.mode]?.label || state.raceSnapshot.mode)}</span>
+              <span>${escapeHtml(`${state.raceSnapshot.leaderboard.length} leaderboard rows`)}</span>
+            </div>
           </div>
         `,
         flagMeta.tone,
@@ -1618,23 +1807,18 @@
   function homePanels() {
     return [
       summaryPanel(),
-      panel(
-        "Routes",
-        `
-          <div class="stack-list route-link-list">
-            ${Object.keys(ROUTES)
-              .map(
-                (pathname) => `
-                  <a class="route-link-row" href="${escapeHtml(pathname)}">
-                    <span>${escapeHtml(pathname)}</span>
-                    <strong>${escapeHtml(ROUTES[pathname].subtitle)}</strong>
-                  </a>
-                `
-              )
-              .join("")}
-          </div>
-        `,
-        "warning"
+      routeDeck("Hub", "The root route stays a lightweight launch surface for the full telemetry shell.", "warning", ["/"], "single-card-grid"),
+      routeDeck(
+        "Staff Routes",
+        "Operational screens for setup, lifecycle control, and authoritative lap entry.",
+        "safe",
+        ["/front-desk", "/race-control", "/lap-line-tracker"]
+      ),
+      routeDeck(
+        "Public Displays",
+        "Fullscreen-friendly presentation routes for live boards, timing, and state display.",
+        "warning",
+        ["/leader-board", "/next-race", "/race-countdown", "/race-flags"]
       ),
     ].join("");
   }
@@ -1660,15 +1844,15 @@
     }
 
     if (route === "/front-desk") {
-      return [staffStatusPanel(), frontDeskPanel(), runtimePanel()].join("");
+      return [staffStatusPanel(), frontDeskPanel(), debugMode ? runtimePanel() : ""].join("");
     }
 
     if (route === "/race-control") {
-      return [staffStatusPanel(), raceControlPanel(), runtimePanel()].join("");
+      return [staffStatusPanel(), raceControlPanel(), debugMode ? runtimePanel() : ""].join("");
     }
 
     if (route === "/lap-line-tracker") {
-      return [staffStatusPanel(), lapTrackerPanel(), runtimePanel()].join("");
+      return [staffStatusPanel(), lapTrackerPanel(), debugMode ? runtimePanel() : ""].join("");
     }
 
     if (route === "/leader-board") {
