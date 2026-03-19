@@ -6,6 +6,7 @@ require("./race-flow.integration.test");
 require("./realtime-contract.integration.test");
 require("./resilience.integration.test");
 require("./socket-smoke.test");
+require("./staff-auth-bypass.integration.test");
 
 const { run } = require("./helpers/testHarness");
 

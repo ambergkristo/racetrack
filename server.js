@@ -229,7 +229,7 @@ function sendError(res, error, logger, req) {
 function createStaffAuthMiddleware({ allowedRoutes, env, logger }) {
   return async (req, res, next) => {
     const { route, key } = extractStaffCredentials(req);
-    if (!route || !key) {
+    if (!route) {
       logger.warn("http.staff_auth_failed", {
         method: req.method,
         path: req.path,
@@ -254,6 +254,25 @@ function createStaffAuthMiddleware({ allowedRoutes, env, logger }) {
         ok: false,
         code: "STAFF_ROUTE_FORBIDDEN",
         message: "This staff route cannot perform the requested action.",
+      });
+    }
+
+    if (env.staffAuthDisabled) {
+      req.staffRoute = route;
+      return next();
+    }
+
+    if (!key) {
+      logger.warn("http.staff_auth_failed", {
+        method: req.method,
+        path: req.path,
+        route,
+        reason: "STAFF_AUTH_REQUIRED",
+      });
+      return res.status(401).json({
+        ok: false,
+        code: "STAFF_AUTH_REQUIRED",
+        message: "Staff route and key are required for this action.",
       });
     }
 
@@ -437,6 +456,7 @@ function createApp(options = {}) {
   app.get("/api/bootstrap", (_req, res) => {
     res.status(200).json({
       raceDurationSeconds,
+      staffAuthDisabled: env.staffAuthDisabled,
       serverTime: new Date().toISOString(),
       raceSnapshot: buildRaceSnapshotPayload(),
     });
@@ -470,6 +490,10 @@ function createApp(options = {}) {
         code: "INVALID_ROUTE",
         message: "Route is not a staff route.",
       });
+    }
+
+    if (env.staffAuthDisabled) {
+      return res.status(200).json({ ok: true, bypassed: true });
     }
 
     const result = await verifyStaffKey(
@@ -713,6 +737,10 @@ function createApp(options = {}) {
 
     const route = authResult.data.route;
     if (!staffRoutes.has(route)) {
+      return next();
+    }
+
+    if (env.staffAuthDisabled) {
       return next();
     }
 

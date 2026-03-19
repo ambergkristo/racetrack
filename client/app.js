@@ -121,11 +121,13 @@
 
   let socket = null;
   let publicConnectStarted = false;
+  let staffBypassConnectStarted = false;
   let noticeTimer = null;
   let state = {
     bootstrap: null,
     bootstrapStatus: "loading",
     bootstrapError: "",
+    staffAuthDisabled: false,
     connection: "idle",
     connectionDetail: "",
     reconnectAttempt: 0,
@@ -490,8 +492,13 @@
         bootstrap: data,
         bootstrapStatus: "ready",
         bootstrapError: "",
+        staffAuthDisabled: Boolean(data.staffAuthDisabled),
         lastSyncAt: markSync(data.serverTime || data.raceSnapshot?.serverTime),
       };
+      if (routeConfig.staff && data.staffAuthDisabled) {
+        nextState.gateStatus = "success";
+        nextState.gateError = "";
+      }
       if (data.raceSnapshot) {
         nextState.raceSnapshot = normalizeSnapshot(data.raceSnapshot);
       }
@@ -507,7 +514,7 @@
   }
 
   function getConnectionMeta() {
-    if (routeConfig.staff && state.gateStatus !== "success") {
+    if (staffGateRequired() && state.gateStatus !== "success") {
       if (state.gateStatus === "verifying") {
         return {
           label: "Awaiting key verification",
@@ -591,8 +598,20 @@
     };
   }
 
+  function staffGateRequired() {
+    return routeConfig.staff && !state.staffAuthDisabled;
+  }
+
   function staffReady() {
-    return routeConfig.staff && state.gateStatus === "success" && state.gateKey.trim() !== "";
+    if (!routeConfig.staff) {
+      return false;
+    }
+
+    if (state.staffAuthDisabled) {
+      return true;
+    }
+
+    return state.gateStatus === "success" && state.gateKey.trim() !== "";
   }
 
   function firstReason(...reasons) {
@@ -604,11 +623,11 @@
       return "Only staff routes can send commands.";
     }
 
-    if (state.gateStatus === "verifying") {
+    if (staffGateRequired() && state.gateStatus === "verifying") {
       return "Finish staff key verification before sending commands.";
     }
 
-    if (state.gateStatus !== "success" || state.gateKey.trim() === "") {
+    if (staffGateRequired() && (state.gateStatus !== "success" || state.gateKey.trim() === "")) {
       return state.gateError || "Verify the staff key before sending commands.";
     }
 
@@ -732,7 +751,7 @@
   }
 
   function keyGateModal() {
-    if (!routeConfig.staff || state.gateStatus === "success") {
+    if (!staffGateRequired() || state.gateStatus === "success") {
       return "";
     }
 
@@ -954,7 +973,7 @@
         ${noticeMarkup()}
         <p class="hint">${escapeHtml(flagMeta.detail)}</p>
         <div class="chip-row">
-          <span class="chip">Gate: ${escapeHtml(state.gateStatus)}</span>
+          <span class="chip">Gate: ${escapeHtml(state.staffAuthDisabled ? "bypassed" : state.gateStatus)}</span>
           <span class="chip">Sync: ${escapeHtml(syncLabel)}</span>
           <span class="chip">Last sync: ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
         </div>
@@ -968,7 +987,7 @@
     return {
       "Content-Type": "application/json",
       "x-staff-route": route,
-      "x-staff-key": state.gateKey.trim(),
+      ...(state.gateKey.trim() ? { "x-staff-key": state.gateKey.trim() } : {}),
     };
   }
 
@@ -1547,15 +1566,14 @@
       panel(
         "Routes",
         `
-          <div class="stack-list">
+          <div class="stack-list route-link-list">
             ${Object.keys(ROUTES)
-              .filter((pathname) => pathname !== "/")
               .map(
                 (pathname) => `
-                  <div class="info-row">
+                  <a class="route-link-row" href="${escapeHtml(pathname)}">
                     <span>${escapeHtml(pathname)}</span>
                     <strong>${escapeHtml(ROUTES[pathname].subtitle)}</strong>
-                  </div>
+                  </a>
                 `
               )
               .join("")}
@@ -2161,7 +2179,7 @@
 
     bindSharedEvents();
 
-    if (routeConfig.staff) {
+    if (staffGateRequired()) {
       bindStaffGate();
     }
 
@@ -2179,6 +2197,11 @@
 
     if (routeConfig.public && !publicConnectStarted) {
       publicConnectStarted = true;
+      connectSocket(undefined);
+    }
+
+    if (routeConfig.staff && state.staffAuthDisabled && !staffBypassConnectStarted) {
+      staffBypassConnectStarted = true;
       connectSocket(undefined);
     }
   }

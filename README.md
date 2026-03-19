@@ -47,10 +47,14 @@ Other env vars:
 - `PORT` (default `3000`)
 - `RACE_DURATION_SECONDS` (optional explicit override)
 - `AUTH_FAILURE_DELAY_MS` (optional; defaults to `500`)
+- `STAFF_AUTH_DISABLED` (optional; defaults to `false`)
 
 Notes:
 - Server env is centralized in `src/config/env.js`.
 - `.env` is loaded automatically on startup (override with `DOTENV_PATH` if needed).
+- `STAFF_AUTH_DISABLED=true` is a demo/testing convenience only. It bypasses the staff key gate on `/front-desk`, `/race-control`, and `/lap-line-tracker`.
+- If `STAFF_AUTH_DISABLED` is omitted or set to `false`, the canonical staff auth flow is unchanged.
+- If `STAFF_AUTH_DISABLED=true`, the three staff keys are no longer required at startup.
 
 Timer defaults:
 - `npm run dev` => 60 seconds
@@ -69,6 +73,10 @@ Timer defaults:
 
 Development mode:
 - `npm run dev`
+
+Demo/testing mode without staff key prompts:
+- set `STAFF_AUTH_DISABLED=true` in `.env`
+- run `npm run dev` or `npm run build && npm start`
 
 ## Health Check
 
@@ -104,10 +112,15 @@ Route URLs:
    - `FRONT_DESK_KEY`
    - `RACE_CONTROL_KEY`
    - `LAP_LINE_TRACKER_KEY`
+   - optional `STAFF_AUTH_DISABLED=true` for demo/testing-only staff route access
    - optional `RACE_DURATION_SECONDS`
    - optional `AUTH_FAILURE_DELAY_MS`
 6. Deploy and verify:
    - `GET /healthz` returns 200
    - all top-level routes load
    - staff key verification fails with delayed error (~500ms)
+
+Render demo/testing note:
+- Keep `STAFF_AUTH_DISABLED` unset or `false` for the normal protected deployment.
+- Only set `STAFF_AUTH_DISABLED=true` when you intentionally want `/front-desk`, `/race-control`, and `/lap-line-tracker` to open without the staff key gate.
 

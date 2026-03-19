@@ -39,7 +39,19 @@ function parseAuthFailureDelayMs() {
   return parsePositiveInt(process.env.AUTH_FAILURE_DELAY_MS) || 500;
 }
 
+function parseBooleanFlag(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  return value.trim().toLowerCase() === "true";
+}
+
 function assertRequiredEnv() {
+  if (parseBooleanFlag(process.env.STAFF_AUTH_DISABLED)) {
+    return;
+  }
+
   const missing = REQUIRED_KEYS.filter((key) => {
     const value = process.env[key];
     return typeof value !== "string" || value.trim() === "";
@@ -59,6 +71,7 @@ function loadEnvConfig() {
     staffRouteToKey: STAFF_ROUTE_TO_KEY,
     raceDurationSeconds: parseRaceDurationSeconds(),
     authFailureDelayMs: parseAuthFailureDelayMs(),
+    staffAuthDisabled: parseBooleanFlag(process.env.STAFF_AUTH_DISABLED),
   };
 }
 
