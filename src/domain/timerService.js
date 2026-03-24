@@ -34,15 +34,16 @@ function createTimerService({
   function tick() {
     const remainingSeconds = getRemainingSeconds();
     const endsAt = getEndsAt();
-    if (typeof onTick === "function") {
-      onTick({ remainingSeconds, endsAt });
-    }
-
     if (remainingSeconds === 0) {
       stop();
       if (typeof onFinished === "function") {
         onFinished({ remainingSeconds: 0, endsAt: null });
       }
+      return;
+    }
+
+    if (typeof onTick === "function") {
+      onTick({ remainingSeconds, endsAt });
     }
   }
 

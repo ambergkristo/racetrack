@@ -84,6 +84,22 @@
     },
   };
 
+  const FLAG_META = {
+    SAFE: MODE_META.SAFE,
+    HAZARD_SLOW: MODE_META.HAZARD_SLOW,
+    HAZARD_STOP: MODE_META.HAZARD_STOP,
+    CHECKERED: {
+      label: "Checkered",
+      tone: "warning",
+      detail: "Finish has been called. Crossings still count until lock.",
+    },
+    LOCKED: {
+      label: "Locked",
+      tone: "danger",
+      detail: "The session is locked and lap input is blocked.",
+    },
+  };
+
   const STATE_META = {
     IDLE: {
       label: "Idle",
@@ -160,11 +176,14 @@
       serverTime: null,
       state: "IDLE",
       mode: "SAFE",
+      flag: "SAFE",
+      lapEntryAllowed: false,
       raceDurationSeconds: 60,
       remainingSeconds: 60,
       endsAt: null,
       activeSessionId: null,
       activeSession: null,
+      lockedSession: null,
       sessions: [],
       leaderboard: [],
     };
@@ -323,11 +342,20 @@
       isObject(snapshot.activeSession) && snapshot.activeSession !== null
         ? normalizeSession(snapshot.activeSession)
         : sessions.find((session) => session.id === activeSessionId) || null;
+    const lockedSession =
+      isObject(snapshot.lockedSession) && snapshot.lockedSession !== null
+        ? normalizeSession(snapshot.lockedSession)
+        : null;
 
     return {
       serverTime: snapshot.serverTime ?? null,
       state: snapshot.state || "IDLE",
       mode: snapshot.mode || "SAFE",
+      flag: snapshot.flag || snapshot.mode || "SAFE",
+      lapEntryAllowed:
+        snapshot.lapEntryAllowed === undefined
+          ? state.raceSnapshot.lapEntryAllowed
+          : Boolean(snapshot.lapEntryAllowed),
       raceDurationSeconds:
         parseNumber(snapshot.raceDurationSeconds) ?? state.raceSnapshot.raceDurationSeconds,
       remainingSeconds:
@@ -335,6 +363,7 @@
       endsAt: snapshot.endsAt ?? null,
       activeSessionId,
       activeSession,
+      lockedSession,
       sessions,
       leaderboard: Array.isArray(snapshot.leaderboard)
         ? sortLeaderboard(snapshot.leaderboard.map(normalizeLeaderboardEntry))
@@ -346,6 +375,10 @@
     return state.raceSnapshot.activeSession;
   }
 
+  function getDisplaySession() {
+    return state.raceSnapshot.activeSession || state.raceSnapshot.lockedSession;
+  }
+
   function getQueuedSessions() {
     return state.raceSnapshot.sessions.filter(
       (session) => session.id !== state.raceSnapshot.activeSessionId
@@ -353,28 +386,9 @@
   }
 
   function getFlagMeta(snapshot = state.raceSnapshot) {
-    if (snapshot.state === "RUNNING") {
-      return MODE_META[snapshot.mode] || MODE_META.SAFE;
-    }
-
-    if (snapshot.state === "FINISHED") {
-      return {
-        label: "Checkered",
-        tone: "warning",
-        detail: STATE_META.FINISHED.detail,
-      };
-    }
-
-    if (snapshot.state === "LOCKED") {
-      return {
-        label: "Locked",
-        tone: "danger",
-        detail: STATE_META.LOCKED.detail,
-      };
-    }
-
-    return {
-      label: STATE_META[snapshot.state]?.label || "Idle",
+    const resolvedFlag = snapshot.flag || snapshot.mode || "SAFE";
+    return FLAG_META[resolvedFlag] || {
+      label: resolvedFlag,
       tone: STATE_META[snapshot.state]?.tone || "safe",
       detail: STATE_META[snapshot.state]?.detail || "",
     };
@@ -389,7 +403,7 @@
   }
 
   function isFinishedState(snapshot = state.raceSnapshot) {
-    return snapshot.state === "FINISHED";
+    return snapshot.flag === "CHECKERED";
   }
 
   function finishedClass(snapshot = state.raceSnapshot) {
@@ -493,10 +507,17 @@
       raceSnapshot: {
         ...state.raceSnapshot,
         state: payload.state || state.raceSnapshot.state,
+        flag: payload.flag || state.raceSnapshot.flag,
+        lapEntryAllowed:
+          payload.lapEntryAllowed === undefined
+            ? state.raceSnapshot.lapEntryAllowed
+            : Boolean(payload.lapEntryAllowed),
         activeSessionId:
-          payload.activeSessionId === null || payload.activeSessionId === undefined
+          payload.activeSessionId === undefined
             ? state.raceSnapshot.activeSessionId
-            : String(payload.activeSessionId),
+            : payload.activeSessionId === null
+              ? null
+              : String(payload.activeSessionId),
         leaderboard: sortLeaderboard(payload.leaderboard.map(normalizeLeaderboardEntry)),
       },
     });
@@ -513,6 +534,11 @@
       raceSnapshot: {
         ...state.raceSnapshot,
         state: payload.state || state.raceSnapshot.state,
+        flag: payload.flag || state.raceSnapshot.flag,
+        lapEntryAllowed:
+          payload.lapEntryAllowed === undefined
+            ? state.raceSnapshot.lapEntryAllowed
+            : Boolean(payload.lapEntryAllowed),
         remainingSeconds:
           remainingSeconds === null ? state.raceSnapshot.remainingSeconds : remainingSeconds,
         endsAt: payload.endsAt ?? state.raceSnapshot.endsAt,
@@ -981,7 +1007,7 @@
 
   function summaryPanel() {
     const snapshot = state.raceSnapshot;
-    const activeSession = getActiveSession();
+    const activeSession = getDisplaySession();
     const queuedCount = getQueuedSessions().length;
     const flagMeta = getFlagMeta(snapshot);
 
@@ -1048,7 +1074,7 @@
             <strong class="status-marquee-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
             <span class="status-marquee-detail">${escapeHtml(flagMeta.detail)}</span>
             <div class="telemetry-tags">
-              <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</span>
+              <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
               <span class="telemetry-tag tone-${activeSession ? "warning" : "idle"}">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
             </div>
           </div>
@@ -1518,8 +1544,8 @@
 
   function lapTrackerPanel() {
     const snapshot = state.raceSnapshot;
-    const activeSession = getActiveSession();
-    const lapAllowed = snapshot.state === "RUNNING" || snapshot.state === "FINISHED";
+    const activeSession = getDisplaySession();
+    const lapAllowed = Boolean(snapshot.lapEntryAllowed);
     const flagMeta = getFlagMeta(snapshot);
     const lapReason = firstReason(
       staffAccessReason(),
@@ -1591,7 +1617,7 @@
   function publicStatusPanel() {
     const snapshot = state.raceSnapshot;
     const flagMeta = getFlagMeta(snapshot);
-    const activeSession = getActiveSession();
+    const activeSession = getDisplaySession();
     const connectionMeta = getConnectionMeta();
     const syncBanner =
       state.connection === "reconnecting" || state.awaitingLiveResync || state.connection === "error"
@@ -1676,7 +1702,7 @@
   }
 
   function leaderBoardPanels() {
-    const activeSession = getActiveSession();
+    const activeSession = getDisplaySession();
     const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
     return [
@@ -1708,7 +1734,7 @@
   }
 
   function nextRacePanels() {
-    const activeSession = getActiveSession();
+    const activeSession = getDisplaySession();
     const queued = getQueuedSessions()[0] || null;
     const flagMeta = getFlagMeta();
 
@@ -1752,7 +1778,7 @@
   }
 
   function countdownPanels() {
-    const activeSession = getActiveSession();
+    const activeSession = getDisplaySession();
     const flagMeta = getFlagMeta();
     return [
       panel(
@@ -1767,7 +1793,7 @@
             <div class="countdown-side">
               <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
               <strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
-              <span>${escapeHtml(MODE_META[state.raceSnapshot.mode]?.label || state.raceSnapshot.mode)}</span>
+              <span>${escapeHtml(flagMeta.detail)}</span>
             </div>
           </div>
         `,
@@ -1779,6 +1805,7 @@
 
   function flagPanels() {
     const flagMeta = getFlagMeta();
+    const displaySession = getDisplaySession();
     return [
       panel(
         "Track State Board",
@@ -1792,8 +1819,8 @@
             </div>
             <div class="flag-detail-panel">
               <p class="section-kicker">Track summary</p>
-              <strong>${escapeHtml(getActiveSession() ? getActiveSession().name : "No active session")}</strong>
-              <span>${escapeHtml(MODE_META[state.raceSnapshot.mode]?.label || state.raceSnapshot.mode)}</span>
+              <strong>${escapeHtml(displaySession ? displaySession.name : "No active session")}</strong>
+              <span>${escapeHtml(flagMeta.label)}</span>
               <span>${escapeHtml(`${state.raceSnapshot.leaderboard.length} leaderboard rows`)}</span>
             </div>
           </div>

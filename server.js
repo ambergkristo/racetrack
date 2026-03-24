@@ -335,6 +335,8 @@ function createApp(options = {}) {
     return leaderboardUpdateSchema.parse({
       serverTime: new Date().toISOString(),
       state: snapshot.state,
+      flag: snapshot.flag,
+      lapEntryAllowed: snapshot.lapEntryAllowed,
       activeSessionId: snapshot.activeSessionId,
       leaderboard: snapshot.leaderboard,
     });
@@ -345,6 +347,8 @@ function createApp(options = {}) {
     return raceTickSchema.parse({
       serverTime: new Date().toISOString(),
       state: snapshot.state,
+      flag: snapshot.flag,
+      lapEntryAllowed: snapshot.lapEntryAllowed,
       raceDurationSeconds,
       remainingSeconds: snapshot.remainingSeconds,
       endsAt: snapshot.endsAt,
@@ -410,9 +414,9 @@ function createApp(options = {}) {
     },
     onFinished: () => {
       try {
+        raceStore.finishRace({ reason: "timer_elapsed" });
         raceStore.syncTimer({ remainingSeconds: 0, endsAt: null });
         io.emit(SOCKET_EVENTS.RACE_TICK, buildRaceTickPayload());
-        raceStore.finishRace({ reason: "timer_elapsed" });
         logger.info("race.timer_elapsed", {
           state: raceStore.getSnapshot().state,
         });

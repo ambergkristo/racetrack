@@ -12,6 +12,14 @@ const RACE_MODES = Object.freeze({
   HAZARD_STOP: "HAZARD_STOP",
 });
 
+const RACE_FLAGS = Object.freeze({
+  SAFE: "SAFE",
+  HAZARD_SLOW: "HAZARD_SLOW",
+  HAZARD_STOP: "HAZARD_STOP",
+  CHECKERED: "CHECKERED",
+  LOCKED: "LOCKED",
+});
+
 const ALLOWED_TRANSITIONS = Object.freeze({
   [RACE_STATES.IDLE]: new Set([RACE_STATES.STAGING]),
   [RACE_STATES.STAGING]: new Set([RACE_STATES.RUNNING]),
@@ -38,6 +46,7 @@ function canChangeMode(state) {
 }
 
 module.exports = {
+  RACE_FLAGS,
   RACE_STATES,
   RACE_MODES,
   canAcceptLapInput,

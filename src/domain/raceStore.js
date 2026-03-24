@@ -1,4 +1,5 @@
 const {
+  RACE_FLAGS,
   RACE_MODES,
   RACE_STATES,
   canAcceptLapInput,
@@ -31,10 +32,13 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
   const state = {
     raceState: RACE_STATES.IDLE,
     raceMode: RACE_MODES.SAFE,
+    raceFlag: RACE_FLAGS.SAFE,
     activeSessionId: null,
     sessions: [],
     remainingSeconds: raceDurationSeconds,
     timerEndsAt: null,
+    lockedSession: null,
+    lockedLeaderboard: [],
     nextSessionId: 1,
     nextRacerId: 1,
   };
@@ -60,6 +64,25 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
     state.timerEndsAt = null;
   }
 
+  function resetLockedPresentation() {
+    state.lockedSession = null;
+    state.lockedLeaderboard = [];
+  }
+
+  function syncFlagFromState() {
+    if (state.raceState === RACE_STATES.FINISHED) {
+      state.raceFlag = RACE_FLAGS.CHECKERED;
+      return;
+    }
+
+    if (state.raceState === RACE_STATES.LOCKED) {
+      state.raceFlag = RACE_FLAGS.LOCKED;
+      return;
+    }
+
+    state.raceFlag = state.raceMode;
+  }
+
   function getSessionIndex(sessionId) {
     return state.sessions.findIndex((session) => session.id === sessionId);
   }
@@ -77,6 +100,7 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
 
   function assignActiveSession(sessionId) {
     state.activeSessionId = sessionId;
+    resetLockedPresentation();
 
     if (state.raceState === RACE_STATES.IDLE) {
       transitionTo(RACE_STATES.STAGING, "SESSION_SELECTION_BLOCKED");
@@ -86,6 +110,7 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
 
     resetRaceClock();
     state.raceMode = RACE_MODES.SAFE;
+    syncFlagFromState();
   }
 
   function assertEditableSession(sessionId) {
@@ -146,11 +171,13 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
         } else {
           resetRaceClock();
           state.raceMode = RACE_MODES.SAFE;
+          syncFlagFromState();
         }
       } else if (state.raceState !== RACE_STATES.LOCKED) {
         state.raceState = RACE_STATES.IDLE;
         resetRaceClock();
         state.raceMode = RACE_MODES.SAFE;
+        syncFlagFromState();
       }
     }
 
@@ -267,7 +294,9 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
     state.raceMode = RACE_MODES.SAFE;
     state.remainingSeconds = raceDurationSeconds;
     state.timerEndsAt = null;
+    resetLockedPresentation();
     transitionTo(RACE_STATES.RUNNING, "START_BLOCKED");
+    syncFlagFromState();
 
     return clone(activeSession);
   }
@@ -286,6 +315,7 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
     );
 
     state.raceMode = mode;
+    syncFlagFromState();
     return state.raceMode;
   }
 
@@ -305,6 +335,7 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
     state.remainingSeconds = 0;
     state.timerEndsAt = null;
     transitionTo(RACE_STATES.FINISHED, "FINISH_BLOCKED");
+    syncFlagFromState();
 
     return { reason };
   }
@@ -318,11 +349,14 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
       409
     );
 
+    state.lockedSession = clone(activeSession);
+    state.lockedLeaderboard = clone(buildLeaderboard());
     transitionTo(RACE_STATES.LOCKED, "LOCK_BLOCKED");
     state.sessions = state.sessions.filter((session) => session.id !== activeSession.id);
     state.activeSessionId = null;
     resetRaceClock();
     state.raceMode = RACE_MODES.SAFE;
+    syncFlagFromState();
 
     return clone(activeSession);
   }
@@ -366,6 +400,10 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
   }
 
   function buildLeaderboard() {
+    if (state.raceState === RACE_STATES.LOCKED) {
+      return clone(state.lockedLeaderboard);
+    }
+
     const activeSession = state.activeSessionId
       ? state.sessions.find((session) => session.id === state.activeSessionId)
       : null;
@@ -416,11 +454,14 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
     return {
       state: state.raceState,
       mode: state.raceMode,
+      flag: state.raceFlag,
+      lapEntryAllowed: canAcceptLapInput(state.raceState),
       raceDurationSeconds,
       remainingSeconds: state.remainingSeconds,
       endsAt: state.timerEndsAt,
       activeSessionId: state.activeSessionId,
       activeSession: activeSession ? clone(activeSession) : null,
+      lockedSession: state.lockedSession ? clone(state.lockedSession) : null,
       sessions: clone(state.sessions),
       leaderboard: buildLeaderboard(),
     };

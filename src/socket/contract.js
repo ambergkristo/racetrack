@@ -1,5 +1,5 @@
 const { z } = require("zod");
-const { RACE_MODES, RACE_STATES } = require("../domain/raceStateMachine");
+const { RACE_FLAGS, RACE_MODES, RACE_STATES } = require("../domain/raceStateMachine");
 
 const SOCKET_EVENTS = Object.freeze({
   CLIENT_HELLO: "client:hello",
@@ -72,11 +72,14 @@ const raceSnapshotSchema = z.object({
   serverTime: z.string().datetime(),
   state: z.enum(Object.values(RACE_STATES)),
   mode: z.enum(Object.values(RACE_MODES)),
+  flag: z.enum(Object.values(RACE_FLAGS)),
+  lapEntryAllowed: z.boolean(),
   raceDurationSeconds: z.number().int().positive(),
   remainingSeconds: z.number().int().nonnegative(),
   endsAt: z.string().datetime().nullable(),
   activeSessionId: z.string().min(1).nullable(),
   activeSession: sessionSnapshotSchema.nullable(),
+  lockedSession: sessionSnapshotSchema.nullable(),
   sessions: z.array(sessionSnapshotSchema),
   leaderboard: z.array(leaderboardEntrySchema),
 });
@@ -84,6 +87,8 @@ const raceSnapshotSchema = z.object({
 const raceTickSchema = z.object({
   serverTime: z.string().datetime(),
   state: z.enum(Object.values(RACE_STATES)),
+  flag: z.enum(Object.values(RACE_FLAGS)),
+  lapEntryAllowed: z.boolean(),
   raceDurationSeconds: z.number().int().positive(),
   remainingSeconds: z.number().int().nonnegative(),
   endsAt: z.string().datetime().nullable(),
@@ -92,6 +97,8 @@ const raceTickSchema = z.object({
 const leaderboardUpdateSchema = z.object({
   serverTime: z.string().datetime(),
   state: z.enum(Object.values(RACE_STATES)),
+  flag: z.enum(Object.values(RACE_FLAGS)),
+  lapEntryAllowed: z.boolean(),
   activeSessionId: z.string().min(1).nullable(),
   leaderboard: z.array(leaderboardEntrySchema),
 });

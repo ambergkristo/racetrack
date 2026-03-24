@@ -152,6 +152,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       idleLeaderboardPayload,
       "leaderboard:update (IDLE)"
     );
+    assert.equal(idleSnapshotPayload.flag, "SAFE");
+    assert.equal(idleSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(idleLeaderboardPayload.flag, "SAFE");
+    assert.equal(idleLeaderboardPayload.lapEntryAllowed, false);
 
     const createSessionResult = await postJson(
       url,
@@ -194,6 +198,8 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(startResult.response.status, 200);
     const runningSnapshotPayload = await runningSnapshotPromise;
     assertSchema(raceSnapshotSchema, runningSnapshotPayload, "race:snapshot (RUNNING)");
+    assert.equal(runningSnapshotPayload.flag, "SAFE");
+    assert.equal(runningSnapshotPayload.lapEntryAllowed, true);
 
     const lapLeaderboardPromise = waitForEvent(
       socket,
@@ -217,6 +223,8 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       lapLeaderboardPayload,
       "leaderboard:update (lap crossing)"
     );
+    assert.equal(lapLeaderboardPayload.flag, "SAFE");
+    assert.equal(lapLeaderboardPayload.lapEntryAllowed, true);
 
     const tickPayload = await waitForEvent(
       socket,
@@ -224,6 +232,8 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       (payload) => payload.state === "RUNNING"
     );
     assertSchema(raceTickSchema, tickPayload, "race:tick (RUNNING)");
+    assert.equal(tickPayload.flag, "SAFE");
+    assert.equal(tickPayload.lapEntryAllowed, true);
 
     const finishedSnapshotPromise = waitForEvent(
       socket,
@@ -242,6 +252,8 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(finishResult.response.status, 200);
     const finishedSnapshotPayload = await finishedSnapshotPromise;
     assertSchema(raceSnapshotSchema, finishedSnapshotPayload, "race:snapshot (FINISHED)");
+    assert.equal(finishedSnapshotPayload.flag, "CHECKERED");
+    assert.equal(finishedSnapshotPayload.lapEntryAllowed, true);
 
     const lockedSnapshotPromise = waitForEvent(
       socket,
@@ -260,6 +272,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(lockResult.response.status, 200);
     const lockedSnapshotPayload = await lockedSnapshotPromise;
     assertSchema(raceSnapshotSchema, lockedSnapshotPayload, "race:snapshot (LOCKED)");
+    assert.equal(lockedSnapshotPayload.flag, "LOCKED");
+    assert.equal(lockedSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(lockedSnapshotPayload.activeSession, null);
+    assert.equal(lockedSnapshotPayload.lockedSession?.id, sessionId);
 
     assert.equal(unexpectedServerError, null, "server:error was emitted in happy path");
   } finally {

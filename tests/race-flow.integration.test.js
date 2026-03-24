@@ -141,6 +141,8 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     const runningSnapshot = await startSnapshotPromise;
     assert.equal(runningSnapshot.activeSessionId, sessionId);
     assert.equal(runningSnapshot.remainingSeconds, 1);
+    assert.equal(runningSnapshot.flag, "SAFE");
+    assert.equal(runningSnapshot.lapEntryAllowed, true);
 
     const firstLapResult = await postJson(
       url,
@@ -180,7 +182,10 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     const tickPromise = waitForEvent(
       socket,
       SOCKET_EVENTS.RACE_TICK,
-      (payload) => payload.remainingSeconds === 0
+      (payload) =>
+        payload.remainingSeconds === 0 &&
+        payload.state === "FINISHED" &&
+        payload.flag === "CHECKERED"
     );
     const finishedSnapshotPromise = waitForEvent(
       socket,
@@ -190,6 +195,8 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     await tickPromise;
     const finishedSnapshot = await finishedSnapshotPromise;
     assert.equal(finishedSnapshot.remainingSeconds, 0);
+    assert.equal(finishedSnapshot.flag, "CHECKERED");
+    assert.equal(finishedSnapshot.lapEntryAllowed, true);
 
     const finishedLapResult = await postJson(
       url,
@@ -220,6 +227,12 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     assert.equal(lockResult.response.status, 200);
     const lockedSnapshot = await lockSnapshotPromise;
     assert.equal(lockedSnapshot.activeSessionId, null);
+    assert.equal(lockedSnapshot.flag, "LOCKED");
+    assert.equal(lockedSnapshot.lapEntryAllowed, false);
+    assert.equal(lockedSnapshot.activeSession, null);
+    assert.equal(lockedSnapshot.lockedSession?.id, sessionId);
+    assert.equal(lockedSnapshot.leaderboard.length, 1);
+    assert.equal(lockedSnapshot.leaderboard[0].lapCount, 3);
 
     const blockedLapResult = await postJson(
       url,

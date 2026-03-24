@@ -55,3 +55,40 @@ test("race store ignores non-positive lap deltas without corrupting leaderboard 
   assert.equal(snapshot.leaderboard[0].currentLapTimeMs, 600);
   assert.equal(snapshot.leaderboard[0].bestLapTimeMs, 600);
 });
+
+test("race store exposes checkered finish state and freezes the locked session snapshot", () => {
+  const nowValues = [1_000, 2_000, 3_000, 4_000, 5_000];
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 90,
+    now: () => nowValues.shift() ?? 5_000,
+  });
+
+  const session = raceStore.createSession({ name: "Heat 2" });
+  const racer = raceStore.addRacer(session.id, {
+    name: "Ben",
+    carNumber: "8",
+  });
+
+  raceStore.startRace();
+  raceStore.recordLapCrossing({ racerId: racer.id, timestampMs: 10_000 });
+  raceStore.finishRace({ reason: "manual" });
+
+  const finishedSnapshot = raceStore.getSnapshot();
+  assert.equal(finishedSnapshot.state, "FINISHED");
+  assert.equal(finishedSnapshot.flag, "CHECKERED");
+  assert.equal(finishedSnapshot.lapEntryAllowed, true);
+  assert.equal(finishedSnapshot.activeSession?.id, session.id);
+  assert.equal(finishedSnapshot.lockedSession, null);
+
+  raceStore.lockRace();
+  const lockedSnapshot = raceStore.getSnapshot();
+  assert.equal(lockedSnapshot.state, "LOCKED");
+  assert.equal(lockedSnapshot.flag, "LOCKED");
+  assert.equal(lockedSnapshot.lapEntryAllowed, false);
+  assert.equal(lockedSnapshot.activeSessionId, null);
+  assert.equal(lockedSnapshot.activeSession, null);
+  assert.equal(lockedSnapshot.lockedSession?.id, session.id);
+  assert.equal(lockedSnapshot.leaderboard.length, 1);
+  assert.equal(lockedSnapshot.leaderboard[0].racerId, racer.id);
+  assert.equal(lockedSnapshot.leaderboard[0].lapCount, 1);
+});
