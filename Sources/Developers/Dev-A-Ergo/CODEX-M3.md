@@ -1,50 +1,60 @@
-# CODEX MASTERPROMPT — M3 (Dev A)
+# CODEX MASTERPROMPT - M3 (Dev A, Updated)
 
-DEC: Dev A (Ergo)  
-REPO: https://github.com/ambergkristo/racetrack  
-MILESTONE: M3 (Upgrade backend: persistence + recovery)  
-BASE BRANCH: main (read-only)  
+DEC: Dev A (Ergo)
+MILESTONE: M3 (Persistence + Recovery)
 WORKING BRANCH: feat/m3-devA-persistence-recovery
 
-## Mission (M3 / Dev A scope)
-Implement upgrade backend behind feature flags:
-- persistence layer integration
-- recovery/restore policy after restart
-- keep default MVP behavior unchanged when flags are OFF
+## Precondition
+M2.5 CONTROL STABILIZATION must be PASS before M3 work begins.
 
-## Non-goals (M3)
-- No default behavior changes when feature flags are off
-- No unrelated UI ownership work
-- No breaking contract changes without Dev C + Dev D alignment
+## Mission
+Implement persistence and recovery without breaking lifecycle truth.
 
-## Branch workflow
-1) git checkout main && git pull
-2) git checkout -b feat/m3-devA-persistence-recovery
-3) implement
-4) run tests/lint/build locally
-5) commit: "M3: persistence and recovery backend (Dev A)"
-6) push + open PR -> main (review by Dev C)
+## Global Guardrails
+- Lifecycle correctness must not break.
+- Feature flags must not hide bugs.
+- Formatting and output must stay clean and readable.
+- M2.5 behavior is the baseline truth when M3 flags are OFF.
 
-## Hard requirements
-- Feature flags:
-  - `FF_PERSISTENCE`
-  - `FF_MANUAL_CAR_ASSIGNMENT` compatibility path
-- Flag OFF path must behave exactly like MVP.
-- Startup/restart restore policy must be deterministic.
+## Strict Rules
+- `FF_PERSISTENCE` is required.
+- Flag OFF must be identical to M2.5.
+- Do not change lifecycle logic.
+- Do not change lap logic.
 
-## Deliverable / DoD (M3 for Dev A)
-- Persistence adapter integrated behind flag.
-- Recovery flow documented and tested.
-- Flag OFF/ON behavior validated.
-- CI passes.
+## Core Persistence Scope
+Persist:
+- session
+- racers
+- lifecycle
+- laps
+- flag state, including CHECKERED
 
-## Suggested structure
-- `src/persistence/*` abstraction
-- restore policy module
-- migration-safe storage format
+## Recovery Scope
+Restore exact state for:
+- IDLE
+- STAGING
+- RUNNING
+- FINISHED
+- LOCKED
 
-## PR checklist
-- [ ] Flag OFF parity confirmed
-- [ ] Restore behavior tested
-- [ ] No breaking API change
-- [ ] PR title contains "M3"
+No auto-transitions are allowed during recovery.
+
+## Critical Invariants
+- LOCKED must remain locked.
+- CHECKERED must persist.
+- Laps must not reset.
+
+## Required Test Flow
+1. RUN -> add laps -> FINISH -> restart -> verify restored state.
+2. LOCK -> restart -> verify locked state is preserved.
+
+## Output
+- PASS / FAIL
+- files changed
+- verification steps
+
+## Git
+- commit
+- push `origin/main`
+- verify `HEAD == origin/main`
