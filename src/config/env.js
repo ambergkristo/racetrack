@@ -47,6 +47,22 @@ function parseBooleanFlag(value) {
   return value.trim().toLowerCase() === "true";
 }
 
+function parseFeatureFlags() {
+  return {
+    FF_PERSISTENCE: parseBooleanFlag(process.env.FF_PERSISTENCE),
+    FF_MANUAL_CAR_ASSIGNMENT: parseBooleanFlag(process.env.FF_MANUAL_CAR_ASSIGNMENT),
+  };
+}
+
+function parsePersistenceFilePath() {
+  const explicitPath = process.env.PERSISTENCE_FILE_PATH;
+  if (typeof explicitPath === "string" && explicitPath.trim() !== "") {
+    return path.resolve(explicitPath.trim());
+  }
+
+  return path.join(process.cwd(), "data", "race-state.json");
+}
+
 function assertRequiredEnv() {
   if (parseBooleanFlag(process.env.STAFF_AUTH_DISABLED)) {
     return;
@@ -69,6 +85,8 @@ function loadEnvConfig() {
   return {
     requiredKeys: REQUIRED_KEYS,
     staffRouteToKey: STAFF_ROUTE_TO_KEY,
+    featureFlags: parseFeatureFlags(),
+    persistenceFilePath: parsePersistenceFilePath(),
     raceDurationSeconds: parseRaceDurationSeconds(),
     authFailureDelayMs: parseAuthFailureDelayMs(),
     staffAuthDisabled: parseBooleanFlag(process.env.STAFF_AUTH_DISABLED),

@@ -54,6 +54,18 @@ function createTimerService({
     return { remainingSeconds: durationSeconds, endsAt: getEndsAt() };
   }
 
+  function resume({ remainingSeconds }) {
+    stop();
+
+    if (!Number.isInteger(remainingSeconds) || remainingSeconds <= 0) {
+      return { remainingSeconds: 0, endsAt: null };
+    }
+
+    endTimeMs = now() + remainingSeconds * 1000;
+    intervalHandle = setIntervalFn(tick, tickIntervalMs);
+    return { remainingSeconds, endsAt: getEndsAt() };
+  }
+
   function isRunning() {
     return Boolean(intervalHandle);
   }
@@ -62,6 +74,7 @@ function createTimerService({
     getEndsAt,
     getRemainingSeconds,
     isRunning,
+    resume,
     start,
     stop,
   };
