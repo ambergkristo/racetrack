@@ -28,8 +28,8 @@ function normalizeOptionalString(value) {
   return trimmed === "" ? null : trimmed;
 }
 
-function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
-  const state = {
+function createInitialState(raceDurationSeconds) {
+  return {
     raceState: RACE_STATES.IDLE,
     raceMode: RACE_MODES.SAFE,
     raceFlag: RACE_FLAGS.SAFE,
@@ -42,6 +42,14 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
     nextSessionId: 1,
     nextRacerId: 1,
   };
+}
+
+function createRaceStore({
+  raceDurationSeconds,
+  now = () => Date.now(),
+  restoredState = null,
+}) {
+  const state = restoredState ? clone(restoredState) : createInitialState(raceDurationSeconds);
 
   function ensure(condition, code, message, status = 400) {
     if (!condition) {
@@ -82,6 +90,8 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
 
     state.raceFlag = state.raceMode;
   }
+
+  syncFlagFromState();
 
   function getSessionIndex(sessionId) {
     return state.sessions.findIndex((session) => session.id === sessionId);
@@ -472,6 +482,7 @@ function createRaceStore({ raceDurationSeconds, now = () => Date.now() }) {
     addRacer,
     createSession,
     deleteSession,
+    exportState: () => clone(state),
     finishRace,
     getSnapshot,
     lockRace,

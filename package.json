@@ -9,7 +9,8 @@
     "dev": "cross-env NODE_ENV=development nodemon server.js",
     "start": "node server.js",
     "lint": "node scripts/lint.mjs",
-    "test": "node tests/run-tests.js"
+    "test": "node tests/run-tests.js",
+    "test:m3-matrix": "node tests/run-m3-matrix.js"
   },
   "engines": {
     "node": ">=18"
