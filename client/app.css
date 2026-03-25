@@ -995,6 +995,7 @@ body {
 .status-marquee,
 .command-stage,
 .ops-board,
+.assignment-shell,
 .lap-stage,
 .tower-hero,
 .event-marquee,
@@ -1008,6 +1009,7 @@ body {
 .public-state-shell,
 .status-marquee,
 .command-stage,
+.assignment-shell,
 .event-marquee {
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 1fr);
   align-items: stretch;
@@ -1017,7 +1019,9 @@ body {
 .public-state-copy,
 .status-marquee-copy,
 .command-stage-copy,
-.lap-stage-copy {
+.lap-stage-copy,
+.assignment-console,
+.assignment-roster-shell {
   display: grid;
   gap: 10px;
 }
@@ -1044,6 +1048,8 @@ body {
 .status-marquee,
 .command-stage,
 .lap-stage,
+.assignment-console,
+.assignment-roster-shell,
 .event-marquee,
 .countdown-side,
 .flag-detail-panel {
@@ -1062,8 +1068,63 @@ body {
 .route-card-body,
 .tower-caption,
 .flag-detail-panel span,
-.countdown-side span {
+.countdown-side span,
+.assignment-card-label,
+.assignment-card-meta span {
   color: var(--muted);
+}
+
+.assignment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.assignment-card {
+  min-height: 148px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  align-content: space-between;
+  border-radius: 18px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    rgba(12, 13, 18, 0.92);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.assignment-card:hover,
+.assignment-card:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255, 212, 0, 0.36);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.assignment-card.is-selected {
+  border-color: rgba(0, 255, 123, 0.36);
+  box-shadow: 0 0 0 1px rgba(0, 255, 123, 0.24) inset;
+}
+
+.assignment-card strong,
+.assignment-card-meta em {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-style: normal;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.assignment-card-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
 }
 
 .route-card-grid {
@@ -1455,6 +1516,7 @@ body {
   .public-state-shell,
   .status-marquee,
   .command-stage,
+  .assignment-shell,
   .event-marquee,
   .countdown-shell,
   .flag-shell,

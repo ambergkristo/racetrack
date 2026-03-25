@@ -13,6 +13,8 @@ const STAFF_ROUTE_TO_KEY = {
   "/lap-line-tracker": "LAP_LINE_TRACKER_KEY",
 };
 
+const FEATURE_FLAG_KEYS = ["FF_PERSISTENCE", "FF_MANUAL_CAR_ASSIGNMENT"];
+
 function loadDotenv() {
   const dotenvPath = process.env.DOTENV_PATH || path.join(process.cwd(), ".env");
   dotenv.config({ path: dotenvPath, quiet: true });
@@ -48,10 +50,10 @@ function parseBooleanFlag(value) {
 }
 
 function parseFeatureFlags() {
-  return {
-    FF_PERSISTENCE: parseBooleanFlag(process.env.FF_PERSISTENCE),
-    FF_MANUAL_CAR_ASSIGNMENT: parseBooleanFlag(process.env.FF_MANUAL_CAR_ASSIGNMENT),
-  };
+  return FEATURE_FLAG_KEYS.reduce((flags, key) => {
+    flags[key] = parseBooleanFlag(process.env[key]);
+    return flags;
+  }, {});
 }
 
 function parsePersistenceFilePath() {

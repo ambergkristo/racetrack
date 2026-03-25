@@ -486,6 +486,7 @@ function createApp(options = {}) {
   app.get("/api/bootstrap", (_req, res) => {
     res.status(200).json({
       raceDurationSeconds,
+      featureFlags: env.featureFlags,
       staffAuthDisabled: env.staffAuthDisabled,
       serverTime: new Date().toISOString(),
       raceSnapshot: buildRaceSnapshotPayload(),
