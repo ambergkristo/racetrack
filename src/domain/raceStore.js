@@ -91,6 +91,8 @@ function createRaceStore({
     state.raceFlag = state.raceMode;
   }
 
+  syncFlagFromState();
+
   function getSessionIndex(sessionId) {
     return state.sessions.findIndex((session) => session.id === sessionId);
   }

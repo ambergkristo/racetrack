@@ -60,7 +60,6 @@ function createTimerService({
     if (!Number.isInteger(remainingSeconds) || remainingSeconds <= 0) {
       return { remainingSeconds: 0, endsAt: null };
     }
-
     endTimeMs = now() + remainingSeconds * 1000;
     intervalHandle = setIntervalFn(tick, tickIntervalMs);
     return { remainingSeconds, endsAt: getEndsAt() };
