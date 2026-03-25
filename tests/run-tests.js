@@ -3,6 +3,7 @@ require("./backend-hardening.integration.test");
 require("./race-store.test");
 require("./race-state-machine.test");
 require("./race-flow.integration.test");
+require("./persistence-recovery.integration.test");
 require("./realtime-contract.integration.test");
 require("./socket-smoke.test");
 

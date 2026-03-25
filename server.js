@@ -9,6 +9,7 @@ const { createRaceStore, DomainError } = require("./src/domain/raceStore");
 const { createIdempotencyStore } = require("./src/domain/idempotencyStore");
 const { createTimerService } = require("./src/domain/timerService");
 const { RACE_MODES, RACE_STATES } = require("./src/domain/raceStateMachine");
+const { createPersistenceAdapter } = require("./src/persistence/raceStatePersistence");
 const {
   SOCKET_EVENTS,
   socketAuthSchema,
@@ -258,9 +259,17 @@ function createApp(options = {}) {
   });
 
   const raceDurationSeconds = env.raceDurationSeconds;
+  const persistenceAdapter =
+    options.persistenceAdapter ||
+    createPersistenceAdapter({
+      enabled: env.featureFlags.FF_PERSISTENCE,
+      filePath: options.persistenceFilePath || env.persistenceFilePath,
+    });
+  const restoredState = persistenceAdapter.load();
   const raceStore = createRaceStore({
     raceDurationSeconds,
     now: options.now,
+    restoredState,
   });
   const idempotencyStore = createIdempotencyStore();
   const staticDir = resolveStaticDir();
@@ -291,6 +300,10 @@ function createApp(options = {}) {
       remainingSeconds: snapshot.remainingSeconds,
       endsAt: snapshot.endsAt,
     });
+  }
+
+  function persistCanonicalState() {
+    persistenceAdapter.save(raceStore.exportState());
   }
 
   function broadcastCanonicalState() {
@@ -338,6 +351,9 @@ function createApp(options = {}) {
     onTick: ({ remainingSeconds, endsAt }) => {
       raceStore.syncTimer({ remainingSeconds, endsAt });
       io.emit(SOCKET_EVENTS.RACE_TICK, buildRaceTickPayload());
+      if (remainingSeconds > 0) {
+        persistCanonicalState();
+      }
     },
     onFinished: () => {
       try {
@@ -345,6 +361,7 @@ function createApp(options = {}) {
         io.emit(SOCKET_EVENTS.RACE_TICK, buildRaceTickPayload());
         raceStore.finishRace({ reason: "timer_elapsed" });
         broadcastCanonicalState();
+        persistCanonicalState();
       } catch (error) {
         if (!(error instanceof DomainError)) {
           throw error;
@@ -365,6 +382,15 @@ function createApp(options = {}) {
     allowedRoutes: ["/lap-line-tracker"],
     env,
   });
+
+  if (restoredState && restoredState.raceState === RACE_STATES.RUNNING) {
+    const resumedTimer = timerService.resume({
+      remainingSeconds: restoredState.remainingSeconds,
+    });
+    raceStore.syncTimer(resumedTimer);
+  }
+
+  persistCanonicalState();
 
   app.use(express.json({ limit: "64kb" }));
   app.use(express.static(staticDir, { index: false }));
@@ -432,6 +458,7 @@ function createApp(options = {}) {
       const { name } = parseBody(createSessionSchema, req);
       const session = raceStore.createSession({ name });
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 201,
         body: {
@@ -448,6 +475,7 @@ function createApp(options = {}) {
       const { name } = parseBody(updateSessionSchema, req);
       const session = raceStore.updateSession(req.params.sessionId, { name });
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -463,6 +491,7 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       const session = raceStore.deleteSession(req.params.sessionId);
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -479,6 +508,7 @@ function createApp(options = {}) {
       const { sessionId } = parseBody(selectSessionSchema, req);
       const session = raceStore.selectSession(sessionId);
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -501,6 +531,7 @@ function createApp(options = {}) {
           carNumber,
         });
         broadcastCanonicalState();
+        persistCanonicalState();
         return {
           status: 201,
           body: {
@@ -523,6 +554,7 @@ function createApp(options = {}) {
           carNumber,
         });
         broadcastCanonicalState();
+        persistCanonicalState();
         return {
           status: 200,
           body: {
@@ -541,6 +573,7 @@ function createApp(options = {}) {
       executeMutation(req, res, async () => {
         const racer = raceStore.removeRacer(req.params.sessionId, req.params.racerId);
         broadcastCanonicalState();
+        persistCanonicalState();
         return {
           status: 200,
           body: {
@@ -558,6 +591,7 @@ function createApp(options = {}) {
       const timerState = timerService.start();
       raceStore.syncTimer(timerState);
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -574,6 +608,7 @@ function createApp(options = {}) {
       const { mode } = parseBody(raceModeSchema, req);
       const nextMode = raceStore.setRaceMode(mode);
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -590,6 +625,7 @@ function createApp(options = {}) {
       timerService.stop();
       raceStore.finishRace({ reason: "manual" });
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -605,6 +641,7 @@ function createApp(options = {}) {
       timerService.stop();
       const session = raceStore.lockRace();
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -621,6 +658,7 @@ function createApp(options = {}) {
       const { racerId, timestampMs } = parseBody(lapCrossingSchema, req);
       const racer = raceStore.recordLapCrossing({ racerId, timestampMs });
       broadcastCanonicalState();
+      persistCanonicalState();
       return {
         status: 200,
         body: {
@@ -713,7 +751,14 @@ function createApp(options = {}) {
     return res.status(404).json({ error: "Not found" });
   });
 
-  return { app, server, raceDurationSeconds, raceStore, timerService };
+  return {
+    app,
+    server,
+    raceDurationSeconds,
+    raceStore,
+    timerService,
+    persistenceAdapter,
+  };
 }
 
 if (require.main === module) {
