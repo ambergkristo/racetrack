@@ -145,6 +145,10 @@
     bootstrapStatus: "loading",
     bootstrapError: "",
     staffAuthDisabled: false,
+    featureFlags: {
+      FF_PERSISTENCE: false,
+      FF_MANUAL_CAR_ASSIGNMENT: false,
+    },
     connection: "idle",
     connectionDetail: "",
     reconnectAttempt: 0,
@@ -162,6 +166,10 @@
     sessionForm: {
       id: null,
       name: "",
+    },
+    manualAssignmentForm: {
+      racerId: null,
+      carNumber: "",
     },
     racerForm: {
       id: null,
@@ -186,6 +194,13 @@
       lockedSession: null,
       sessions: [],
       leaderboard: [],
+    };
+  }
+
+  function normalizeFeatureFlags(flags) {
+    return {
+      FF_PERSISTENCE: Boolean(flags?.FF_PERSISTENCE),
+      FF_MANUAL_CAR_ASSIGNMENT: Boolean(flags?.FF_MANUAL_CAR_ASSIGNMENT),
     };
   }
 
@@ -473,6 +488,11 @@
       ? state.sessionForm
       : { id: null, name: "" };
     const activeSession = normalized.activeSession;
+    const nextManualAssignmentForm =
+      activeSession &&
+      activeSession.racers.some((racer) => racer.id === state.manualAssignmentForm.racerId)
+        ? state.manualAssignmentForm
+        : { racerId: null, carNumber: "" };
     const nextRacerForm =
       activeSession && activeSession.racers.some((racer) => racer.id === state.racerForm.id)
         ? state.racerForm
@@ -489,6 +509,7 @@
       awaitingLiveResync: false,
       raceSnapshot: normalized,
       sessionForm: nextSessionForm,
+      manualAssignmentForm: nextManualAssignmentForm,
       racerForm: nextRacerForm,
     });
 
@@ -571,6 +592,7 @@
         bootstrapStatus: "ready",
         bootstrapError: "",
         staffAuthDisabled: Boolean(data.staffAuthDisabled),
+        featureFlags: normalizeFeatureFlags(data.featureFlags),
         lastSyncAt: markSync(data.serverTime || data.raceSnapshot?.serverTime),
       };
       if (routeConfig.staff && data.staffAuthDisabled) {
@@ -694,6 +716,69 @@
 
   function firstReason(...reasons) {
     return reasons.find((reason) => typeof reason === "string" && reason.trim() !== "") || "";
+  }
+
+  function manualAssignmentEnabled() {
+    return route === "/front-desk" && Boolean(state.featureFlags.FF_MANUAL_CAR_ASSIGNMENT);
+  }
+
+  function activeSessionEditable(session = getActiveSession()) {
+    return Boolean(
+      session &&
+        state.raceSnapshot.state !== "RUNNING" &&
+        state.raceSnapshot.state !== "FINISHED"
+    );
+  }
+
+  function getManualAssignmentState() {
+    if (!manualAssignmentEnabled()) {
+      return null;
+    }
+
+    const activeSession = getActiveSession();
+    const selectedRacer =
+      activeSession?.racers.find((racer) => racer.id === state.manualAssignmentForm.racerId) || null;
+    const carNumber = state.manualAssignmentForm.carNumber.trim();
+    const duplicateRacer =
+      carNumber && activeSession
+        ? activeSession.racers.find((racer) => {
+            if (selectedRacer && racer.id === selectedRacer.id) {
+              return false;
+            }
+
+            return (racer.carNumber || "").trim().toLowerCase() === carNumber.toLowerCase();
+          }) || null
+        : null;
+    const accessReason = staffAccessReason();
+    const selectionReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before assigning cars.",
+      activeSessionEditable(activeSession) ? "" : "Assignments lock once the race is RUNNING or FINISHED."
+    );
+    const saveReason = firstReason(
+      selectionReason,
+      selectedRacer ? "" : "Choose a racer to assign.",
+      carNumber ? "" : "Enter a car number.",
+      duplicateRacer
+        ? `Car ${carNumber} is already assigned to ${duplicateRacer.name}.`
+        : ""
+    );
+    const clearReason = firstReason(
+      selectionReason,
+      selectedRacer ? "" : "Choose a racer to clear.",
+      selectedRacer?.carNumber ? "" : "Selected racer does not have a car assignment."
+    );
+
+    return {
+      activeSession,
+      selectedRacer,
+      carNumber,
+      duplicateRacer,
+      selectionReason,
+      saveReason,
+      clearReason,
+    };
   }
 
   function staffAccessReason() {
@@ -1089,6 +1174,7 @@
         ${noticeMarkup()}
         <div class="chip-row">
           <span class="chip">Gate: ${escapeHtml(state.staffAuthDisabled ? "bypassed" : state.gateStatus)}</span>
+          <span class="chip">Manual Assign: ${escapeHtml(state.featureFlags.FF_MANUAL_CAR_ASSIGNMENT ? "ON" : "OFF")}</span>
           <span class="chip">Sync: ${escapeHtml(syncLabel)}</span>
           <span class="chip">Last sync: ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
         </div>
@@ -1361,6 +1447,7 @@
         dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true }),
         "warning"
       ),
+      manualAssignmentPanel(),
       panel(
         "Racer Garage",
         `
@@ -1389,6 +1476,128 @@
         "panel-wide"
       ),
     ].join("");
+  }
+
+  function manualAssignmentRoster(activeSession, selectedRacer) {
+    if (!activeSession) {
+      return emptyState(
+        "No staged session",
+        "Stage a session first. The assignment roster will unlock on the active heat."
+      );
+    }
+
+    if (activeSession.racers.length === 0) {
+      return emptyState(
+        "No racers ready for assignment",
+        "Add racers to the active session, then assign their cars from this panel."
+      );
+    }
+
+    return `
+      <div class="assignment-grid">
+        ${activeSession.racers
+          .map((racer) => {
+            const selected = selectedRacer?.id === racer.id;
+
+            return `
+              <button
+                class="assignment-card ${selected ? "is-selected" : ""}"
+                type="button"
+                data-action="select-manual-racer"
+                data-racer-id="${escapeHtml(racer.id)}"
+              >
+                <span class="assignment-card-label">${escapeHtml(selected ? "Selected racer" : "Tap to assign")}</span>
+                <strong>${escapeHtml(racer.name)}</strong>
+                <div class="assignment-card-meta">
+                  <span>Current car</span>
+                  <em>${escapeHtml(racer.carNumber || "--")}</em>
+                </div>
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function manualAssignmentPanel() {
+    if (!manualAssignmentEnabled()) {
+      return "";
+    }
+
+    const assignmentState = getManualAssignmentState();
+    const selectedLabel = assignmentState.selectedRacer
+      ? `${assignmentState.selectedRacer.name} ${assignmentState.selectedRacer.carNumber ? `· Car ${assignmentState.selectedRacer.carNumber}` : "· Unassigned"}`
+      : "Choose a racer from the roster";
+    const guidance = assignmentState.selectionReason
+      ? inlineAlert({
+          tone: "warning",
+          title: "Assignment guard active",
+          detail: assignmentState.selectionReason,
+        })
+      : "";
+    const validation = assignmentState.saveReason && !assignmentState.selectionReason
+      ? inlineAlert({
+          tone: assignmentState.duplicateRacer ? "danger" : "warning",
+          title: assignmentState.duplicateRacer ? "Assignment conflict" : "Assignment incomplete",
+          detail: assignmentState.saveReason,
+        })
+      : "";
+    const guardList = actionGuardList([
+      { label: "Assign car", reason: assignmentState.saveReason },
+      { label: "Clear assignment", reason: assignmentState.clearReason },
+    ]);
+
+    return panel(
+      "Manual Car Assignment",
+      `
+        <div class="assignment-shell">
+          <div class="assignment-console">
+            <p class="section-kicker">Upgrade flag active</p>
+            <strong class="summary-value">Manual assignment console</strong>
+            <p class="panel-copy">This panel is gated by <code>FF_MANUAL_CAR_ASSIGNMENT</code> and leaves the MVP front-desk flow untouched when the flag is OFF.</p>
+            <div class="telemetry-tags">
+              <span class="telemetry-tag tone-warning">Flag ON</span>
+              <span class="telemetry-tag tone-safe">${escapeHtml(selectedLabel)}</span>
+            </div>
+            <label class="field">
+              <span>Car number</span>
+              <input id="manual-car-number-input" type="text" value="${escapeHtml(state.manualAssignmentForm.carNumber)}" placeholder="12" ${assignmentState.selectionReason ? "disabled" : ""} />
+            </label>
+            <div class="controls">
+              ${buttonMarkup({
+                id: "assign-car-btn",
+                label: "Assign Car",
+                variant: "warning",
+                disabled: Boolean(assignmentState.saveReason),
+              })}
+              ${buttonMarkup({
+                id: "clear-car-btn",
+                label: "Clear Assignment",
+                variant: "ghost",
+                disabled: Boolean(assignmentState.clearReason),
+              })}
+            </div>
+            <div id="manual-assignment-feedback">
+              ${guidance}
+              ${validation}
+            </div>
+            <div id="manual-assignment-guards">
+              ${guardList}
+            </div>
+          </div>
+          <div class="assignment-roster-shell">
+            <p class="section-kicker">Active roster</p>
+            ${manualAssignmentRoster(
+              assignmentState.activeSession,
+              assignmentState.selectedRacer
+            )}
+          </div>
+        </div>
+      `,
+      "warning",
+      "panel-wide"
+    );
   }
 
   function syncFrontDeskFormUi() {
@@ -1427,6 +1636,54 @@
     if (racerHint) {
       racerHint.textContent =
         formState.racerEditReason || "Racer edits apply to the active staged session.";
+    }
+
+    if (manualAssignmentEnabled()) {
+      const assignmentState = getManualAssignmentState();
+      const assignBtn = document.getElementById("assign-car-btn");
+      const clearBtn = document.getElementById("clear-car-btn");
+      const manualInput = document.getElementById("manual-car-number-input");
+      const feedback = document.getElementById("manual-assignment-feedback");
+      const assignmentGuards = document.getElementById("manual-assignment-guards");
+
+      if (assignBtn) {
+        assignBtn.disabled = Boolean(assignmentState.saveReason);
+      }
+
+      if (clearBtn) {
+        clearBtn.disabled = Boolean(assignmentState.clearReason);
+      }
+
+      if (manualInput) {
+        manualInput.disabled = Boolean(assignmentState.selectionReason);
+      }
+
+      if (feedback) {
+        const guidance = assignmentState.selectionReason
+          ? inlineAlert({
+              tone: "warning",
+              title: "Assignment guard active",
+              detail: assignmentState.selectionReason,
+            })
+          : "";
+        const validation = assignmentState.saveReason && !assignmentState.selectionReason
+          ? inlineAlert({
+              tone: assignmentState.duplicateRacer ? "danger" : "warning",
+              title: assignmentState.duplicateRacer
+                ? "Assignment conflict"
+                : "Assignment incomplete",
+              detail: assignmentState.saveReason,
+            })
+          : "";
+        feedback.innerHTML = guidance + validation;
+      }
+
+      if (assignmentGuards) {
+        assignmentGuards.innerHTML = actionGuardList([
+          { label: "Assign car", reason: assignmentState.saveReason },
+          { label: "Clear assignment", reason: assignmentState.clearReason },
+        ]);
+      }
     }
   }
 
@@ -2135,6 +2392,9 @@
   function bindFrontDeskEvents() {
     const activeSession = getActiveSession();
     const sessionInput = document.getElementById("session-name-input");
+    const manualCarInput = document.getElementById("manual-car-number-input");
+    const assignCarBtn = document.getElementById("assign-car-btn");
+    const clearCarBtn = document.getElementById("clear-car-btn");
     const racerInput = document.getElementById("racer-name-input");
     const carInput = document.getElementById("car-number-input");
     const saveSessionBtn = document.getElementById("save-session-btn");
@@ -2174,6 +2434,19 @@
           ...state,
           racerForm: {
             ...state.racerForm,
+            carNumber: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (manualCarInput) {
+      manualCarInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          manualAssignmentForm: {
+            ...state.manualAssignmentForm,
             carNumber: event.target.value,
           },
         };
@@ -2289,6 +2562,66 @@
       });
     }
 
+    if (assignCarBtn) {
+      assignCarBtn.addEventListener("click", () => {
+        const assignmentState = getManualAssignmentState();
+        if (!assignmentState?.activeSession || !assignmentState.selectedRacer) {
+          setNotice("danger", "Choose a staged racer before assigning a car.", 4000);
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(
+              `/api/sessions/${assignmentState.activeSession.id}/racers/${assignmentState.selectedRacer.id}`,
+              {
+                method: "PATCH",
+                body: { carNumber: assignmentState.carNumber },
+              }
+            ),
+          `Car ${assignmentState.carNumber} assigned to ${assignmentState.selectedRacer.name}.`,
+          () => {
+            setState({
+              manualAssignmentForm: {
+                racerId: assignmentState.selectedRacer.id,
+                carNumber: assignmentState.carNumber,
+              },
+            });
+          }
+        );
+      });
+    }
+
+    if (clearCarBtn) {
+      clearCarBtn.addEventListener("click", () => {
+        const assignmentState = getManualAssignmentState();
+        if (!assignmentState?.activeSession || !assignmentState.selectedRacer) {
+          setNotice("danger", "Choose a staged racer before clearing an assignment.", 4000);
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(
+              `/api/sessions/${assignmentState.activeSession.id}/racers/${assignmentState.selectedRacer.id}`,
+              {
+                method: "PATCH",
+                body: { carNumber: null },
+              }
+            ),
+          `Car assignment cleared for ${assignmentState.selectedRacer.name}.`,
+          () => {
+            setState({
+              manualAssignmentForm: {
+                racerId: assignmentState.selectedRacer.id,
+                carNumber: "",
+              },
+            });
+          }
+        );
+      });
+    }
+
     document.querySelectorAll("[data-action='stage-session']").forEach((node) => {
       node.addEventListener("click", () => {
         runAction(
@@ -2362,6 +2695,22 @@
             }),
           "Racer removed."
         );
+      });
+    });
+
+    document.querySelectorAll("[data-action='select-manual-racer']").forEach((node) => {
+      node.addEventListener("click", () => {
+        const racer = activeSession?.racers.find((item) => item.id === node.dataset.racerId);
+        if (!racer) {
+          return;
+        }
+
+        setState({
+          manualAssignmentForm: {
+            racerId: racer.id,
+            carNumber: racer.carNumber || "",
+          },
+        });
       });
     });
   }
