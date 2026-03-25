@@ -28,5 +28,8 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: M3 Flag Matrix
+        run: npm run test:m3-matrix
+
       - name: Build
         run: npm run build

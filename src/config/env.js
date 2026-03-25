@@ -13,6 +13,8 @@ const STAFF_ROUTE_TO_KEY = {
   "/lap-line-tracker": "LAP_LINE_TRACKER_KEY",
 };
 
+const FEATURE_FLAG_KEYS = ["FF_PERSISTENCE", "FF_MANUAL_CAR_ASSIGNMENT"];
+
 function loadDotenv() {
   const dotenvPath = process.env.DOTENV_PATH || path.join(process.cwd(), ".env");
   dotenv.config({ path: dotenvPath, quiet: true });
@@ -47,6 +49,22 @@ function parseBooleanFlag(value) {
   return value.trim().toLowerCase() === "true";
 }
 
+function parseFeatureFlags() {
+  return FEATURE_FLAG_KEYS.reduce((flags, key) => {
+    flags[key] = parseBooleanFlag(process.env[key]);
+    return flags;
+  }, {});
+}
+
+function parsePersistenceFilePath() {
+  const explicitPath = process.env.PERSISTENCE_FILE_PATH;
+  if (typeof explicitPath === "string" && explicitPath.trim() !== "") {
+    return path.resolve(explicitPath.trim());
+  }
+
+  return path.join(process.cwd(), "data", "race-state.json");
+}
+
 function assertRequiredEnv() {
   if (parseBooleanFlag(process.env.STAFF_AUTH_DISABLED)) {
     return;
@@ -69,6 +87,8 @@ function loadEnvConfig() {
   return {
     requiredKeys: REQUIRED_KEYS,
     staffRouteToKey: STAFF_ROUTE_TO_KEY,
+    featureFlags: parseFeatureFlags(),
+    persistenceFilePath: parsePersistenceFilePath(),
     raceDurationSeconds: parseRaceDurationSeconds(),
     authFailureDelayMs: parseAuthFailureDelayMs(),
     staffAuthDisabled: parseBooleanFlag(process.env.STAFF_AUTH_DISABLED),

@@ -47,6 +47,8 @@ Other env vars:
 - `PORT` (default `3000`)
 - `RACE_DURATION_SECONDS` (optional explicit override)
 - `AUTH_FAILURE_DELAY_MS` (optional; defaults to `500`)
+- `FF_PERSISTENCE` (optional; defaults to `false`)
+- `FF_MANUAL_CAR_ASSIGNMENT` (optional; defaults to `false`)
 - `STAFF_AUTH_DISABLED` (optional; defaults to `false`)
 
 Notes:
@@ -123,4 +125,3 @@ Route URLs:
 Render demo/testing note:
 - Keep `STAFF_AUTH_DISABLED` unset or `false` for the normal protected deployment.
 - Only set `STAFF_AUTH_DISABLED=true` when you intentionally want `/front-desk`, `/race-control`, and `/lap-line-tracker` to open without the staff key gate.
-
