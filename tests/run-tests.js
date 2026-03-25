@@ -1,4 +1,6 @@
 require("./session-racer-crud.integration.test");
+require("./feature-flags.integration.test");
+require("./front-desk-feature-flag.ui.test");
 require("./backend-hardening.integration.test");
 require("./race-store.test");
 require("./race-state-machine.test");
