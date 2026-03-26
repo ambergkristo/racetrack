@@ -1968,3 +1968,762 @@ body {
     flex-direction: column;
   }
 }
+
+.public-shell {
+  width: min(1680px, 100%);
+  min-height: 100dvh;
+  height: 100dvh;
+  padding: 16px 18px 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.public-shell.is-fullscreen {
+  padding: 12px;
+}
+
+.public-shell .telemetry-header {
+  margin-bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.public-shell .telemetry-copy {
+  gap: 6px;
+}
+
+.public-shell .eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+}
+
+.public-shell .telemetry-copy h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.4vw, 2.35rem);
+}
+
+.public-shell .subtitle {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.public-shell .route-caption {
+  display: none;
+}
+
+.public-shell .telemetry-meta {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 10px;
+  align-items: start;
+  justify-content: end;
+}
+
+.public-shell .connection-status {
+  min-height: 0;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  box-shadow: none;
+}
+
+.public-shell .connection-status strong {
+  font-size: 0.82rem;
+}
+
+.public-shell .connection-status span {
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.public-shell .connection-status em {
+  display: none;
+}
+
+.public-shell .fullscreen-btn {
+  min-height: 0;
+  min-width: 176px;
+  padding: 10px 12px;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  align-content: center;
+}
+
+.public-shell .fullscreen-btn strong {
+  font-size: 0.72rem;
+}
+
+.public-route-grid {
+  min-height: 0;
+  align-items: stretch;
+  align-content: stretch;
+}
+
+.public-route-grid > .panel {
+  grid-column: 1 / -1;
+  min-height: 0;
+  padding: 16px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.public-route-grid .panel-heading {
+  margin-bottom: 10px;
+}
+
+.public-route-grid .panel-heading h2 {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+}
+
+.public-display-panel {
+  display: grid;
+  min-height: 0;
+}
+
+.public-shell .public-glance-shell {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.public-shell .public-glance-copy {
+  gap: 6px;
+}
+
+.public-shell .section-kicker {
+  font-size: 0.66rem;
+}
+
+.public-shell .public-question {
+  font-size: clamp(1.14rem, 1.9vw, 1.68rem);
+  letter-spacing: 0.05em;
+}
+
+.public-shell .public-state-detail {
+  font-size: 0.9rem;
+  line-height: 1.24;
+}
+
+.public-shell .glance-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-self: start;
+}
+
+.public-shell .kpi-pill {
+  min-height: 58px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.public-shell .kpi-pill span {
+  font-size: 0.66rem;
+}
+
+.public-shell .kpi-pill strong {
+  margin-top: 2px;
+  font-size: 0.94rem;
+}
+
+.public-shell .tower-hero {
+  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(110px, 0.48fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.public-shell .tower-hero-copy {
+  gap: 6px;
+}
+
+.public-shell .tower-hero-title {
+  font-size: clamp(1.2rem, 2vw, 1.86rem);
+}
+
+.public-shell .tower-hero-detail {
+  font-size: 0.86rem;
+}
+
+.public-shell .tower-stat {
+  padding: 12px;
+  gap: 6px;
+}
+
+.public-shell .tower-stat strong {
+  font-size: 1rem;
+}
+
+.public-shell .leaderboard-panel .table-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.public-shell .leaderboard-panel .telemetry-table {
+  min-width: 0;
+}
+
+.public-shell .leaderboard-panel .telemetry-table th,
+.public-shell .leaderboard-panel .telemetry-table td {
+  padding: 8px 10px;
+}
+
+.public-shell .leaderboard-panel .position-badge,
+.public-shell .leaderboard-panel .car-badge {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+}
+
+.public-shell .leaderboard-panel .driver-cell {
+  gap: 2px;
+}
+
+.public-shell .leaderboard-panel .driver-cell strong,
+.public-shell .leaderboard-panel .timing-cell {
+  font-size: 0.92rem;
+}
+
+.public-shell .leaderboard-panel .driver-cell span {
+  font-size: 0.76rem;
+}
+
+.public-shell .leaderboard-footer {
+  margin-top: 10px;
+  font-size: 0.8rem;
+}
+
+.public-shell .next-race-panel .inline-alert {
+  margin-top: 0;
+  min-height: 0;
+  padding: 10px 12px;
+}
+
+.public-shell .session-board-grid {
+  gap: 12px;
+}
+
+.public-shell .session-board {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+}
+
+.public-shell .session-board > strong {
+  font-size: 1.12rem;
+}
+
+.public-shell .session-board > span {
+  font-size: 0.88rem;
+  line-height: 1.24;
+}
+
+.public-shell .roster-pill-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.public-shell .roster-pill {
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.public-shell .roster-pill-car {
+  font-size: 0.66rem;
+}
+
+.public-shell .roster-pill strong {
+  font-size: 0.88rem;
+}
+
+.public-shell .countdown-focus-shell {
+  gap: 12px;
+}
+
+.public-shell .countdown-shell {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 12px;
+  padding: 14px;
+}
+
+.public-shell .countdown-board {
+  min-height: 0;
+  padding: 12px;
+  gap: 10px;
+}
+
+.public-shell .countdown-session-name {
+  font-size: clamp(1.18rem, 1.9vw, 1.8rem);
+}
+
+.public-shell .countdown-digits {
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.9;
+}
+
+.public-shell .countdown-side {
+  gap: 10px;
+  padding: 14px;
+}
+
+.public-shell .countdown-side .stack-list {
+  margin-top: 2px;
+}
+
+.public-shell .countdown-side .info-row {
+  gap: 10px;
+}
+
+.public-shell .flag-shell-minimal .flag-board {
+  min-height: min(58vh, 560px);
+  padding: 18px;
+  gap: 10px;
+}
+
+.public-shell .flag-shell-minimal .flag-code {
+  font-size: clamp(5.6rem, 15vw, 11.5rem);
+  line-height: 0.82;
+}
+
+.public-shell .flag-shell-minimal .flag-board strong {
+  font-size: clamp(1.55rem, 3.4vw, 2.7rem);
+}
+
+.public-shell .flag-display-meta {
+  margin-top: 4px;
+  gap: 8px 14px;
+  font-size: 0.78rem;
+}
+
+.staff-shell {
+  width: min(1720px, 100%);
+  min-height: 100dvh;
+  height: 100dvh;
+  padding: 16px 18px 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.staff-shell.is-fullscreen {
+  padding: 12px;
+}
+
+.staff-shell .telemetry-header {
+  margin-bottom: 0;
+  gap: 14px;
+  align-items: start;
+}
+
+.staff-shell .telemetry-copy {
+  gap: 8px;
+}
+
+.staff-shell .eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+}
+
+.staff-shell .telemetry-copy h1 {
+  margin: 0 0 4px;
+  font-size: clamp(1.55rem, 2.8vw, 2.7rem);
+}
+
+.staff-shell .subtitle {
+  font-size: 0.95rem;
+  line-height: 1.28;
+}
+
+.staff-shell .route-caption {
+  display: none;
+}
+
+.staff-shell .telemetry-meta {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: min(264px, 100%);
+}
+
+.staff-shell .connection-status {
+  min-height: 0;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  box-shadow: none;
+}
+
+.staff-shell .connection-status strong {
+  font-size: 0.84rem;
+}
+
+.staff-shell .connection-status span {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.staff-shell .connection-status em {
+  display: none;
+}
+
+.staff-route-grid {
+  min-height: 0;
+  gap: 12px;
+  align-content: start;
+}
+
+.staff-route-grid > .panel {
+  min-height: 0;
+  padding: 16px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.staff-route-grid .panel-heading {
+  margin-bottom: 10px;
+}
+
+.staff-route-grid .panel-heading h2 {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+}
+
+.staff-status-panel,
+.home-summary-panel {
+  grid-column: span 4;
+}
+
+.staff-main-panel,
+.home-launch-panel {
+  grid-column: span 8;
+}
+
+.staff-support-panel {
+  grid-column: span 4;
+}
+
+.staff-shell .status-marquee,
+.staff-shell .command-stage,
+.staff-shell .lap-stage,
+.staff-shell .frontdesk-block,
+.staff-shell .summary-stack,
+.staff-shell .race-control-sidecar,
+.staff-shell .lap-tracker-sidecar,
+.staff-shell .queue-card,
+.staff-shell .front-desk-embedded-panel {
+  padding: 14px;
+  border-radius: 16px;
+  gap: 10px;
+}
+
+.staff-shell .status-marquee-title,
+.staff-shell .command-stage-title,
+.staff-shell .summary-value {
+  font-size: clamp(1.16rem, 1.8vw, 1.72rem);
+}
+
+.staff-shell .section-kicker {
+  font-size: 0.66rem;
+}
+
+.staff-shell .telemetry-tag {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+}
+
+.staff-shell .staff-status-metrics,
+.staff-shell .kpi-grid,
+.staff-shell .mode-grid {
+  gap: 10px;
+}
+
+.staff-shell .kpi-pill {
+  min-height: 62px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.staff-shell .kpi-pill span {
+  font-size: 0.66rem;
+}
+
+.staff-shell .kpi-pill strong {
+  margin-top: 2px;
+  font-size: 0.94rem;
+}
+
+.staff-shell .staff-chip-row {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.staff-shell .inline-alert,
+.staff-shell .guard-item,
+.staff-shell .empty-state,
+.staff-shell .session-overlay {
+  margin-top: 10px;
+  min-height: 0;
+  padding: 10px 12px;
+}
+
+.staff-shell .field {
+  gap: 6px;
+}
+
+.staff-shell .field input {
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 14px;
+}
+
+.staff-shell .action-btn {
+  min-height: 50px;
+  border-radius: 14px;
+}
+
+.staff-shell .frontdesk-workflow {
+  grid-template-columns: minmax(0, 1.24fr) minmax(260px, 0.76fr);
+  gap: 12px;
+}
+
+.staff-shell .frontdesk-overview,
+.staff-shell .queue-lane {
+  gap: 10px;
+}
+
+.staff-shell .queue-title {
+  font-size: 1rem;
+}
+
+.staff-shell .queue-kicker {
+  margin: 0 0 4px;
+  font-size: 0.66rem;
+}
+
+.staff-shell .queue-meta,
+.staff-shell .queue-roster,
+.staff-shell .queue-actions {
+  margin-top: 8px;
+}
+
+.staff-shell .queue-racer-row {
+  padding: 6px 0;
+}
+
+.queue-overflow-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.staff-shell .ops-board {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.staff-shell .racer-board {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) auto;
+  gap: 10px;
+}
+
+.staff-shell .table-wrap {
+  margin-top: 10px;
+}
+
+.staff-shell .telemetry-table {
+  min-width: 0;
+}
+
+.staff-shell .telemetry-table th,
+.staff-shell .telemetry-table td {
+  padding: 8px 10px;
+}
+
+.staff-shell .race-control-actions {
+  gap: 10px;
+}
+
+.staff-shell .race-command {
+  padding: 12px;
+  border-radius: 14px;
+  gap: 8px;
+}
+
+.staff-shell .command-hint {
+  font-size: 0.82rem;
+  line-height: 1.24;
+}
+
+.staff-shell .checkered-callout,
+.staff-shell .locked-callout,
+.staff-shell .mode-standby {
+  margin-top: 8px;
+  padding: 10px 12px;
+  gap: 4px;
+  border-radius: 14px;
+}
+
+.staff-shell .mode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.staff-shell .lap-tracker-shell {
+  grid-template-columns: minmax(0, 1.05fr) minmax(220px, 0.8fr);
+  gap: 12px;
+}
+
+.staff-shell .car-grid {
+  margin-top: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.staff-shell .huge-touch-btn {
+  min-height: 96px;
+  padding: 10px;
+  gap: 4px;
+  border-radius: 14px;
+}
+
+.staff-shell .huge-touch-btn strong {
+  font-size: 1rem;
+}
+
+.staff-shell .huge-touch-btn span,
+.staff-shell .huge-touch-btn em {
+  font-size: 0.76rem;
+}
+
+.route-home .route-card-grid {
+  margin-top: 0;
+}
+
+.home-launch-shell,
+.home-route-section {
+  display: grid;
+  gap: 10px;
+}
+
+.home-launch-shell {
+  align-content: start;
+}
+
+.home-route-section {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(15, 16, 22, 0.92);
+}
+
+.compact-route-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.route-home .route-card {
+  min-height: 0;
+  padding: 12px;
+  gap: 8px;
+  border-radius: 16px;
+}
+
+.route-home .route-card-title {
+  font-size: 0.98rem;
+}
+
+.route-home .route-card-note {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.route-home .route-card-body {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .staff-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .staff-status-panel,
+  .home-summary-panel,
+  .staff-main-panel,
+  .home-launch-panel,
+  .staff-support-panel {
+    grid-column: 1 / -1;
+  }
+
+  .staff-shell .frontdesk-workflow,
+  .staff-shell .lap-tracker-shell,
+  .public-shell .public-glance-shell,
+  .public-shell .glance-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .public-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .public-shell .telemetry-header {
+    grid-template-columns: 1fr;
+  }
+
+  .public-shell .telemetry-meta {
+    grid-auto-flow: row;
+    justify-content: stretch;
+  }
+
+  .public-shell .roster-pill-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .compact-route-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .staff-shell,
+  .staff-shell.is-fullscreen,
+  .public-shell,
+  .public-shell.is-fullscreen {
+    height: auto;
+    padding: 12px;
+  }
+
+  .staff-shell .telemetry-header,
+  .public-shell .telemetry-header {
+    grid-template-columns: 1fr;
+  }
+
+  .staff-shell .telemetry-meta {
+    min-width: 0;
+  }
+
+  .public-shell .telemetry-meta {
+    grid-auto-flow: row;
+  }
+
+  .public-shell .fullscreen-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .staff-shell .ops-board,
+  .staff-shell .racer-board,
+  .compact-route-grid {
+    grid-template-columns: 1fr;
+  }
+}

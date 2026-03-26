@@ -178,6 +178,44 @@ test("public routes keep fullscreen affordances on all display screens", async (
   }
 });
 
+test("leader-board uses the compact public shell and caps live rows to six", async () => {
+  const leaderboard = Array.from({ length: 8 }, (_unused, index) => ({
+    position: index + 1,
+    racerId: `racer-${index + 1}`,
+    name: `Racer ${index + 1}`,
+    carNumber: String(index + 1),
+    lapCount: 3,
+    currentLapTimeMs: 43000 + index * 120,
+    bestLapTimeMs: 42000 + index * 120,
+  }));
+
+  const html = await renderRoute("/leader-board", {
+    snapshot: {
+      leaderboard,
+      activeSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: leaderboard.map((entry) => ({
+          id: entry.racerId,
+          name: entry.name,
+          carNumber: entry.carNumber,
+          lapCount: entry.lapCount,
+          currentLapTimeMs: entry.currentLapTimeMs,
+          bestLapTimeMs: entry.bestLapTimeMs,
+          lastCrossingTimestampMs: null,
+        })),
+      },
+    },
+  });
+
+  const rowCount = (html.match(/<tr class="/g) || []).length;
+
+  assert.equal(rowCount, 6);
+  assert.equal(html.includes("Showing top 6 of 8"), true);
+  assert.equal(html.includes("public-shell"), true);
+  assert.equal(html.includes("public-route-grid"), true);
+});
+
 test("staff and public routes reflect the same CHECKERED truth without collapsing the next session", async () => {
   const snapshot = buildSnapshot({
     state: "FINISHED",

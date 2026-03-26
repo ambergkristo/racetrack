@@ -91,7 +91,7 @@ function buildSnapshot() {
   };
 }
 
-async function renderFrontDesk(featureFlags = {}) {
+async function renderFrontDesk(featureFlags = {}, snapshotOverrides = {}) {
   const source = fs.readFileSync(path.join(__dirname, "..", "client", "app.js"), "utf8");
   const appEl = { innerHTML: "" };
 
@@ -136,7 +136,10 @@ async function renderFrontDesk(featureFlags = {}) {
           FF_MANUAL_CAR_ASSIGNMENT: false,
           ...featureFlags,
         },
-        raceSnapshot: buildSnapshot(),
+        raceSnapshot: {
+          ...buildSnapshot(),
+          ...snapshotOverrides,
+        },
       };
     },
   });
@@ -185,4 +188,51 @@ test("front-desk shows manual assignment messaging only when the flag is on", as
 
   assert.equal(html.includes("Manual assignment active"), true);
   assert.equal(html.includes("FF ON"), true);
+});
+
+test("front-desk queue cards cap visible racers and show overflow note", async () => {
+  const makeRacer = (index) => ({
+    id: `racer-${index}`,
+    name: `Racer ${index}`,
+    carNumber: String(index),
+    lapCount: 0,
+    currentLapTimeMs: null,
+    bestLapTimeMs: null,
+    lastCrossingTimestampMs: null,
+    createdAt: "2026-03-26T10:00:00.000Z",
+    updatedAt: "2026-03-26T10:00:00.000Z",
+  });
+  const currentRacers = Array.from({ length: 5 }, (_unused, index) => makeRacer(index + 1));
+  const nextRacers = Array.from({ length: 5 }, (_unused, index) => makeRacer(index + 11));
+
+  const html = await renderFrontDesk(
+    {},
+    {
+      activeSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: currentRacers,
+        createdAt: "2026-03-26T10:00:00.000Z",
+        updatedAt: "2026-03-26T10:00:00.000Z",
+      },
+      currentSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: currentRacers,
+        createdAt: "2026-03-26T10:00:00.000Z",
+        updatedAt: "2026-03-26T10:00:00.000Z",
+      },
+      nextSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: nextRacers,
+        createdAt: "2026-03-26T10:00:00.000Z",
+        updatedAt: "2026-03-26T10:00:00.000Z",
+      },
+    }
+  );
+
+  assert.equal(html.includes("Racer 4"), true);
+  assert.equal(html.includes("Racer 15"), false);
+  assert.equal(html.includes("+1 more racers staged"), true);
 });
