@@ -14,7 +14,7 @@
       staff: true,
       public: false,
       accent: "safe",
-      body: "Create, update, stage, and clean up sessions and racers against the live backend.",
+      body: "Stage the next heat, manage the active roster, and keep the queue moving.",
     },
     "/race-control": {
       title: "Race Control",
@@ -22,7 +22,7 @@
       staff: true,
       public: false,
       accent: "warning",
-      body: "Run the authoritative lifecycle from STAGING through FINISHED and LOCKED.",
+      body: "Call the race state quickly and keep the active mode visible at a glance.",
     },
     "/lap-line-tracker": {
       title: "Lap Line Tracker",
@@ -30,7 +30,7 @@
       staff: true,
       public: false,
       accent: "danger",
-      body: "Register real lap crossings for the active session and watch the leaderboard update live.",
+      body: "Record crossings fast with large touch targets and only the state that matters.",
     },
     "/leader-board": {
       title: "Leader Board",
@@ -892,6 +892,8 @@
     const routeTone = routeConfig.public ? "warning" : routeConfig.staff ? "safe" : "idle";
     const routeLabel = route === "/" ? "Launch Surface" : routeConfig.public ? "Public Display" : "Staff Operation";
     const phaseLabel = route === "/" ? "Control Hub" : STATE_META[snapshot.state]?.label || snapshot.state;
+    const headerSubtitle = routeConfig.staff ? routeConfig.body : routeConfig.subtitle;
+    const headerCaption = routeConfig.staff ? "" : `<p class="route-caption">${routeConfig.body}</p>`;
 
     return `
       <header class="telemetry-header">
@@ -905,8 +907,8 @@
               ${debugMode ? '<span class="telemetry-tag tone-warning">Debug View</span>' : ""}
             </div>
           </div>
-          <p class="subtitle">${routeConfig.subtitle}</p>
-          <p class="route-caption">${routeConfig.body}</p>
+          <p class="subtitle">${headerSubtitle}</p>
+          ${headerCaption}
         </div>
         <div class="telemetry-meta">
           ${connectionStatus()}
@@ -969,10 +971,10 @@
 
   function appShell(content) {
     return `
-      <div class="app-shell route-${route.replace(/\//g, "") || "home"} ${document.fullscreenElement ? "is-fullscreen" : ""}">
+      <div class="app-shell route-${route.replace(/\//g, "") || "home"} ${routeConfig.staff ? "staff-shell" : ""} ${document.fullscreenElement ? "is-fullscreen" : ""}">
         <div class="backdrop-grid"></div>
         ${telemetryHeader()}
-        <main class="route-grid">
+        <main class="route-grid ${routeConfig.staff ? "staff-route-grid" : ""}">
           ${content}
         </main>
         ${keyGateModal()}
@@ -1150,6 +1152,7 @@
     const activeSession = getActiveSession();
     const flagMeta = getFlagMeta(snapshot);
     const syncLabel = state.awaitingLiveResync ? "waiting" : "live";
+    const gateLabel = state.staffAuthDisabled ? "Bypassed" : state.gateStatus;
     return panel(
       "Control State",
       `
@@ -1163,20 +1166,20 @@
               <span class="telemetry-tag tone-${activeSession ? "warning" : "idle"}">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
             </div>
           </div>
-          <div class="kpi-grid">
+          <div class="staff-status-metrics">
+            ${kpiPill("State", STATE_META[snapshot.state]?.label || snapshot.state, flagMeta.tone)}
             ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
             ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "danger")}
             ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
-            ${kpiPill("Sync", syncLabel.toUpperCase(), syncLabel === "live" ? "safe" : "warning")}
           </div>
         </div>
         ${staffConnectionAlert()}
         ${noticeMarkup()}
-        <div class="chip-row">
-          <span class="chip">Gate: ${escapeHtml(state.staffAuthDisabled ? "bypassed" : state.gateStatus)}</span>
+        <div class="staff-chip-row">
+          <span class="chip">Gate ${escapeHtml(gateLabel)}</span>
           <span class="chip">Manual Assign: ${escapeHtml(state.featureFlags.FF_MANUAL_CAR_ASSIGNMENT ? "ON" : "OFF")}</span>
-          <span class="chip">Sync: ${escapeHtml(syncLabel)}</span>
-          <span class="chip">Last sync: ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
+          <span class="chip">Sync ${escapeHtml(syncLabel)}</span>
+          <span class="chip">Last sync ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
         </div>
       `,
       "safe",
@@ -1272,8 +1275,6 @@
             : ""
         );
         const deleteReason = editReason;
-        const summaryReason = firstReason(stageReason, editReason, deleteReason);
-
         return `
           <tr>
             <td>${escapeHtml(session.name)}</td>
@@ -1303,7 +1304,6 @@
                   attrs: `data-action="delete-session" data-session-id="${escapeHtml(session.id)}"`,
                 })}
               </div>
-              ${summaryReason ? `<p class="row-reason">${escapeHtml(summaryReason)}</p>` : ""}
             </td>
           </tr>
         `;
@@ -1354,7 +1354,6 @@
                   attrs: `data-action="delete-racer" data-racer-id="${escapeHtml(racer.id)}"`,
                 })}
               </div>
-              ${editReason ? `<p class="row-reason">${escapeHtml(editReason)}</p>` : ""}
             </td>
           </tr>
         `;
@@ -1405,74 +1404,80 @@
   function frontDeskPanel() {
     const formState = getFrontDeskFormState();
     const activeSession = formState.activeSession;
+    const queueCount = getQueuedSessions().length;
 
     return [
       panel(
-        "Session Setup",
+        "Front Desk Workbench",
         `
-          <div class="ops-board">
-            <div class="form-stack">
-              <p class="section-kicker">Session control</p>
-              <label class="field">
-                <span>Session name</span>
-                <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
-              </label>
-              <div class="controls">
-                ${buttonMarkup({
-                  id: "save-session-btn",
-                  label: formState.updateMode ? "Save Session" : "Create Session",
-                  disabled: Boolean(formState.saveSessionReason),
-                })}
-                ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+          <div class="front-desk-shell">
+            <div class="front-desk-primary">
+              <div class="front-desk-section">
+                <p class="section-kicker">Stage the next heat</p>
+                <div class="ops-board">
+                  <div class="form-stack">
+                    <label class="field">
+                      <span>Session name</span>
+                      <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
+                    </label>
+                    <div class="controls">
+                      ${buttonMarkup({
+                        id: "save-session-btn",
+                        label: formState.updateMode ? "Save Session" : "Create Session",
+                        disabled: Boolean(formState.saveSessionReason),
+                      })}
+                      ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+                    </div>
+                  </div>
+                  <div class="summary-stack">
+                    <p class="section-kicker">Active session</p>
+                    <strong class="summary-value">${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
+                    <div class="stack-list compact-list">
+                      <div class="info-row"><span>Race state</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
+                      <div class="info-row"><span>Racers</span><strong>${activeSession ? activeSession.racers.length : 0}</strong></div>
+                      <div class="info-row"><span>Queued</span><strong>${queueCount}</strong></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="front-desk-guards">
+                  ${formState.frontDeskReasons}
+                </div>
+              </div>
+              <div class="front-desk-section">
+                <p class="section-kicker">Check in the roster</p>
+                <div class="ops-board racer-board">
+                  <label class="field">
+                    <span>Racer name</span>
+                    <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
+                  </label>
+                  <label class="field">
+                    <span>Car number</span>
+                    <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
+                  </label>
+                  <div class="controls">
+                    ${buttonMarkup({
+                      id: "save-racer-btn",
+                      label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
+                      disabled: Boolean(formState.saveRacerReason),
+                    })}
+                    ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+                  </div>
+                </div>
+                <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits apply to the active staged session.")}</p>
+                ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
               </div>
             </div>
-            <div class="summary-stack">
-              <p class="section-kicker">Staged session</p>
-              <strong class="summary-value">${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
-              <div class="stack-list compact-list">
-                <div class="info-row"><span>Race state</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
-                <div class="info-row"><span>Racers</span><strong>${activeSession ? activeSession.racers.length : 0}</strong></div>
-                <div class="info-row"><span>Queued sessions</span><strong>${getQueuedSessions().length}</strong></div>
-              </div>
+            <div class="front-desk-secondary">
+              ${manualAssignmentEnabled() ? manualAssignmentPanel(true) : ""}
+              ${panel(
+                "Session Queue",
+                dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true }),
+                "warning"
+              )}
             </div>
           </div>
-          <div id="front-desk-guards">
-            ${formState.frontDeskReasons}
-          </div>
         `,
-        "safe"
-      ),
-      panel(
-        "Session Queue",
-        dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true }),
-        "warning"
-      ),
-      manualAssignmentPanel(),
-      panel(
-        "Racer Garage",
-        `
-          <div class="ops-board racer-board">
-            <label class="field">
-              <span>Racer name</span>
-              <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
-            </label>
-            <label class="field">
-              <span>Car number</span>
-              <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
-            </label>
-            <div class="controls">
-              ${buttonMarkup({
-                id: "save-racer-btn",
-                label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
-                disabled: Boolean(formState.saveRacerReason),
-              })}
-              ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
-            </div>
-          </div>
-          <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits apply to the active staged session.")}</p>
-          ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
-        `,
-        "safe",
+        "warning",
         "panel-wide"
       ),
     ].join("");
@@ -1520,8 +1525,8 @@
     `;
   }
 
-  function manualAssignmentPanel() {
-    if (!manualAssignmentEnabled()) {
+  function manualAssignmentPanel(embed = false) {
+    if (!embed && !manualAssignmentEnabled()) {
       return "";
     }
 
@@ -1548,18 +1553,16 @@
       { label: "Clear assignment", reason: assignmentState.clearReason },
     ]);
 
-    return panel(
-      "Manual Car Assignment",
-      `
+    const content = `
         <div class="assignment-shell">
           <div class="assignment-console">
             <p class="section-kicker">Upgrade flag active</p>
             <strong class="summary-value">Manual assignment console</strong>
-            <p class="panel-copy">This panel is gated by <code>FF_MANUAL_CAR_ASSIGNMENT</code> and leaves the MVP front-desk flow untouched when the flag is OFF.</p>
             <div class="telemetry-tags">
               <span class="telemetry-tag tone-warning">Flag ON</span>
               <span class="telemetry-tag tone-safe">${escapeHtml(selectedLabel)}</span>
             </div>
+            <p class="hint">Guarded by <code>FF_MANUAL_CAR_ASSIGNMENT</code>.</p>
             <label class="field">
               <span>Car number</span>
               <input id="manual-car-number-input" type="text" value="${escapeHtml(state.manualAssignmentForm.carNumber)}" placeholder="12" ${assignmentState.selectionReason ? "disabled" : ""} />
@@ -1594,10 +1597,20 @@
             )}
           </div>
         </div>
-      `,
-      "warning",
-      "panel-wide"
-    );
+      `;
+
+    if (embed) {
+      return `
+        <section class="front-desk-embedded-panel">
+          <div class="panel-heading">
+            <h2>Manual Car Assignment</h2>
+          </div>
+          ${content}
+        </section>
+      `;
+    }
+
+    return panel("Manual Car Assignment", content, "warning", "panel-wide");
   }
 
   function syncFrontDeskFormUi() {
@@ -1764,18 +1777,26 @@
 
     return [
       panel(
-        "Lifecycle Commands",
+        "Race Control Console",
         `
-          <div class="command-stage tone-${flagMeta.tone}">
-            <div class="command-stage-copy">
-              <p class="section-kicker">Current authority</p>
-              <strong class="command-stage-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
-              <span class="command-stage-detail">${escapeHtml(activeSession ? activeSession.name : "No session staged")}</span>
+          <div class="race-control-shell">
+            <div class="command-stage tone-${flagMeta.tone}">
+              <div class="command-stage-copy">
+                <p class="section-kicker">Current authority</p>
+                <strong class="command-stage-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
+                <span class="command-stage-detail">${escapeHtml(activeSession ? activeSession.name : "No session staged")}</span>
+              </div>
+              <div class="race-control-actions">
+                ${buttonMarkup({ id: "race-start-btn", label: "Start Race", disabled: Boolean(startReason) })}
+                ${buttonMarkup({ id: "race-finish-btn", label: "Finish Race", variant: "warning", disabled: Boolean(finishReason) })}
+                ${buttonMarkup({ id: "race-lock-btn", label: "End + Lock", variant: "danger", disabled: Boolean(lockReason) })}
+              </div>
             </div>
-            <div class="controls controls-tight command-row">
-              ${buttonMarkup({ id: "race-start-btn", label: "Start Race", disabled: Boolean(startReason) })}
-              ${buttonMarkup({ id: "race-finish-btn", label: "Finish Race", variant: "warning", disabled: Boolean(finishReason) })}
-              ${buttonMarkup({ id: "race-lock-btn", label: "End + Lock", variant: "danger", disabled: Boolean(lockReason) })}
+            <div class="race-control-sidecar">
+              <p class="section-kicker">Flag mode</p>
+              <strong class="summary-value">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</strong>
+              ${actionGuardList([{ label: "Mode controls", reason: modeReason }])}
+              <div class="mode-grid">${modeButtons}</div>
             </div>
           </div>
           ${actionGuardList([
@@ -1784,16 +1805,8 @@
             { label: "End + Lock", reason: lockReason },
           ])}
         `,
-        "warning"
-      ),
-      panel(
-        "Mode Control",
-        `
-          <p class="panel-copy">Flag mode changes stay available only while the race is live. The current state remains visually pinned above.</p>
-          ${actionGuardList([{ label: "Mode controls", reason: modeReason }])}
-          <div class="mode-grid">${modeButtons}</div>
-        `,
-        flagMeta.tone
+        "warning",
+        "panel-wide"
       ),
       panel("Live Order", leaderboardTable(snapshot.leaderboard), "safe", "panel-wide"),
     ].join("");
@@ -1842,26 +1855,26 @@
 
     return [
       panel(
-        "Lap Entry Status",
+        "Lap Entry Console",
         `
-          <div class="lap-stage tone-${flagMeta.tone}">
-            <div class="lap-stage-copy">
-              <p class="section-kicker">Authoritative entry</p>
-              <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
-              <span class="command-stage-detail">${escapeHtml(STATE_META[snapshot.state]?.detail || "Lap entry will unlock when the race enters a live phase.")}</span>
+          <div class="lap-tracker-shell">
+            <div class="lap-stage tone-${flagMeta.tone}">
+              <div class="lap-stage-copy">
+                <p class="section-kicker">Authoritative entry</p>
+                <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
+                <span class="command-stage-detail">${escapeHtml(STATE_META[snapshot.state]?.detail || "Lap entry will unlock when the race enters a live phase.")}</span>
+              </div>
+              <div class="telemetry-tags">
+                <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
+                <span class="telemetry-tag tone-${lapAllowed ? "safe" : "danger"}">${escapeHtml(lapAllowed ? "Lap entry open" : "Lap entry blocked")}</span>
+              </div>
             </div>
-            <div class="telemetry-tags">
-              <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
-              <span class="telemetry-tag tone-${lapAllowed ? "safe" : "danger"}">${escapeHtml(lapAllowed ? "Lap entry open" : "Lap entry blocked")}</span>
+            <div class="lap-tracker-sidecar">
+              <p class="section-kicker">Crossing controls</p>
+              <strong class="summary-value">${escapeHtml(lapAllowed ? "Ready for taps" : "Waiting on race state")}</strong>
+              ${actionGuardList([{ label: "Lap crossing", reason: lapReason }])}
             </div>
           </div>
-          ${actionGuardList([{ label: "Lap crossing", reason: lapReason }])}
-        `,
-        "danger"
-      ),
-      panel(
-        "Crossing Console",
-        `
           <div class="car-grid lap-grid">${buttons}</div>
           ${overlay}
         `,
