@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { createRaceStore } = require("../src/domain/raceStore");
+const { buildRaceStateTruth } = require("../src/domain/raceStateTruth");
 const { test } = require("./helpers/testHarness");
 
 test("race store ignores non-positive lap deltas without corrupting leaderboard timing", () => {
@@ -54,4 +55,35 @@ test("race store ignores non-positive lap deltas without corrupting leaderboard 
   const snapshot = raceStore.getSnapshot();
   assert.equal(snapshot.leaderboard[0].currentLapTimeMs, 600);
   assert.equal(snapshot.leaderboard[0].bestLapTimeMs, 600);
+});
+
+test("derived state truth keeps FINISHED distinct from LOCKED", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 60,
+    now: () => 1_000,
+  });
+
+  const session = raceStore.createSession({ name: "Heat 1" });
+  const racer = raceStore.addRacer(session.id, {
+    name: "Amy",
+    carNumber: "7",
+  });
+
+  raceStore.startRace();
+  raceStore.recordLapCrossing({ racerId: racer.id, timestampMs: 10_000 });
+  raceStore.finishRace();
+
+  const finishedTruth = buildRaceStateTruth(raceStore.getSnapshot());
+  assert.equal(finishedTruth.stateLabel, "Finished");
+  assert.equal(finishedTruth.flag, "CHECKERED");
+  assert.equal(finishedTruth.lapEntryAllowed, true);
+  assert.equal(finishedTruth.resultsFinalized, false);
+
+  raceStore.lockRace();
+
+  const lockedTruth = buildRaceStateTruth(raceStore.getSnapshot());
+  assert.equal(lockedTruth.stateLabel, "Locked");
+  assert.equal(lockedTruth.flag, "LOCKED");
+  assert.equal(lockedTruth.lapEntryAllowed, false);
+  assert.equal(lockedTruth.resultsFinalized, true);
 });

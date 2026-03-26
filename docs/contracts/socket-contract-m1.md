@@ -47,11 +47,19 @@ Payload shape:
 ### `race:snapshot`
 Authoritative canonical state payload:
 - `serverTime`
-- `state` (`IDLE|RUNNING|FINISHED|LOCKED`)
-- `mode` (`SAFE|SLOW|STOP|FINISHED`)
+- `state` (`IDLE|STAGING|RUNNING|FINISHED|LOCKED`)
+- `stateLabel` and `stateDescription` provide canonical UI wording
+- `flag` distinguishes display meaning directly (`SAFE|HAZARD_SLOW|HAZARD_STOP|CHECKERED|LOCKED|IDLE|STAGING`)
+- `lapEntryAllowed` is `true` only while lap input is accepted
+- `resultsFinalized` is `true` only after `LOCKED`
+- `mode` (`SAFE|HAZARD_SLOW|HAZARD_STOP`)
 - `raceDurationSeconds`, `remainingSeconds`, `endsAt`
 - active session pointers and full session/racer snapshots
 - computed leaderboard entries
+
+State clarity rules:
+- `FINISHED` means finish was called, checkered applies, and post-finish laps still count until lock.
+- `LOCKED` means the race is finalized, results are final, and lap input is blocked.
 
 ### `race:tick`
 Timer payload:

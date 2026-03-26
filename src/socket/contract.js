@@ -1,5 +1,6 @@
 const { z } = require("zod");
 const { RACE_MODES, RACE_STATES } = require("../domain/raceStateMachine");
+const { RACE_FLAGS } = require("../domain/raceStateTruth");
 
 const SOCKET_EVENTS = Object.freeze({
   CLIENT_HELLO: "client:hello",
@@ -68,9 +69,24 @@ const leaderboardEntrySchema = z.object({
   bestLapTimeMs: z.number().int().positive().nullable(),
 });
 
+const raceFlagSchema = z.enum([
+  RACE_FLAGS.IDLE,
+  RACE_FLAGS.STAGING,
+  RACE_FLAGS.SAFE,
+  RACE_FLAGS.HAZARD_SLOW,
+  RACE_FLAGS.HAZARD_STOP,
+  RACE_FLAGS.CHECKERED,
+  RACE_FLAGS.LOCKED,
+]);
+
 const raceSnapshotSchema = z.object({
   serverTime: z.string().datetime(),
   state: z.enum(Object.values(RACE_STATES)),
+  stateLabel: z.string().min(1),
+  stateDescription: z.string().min(1),
+  flag: raceFlagSchema,
+  lapEntryAllowed: z.boolean(),
+  resultsFinalized: z.boolean(),
   mode: z.enum(Object.values(RACE_MODES)),
   raceDurationSeconds: z.number().int().positive(),
   remainingSeconds: z.number().int().nonnegative(),

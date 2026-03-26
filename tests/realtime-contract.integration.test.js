@@ -152,6 +152,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       idleLeaderboardPayload,
       "leaderboard:update (IDLE)"
     );
+    assert.equal(idleSnapshotPayload.stateLabel, "Idle");
+    assert.equal(idleSnapshotPayload.flag, "IDLE");
+    assert.equal(idleSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(idleSnapshotPayload.resultsFinalized, false);
 
     const createSessionResult = await postJson(
       url,
@@ -194,6 +198,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(startResult.response.status, 200);
     const runningSnapshotPayload = await runningSnapshotPromise;
     assertSchema(raceSnapshotSchema, runningSnapshotPayload, "race:snapshot (RUNNING)");
+    assert.equal(runningSnapshotPayload.stateLabel, "Running");
+    assert.equal(runningSnapshotPayload.flag, "SAFE");
+    assert.equal(runningSnapshotPayload.lapEntryAllowed, true);
+    assert.equal(runningSnapshotPayload.resultsFinalized, false);
 
     const lapLeaderboardPromise = waitForEvent(
       socket,
@@ -242,6 +250,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(finishResult.response.status, 200);
     const finishedSnapshotPayload = await finishedSnapshotPromise;
     assertSchema(raceSnapshotSchema, finishedSnapshotPayload, "race:snapshot (FINISHED)");
+    assert.equal(finishedSnapshotPayload.stateLabel, "Finished");
+    assert.equal(finishedSnapshotPayload.flag, "CHECKERED");
+    assert.equal(finishedSnapshotPayload.lapEntryAllowed, true);
+    assert.equal(finishedSnapshotPayload.resultsFinalized, false);
 
     const lockedSnapshotPromise = waitForEvent(
       socket,
@@ -260,6 +272,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(lockResult.response.status, 200);
     const lockedSnapshotPayload = await lockedSnapshotPromise;
     assertSchema(raceSnapshotSchema, lockedSnapshotPayload, "race:snapshot (LOCKED)");
+    assert.equal(lockedSnapshotPayload.stateLabel, "Locked");
+    assert.equal(lockedSnapshotPayload.flag, "LOCKED");
+    assert.equal(lockedSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(lockedSnapshotPayload.resultsFinalized, true);
 
     assert.equal(unexpectedServerError, null, "server:error was emitted in happy path");
   } finally {

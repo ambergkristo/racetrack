@@ -6,6 +6,7 @@ const { z } = require("zod");
 const { Server } = require("socket.io");
 const { loadEnvConfig } = require("./src/config/env");
 const { createRaceStore, DomainError } = require("./src/domain/raceStore");
+const { buildRaceStateTruth } = require("./src/domain/raceStateTruth");
 const { createTimerService } = require("./src/domain/timerService");
 const { RACE_MODES } = require("./src/domain/raceStateMachine");
 const {
@@ -198,9 +199,11 @@ function createApp(options = {}) {
   const staticDir = resolveStaticDir();
 
   function buildRaceSnapshotPayload() {
+    const snapshot = raceStore.getSnapshot();
     return raceSnapshotSchema.parse({
       serverTime: new Date().toISOString(),
-      ...raceStore.getSnapshot(),
+      ...snapshot,
+      ...buildRaceStateTruth(snapshot),
     });
   }
 
