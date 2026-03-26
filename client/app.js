@@ -1054,10 +1054,10 @@
 
   function appShell(content) {
     return `
-      <div class="app-shell route-${route.replace(/\//g, "") || "home"} ${routeConfig.staff ? "staff-shell" : ""} ${document.fullscreenElement ? "is-fullscreen" : ""}">
+      <div class="app-shell route-${route.replace(/\//g, "") || "home"} ${routeConfig.staff ? "staff-shell" : ""} ${routeConfig.public ? "public-shell" : ""} ${document.fullscreenElement ? "is-fullscreen" : ""}">
         <div class="backdrop-grid"></div>
         ${telemetryHeader()}
-        <main class="route-grid ${routeConfig.staff ? "staff-route-grid" : ""}">
+        <main class="route-grid ${routeConfig.staff ? "staff-route-grid" : ""} ${routeConfig.public ? "public-route-grid" : ""}">
           ${content}
         </main>
         ${keyGateModal()}
@@ -1199,7 +1199,7 @@
         </div>
       `,
       flagMeta.tone,
-      "panel-wide"
+      "home-summary-panel"
     );
   }
 
@@ -1266,7 +1266,7 @@
         </div>
       `,
       "safe",
-      "panel-wide"
+      "staff-status-panel"
     );
   }
 
@@ -1433,11 +1433,12 @@
         : kind === "next"
           ? "Queued next"
           : "Queued";
+    const visibleRacers = session.racers.slice(0, kind === "queued" ? 3 : 4);
     const rosterMarkup =
       session.racers.length > 0
         ? `
             <div class="queue-roster">
-              ${session.racers
+              ${visibleRacers
                 .map(
                   (racer) => `
                     <div class="queue-racer-row">
@@ -1448,6 +1449,11 @@
                 )
                 .join("")}
             </div>
+            ${
+              session.racers.length > visibleRacers.length
+                ? `<p class="queue-overflow-note">+${session.racers.length - visibleRacers.length} more racers staged</p>`
+                : ""
+            }
           `
         : '<p class="hint">No racers staged yet.</p>';
 
@@ -1751,7 +1757,7 @@
           </div>
         `,
         "warning",
-        "panel-wide"
+        "staff-main-panel frontdesk-panel"
       ),
     ].join("");
   }
@@ -2144,9 +2150,9 @@
           </div>
         `,
         "warning",
-        "panel-wide"
+        "staff-main-panel race-control-panel"
       ),
-      panel("Live Order", leaderboardTable(snapshot.leaderboard), "safe", "panel-wide"),
+      panel("Live Order", leaderboardTable(snapshot.leaderboard, { limit: 6 }), "safe", "staff-support-panel race-order-panel"),
     ].join("");
   }
 
@@ -2217,7 +2223,7 @@
           ${overlay}
         `,
         "danger",
-        "panel-wide"
+        "staff-main-panel lap-tracker-panel"
       ),
     ].join("");
   }
@@ -2313,7 +2319,7 @@
     const activeSession = getDisplaySession();
     const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
-    const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 8);
+    const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 6);
     return [
       panel(
         "Timing Tower",
@@ -2346,14 +2352,14 @@
               <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
             </div>
           </div>
-          ${leaderboardTable(state.raceSnapshot.leaderboard, { limit: 8 })}
+          ${leaderboardTable(state.raceSnapshot.leaderboard, { limit: 6 })}
           <div class="leaderboard-footer">
             <span>${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
             <span>${escapeHtml(shownRows === state.raceSnapshot.leaderboard.length ? `Showing ${shownRows} live rows` : `Showing top ${shownRows} of ${state.raceSnapshot.leaderboard.length}`)}</span>
           </div>
         `,
         flagMeta.tone,
-        `panel-wide${finishedClass()}`
+        `panel-wide public-display-panel leaderboard-panel${finishedClass()}`
       ),
     ].join("");
   }
@@ -2388,6 +2394,7 @@
               ${rosterStrip(activeSession, {
                 emptyTitle: "No racers on track",
                 emptyDetail: "Front desk has not staged an active session yet.",
+                limit: 4,
               })}
             </div>
             <div class="session-board tone-safe">
@@ -2397,12 +2404,13 @@
               ${rosterStrip(queued, {
                 emptyTitle: "Queue is empty",
                 emptyDetail: "Add and queue the next session from front desk.",
+                limit: 4,
               })}
             </div>
           </div>
         `,
         "warning",
-        `panel-wide${finishedClass()}`
+        `panel-wide public-display-panel next-race-panel${finishedClass()}`
       ),
     ].join("");
   }
@@ -2431,6 +2439,11 @@
                 <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
                 <strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
                 <span>${escapeHtml(flagMeta.detail)}</span>
+                ${rosterStrip(activeSession, {
+                  emptyTitle: "No roster on screen",
+                  emptyDetail: "Stage a session to show the active lineup.",
+                  limit: 3,
+                })}
                 <div class="stack-list">
                   <div class="info-row"><span>State</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
                   <div class="info-row"><span>Next</span><strong>${escapeHtml(queued ? queued.name : "Waiting")}</strong></div>
@@ -2440,7 +2453,7 @@
           </div>
         `,
         flagMeta.tone,
-        `panel-wide${finishedClass()}`
+        `panel-wide public-display-panel countdown-panel${finishedClass()}`
       ),
     ].join("");
   }
@@ -2464,7 +2477,7 @@
           </div>
         `,
         flagMeta.tone,
-        "panel-wide"
+        "panel-wide public-display-panel flag-panel"
       ),
     ].join("");
   }
@@ -2472,18 +2485,35 @@
   function homePanels() {
     return [
       summaryPanel(),
-      routeDeck("Hub", "The root route stays a lightweight launch surface for the full telemetry shell.", "warning", ["/"], "single-card-grid"),
-      routeDeck(
-        "Staff Routes",
-        "Operational screens for setup, lifecycle control, and authoritative lap entry.",
-        "safe",
-        ["/front-desk", "/race-control", "/lap-line-tracker"]
-      ),
-      routeDeck(
-        "Public Displays",
-        "Fullscreen-friendly presentation routes for live boards, timing, and state display.",
+      panel(
+        "Route Launch Board",
+        `
+          <div class="home-launch-shell">
+            <div class="home-launch-copy">
+              <p class="section-kicker">Launch surfaces</p>
+              <strong class="summary-value">Open the right route without leaving the overview screen.</strong>
+              <p class="panel-copy">Staff routes stay operational. Public routes stay presentation-first. The hub remains compact on one screen.</p>
+            </div>
+            <div class="home-route-section">
+              <div class="panel-heading">
+                <h2>Staff Routes</h2>
+              </div>
+              <div class="route-card-grid compact-route-grid">
+                ${["/front-desk", "/race-control", "/lap-line-tracker"].map((pathname) => routeCard(pathname)).join("")}
+              </div>
+            </div>
+            <div class="home-route-section">
+              <div class="panel-heading">
+                <h2>Public Displays</h2>
+              </div>
+              <div class="route-card-grid compact-route-grid">
+                ${["/leader-board", "/next-race", "/race-countdown", "/race-flags"].map((pathname) => routeCard(pathname)).join("")}
+              </div>
+            </div>
+          </div>
+        `,
         "warning",
-        ["/leader-board", "/next-race", "/race-countdown", "/race-flags"]
+        "home-launch-panel"
       ),
     ].join("");
   }
