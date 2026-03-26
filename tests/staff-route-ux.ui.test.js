@@ -141,6 +141,7 @@ test("front-desk renders the one-screen workbench layout", async () => {
 
   assert.equal(html.includes("Front Desk Workflow"), true);
   assert.equal(html.includes("frontdesk-workflow is-single-column"), true);
+  assert.equal(html.includes("frontdesk-summary-strip"), true);
   assert.equal(html.includes("Current / next / queued"), true);
   assert.equal(html.includes("Racer management"), true);
   assert.equal(html.includes("Session Queue"), false);
