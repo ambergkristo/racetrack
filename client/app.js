@@ -85,6 +85,8 @@
   };
 
   const FLAG_META = {
+    IDLE: STATE_META.IDLE,
+    STAGING: STATE_META.STAGING,
     SAFE: MODE_META.SAFE,
     HAZARD_SLOW: MODE_META.HAZARD_SLOW,
     HAZARD_STOP: MODE_META.HAZARD_STOP,
@@ -184,14 +186,16 @@
       serverTime: null,
       state: "IDLE",
       mode: "SAFE",
-      flag: "SAFE",
+      flag: "IDLE",
       lapEntryAllowed: false,
       raceDurationSeconds: 60,
       remainingSeconds: 60,
       endsAt: null,
       activeSessionId: null,
       activeSession: null,
+      nextSession: null,
       lockedSession: null,
+      finalResults: null,
       sessions: [],
       leaderboard: [],
     };
@@ -357,16 +361,31 @@
       isObject(snapshot.activeSession) && snapshot.activeSession !== null
         ? normalizeSession(snapshot.activeSession)
         : sessions.find((session) => session.id === activeSessionId) || null;
+    const nextSession =
+      isObject(snapshot.nextSession) && snapshot.nextSession !== null
+        ? normalizeSession(snapshot.nextSession)
+        : sessions.find((session) => session.id !== activeSessionId) || null;
     const lockedSession =
       isObject(snapshot.lockedSession) && snapshot.lockedSession !== null
         ? normalizeSession(snapshot.lockedSession)
         : null;
+    const finalResults = Array.isArray(snapshot.finalResults)
+      ? sortLeaderboard(snapshot.finalResults.map(normalizeLeaderboardEntry))
+      : null;
+    const stateCode = snapshot.state || "IDLE";
 
     return {
       serverTime: snapshot.serverTime ?? null,
-      state: snapshot.state || "IDLE",
+      state: stateCode,
       mode: snapshot.mode || "SAFE",
-      flag: snapshot.flag || snapshot.mode || "SAFE",
+      flag:
+        typeof snapshot.flag === "string" && snapshot.flag.trim() !== ""
+          ? snapshot.flag
+          : stateCode === "IDLE"
+            ? "IDLE"
+            : stateCode === "STAGING"
+              ? "STAGING"
+              : snapshot.mode || "SAFE",
       lapEntryAllowed:
         snapshot.lapEntryAllowed === undefined
           ? state.raceSnapshot.lapEntryAllowed
@@ -378,7 +397,9 @@
       endsAt: snapshot.endsAt ?? null,
       activeSessionId,
       activeSession,
+      nextSession,
       lockedSession,
+      finalResults,
       sessions,
       leaderboard: Array.isArray(snapshot.leaderboard)
         ? sortLeaderboard(snapshot.leaderboard.map(normalizeLeaderboardEntry))
@@ -395,6 +416,10 @@
   }
 
   function getQueuedSessions() {
+    if (state.raceSnapshot.nextSession) {
+      return [state.raceSnapshot.nextSession];
+    }
+
     return state.raceSnapshot.sessions.filter(
       (session) => session.id !== state.raceSnapshot.activeSessionId
     );

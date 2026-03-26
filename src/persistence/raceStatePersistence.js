@@ -49,9 +49,15 @@ const persistedRaceStateSchema = z.object({
   nextRacerId: z.number().int().positive(),
 });
 
+const persistedLockedSnapshotContextSchema = z.object({
+  lockedSession: persistedSessionSchema.nullable(),
+  finalResults: z.array(persistedLeaderboardEntrySchema).nullable(),
+});
+
 const persistedRaceStateFileSchema = z.object({
   version: z.literal(PERSISTED_STATE_VERSION),
   state: persistedRaceStateSchema,
+  lockedSnapshotContext: persistedLockedSnapshotContextSchema.optional(),
 });
 
 function validatePersistedState(state) {
@@ -127,14 +133,27 @@ function createFilePersistenceAdapter({ filePath }) {
 
       const raw = fs.readFileSync(filePath, "utf8");
       const parsedFile = persistedRaceStateFileSchema.parse(JSON.parse(raw));
-      return validatePersistedState(parsedFile.state);
-    },
-    save(state) {
-      const payload = {
-        version: PERSISTED_STATE_VERSION,
-        state: validatePersistedState(state),
+      return {
+        state: validatePersistedState(parsedFile.state),
+        lockedSnapshotContext: parsedFile.lockedSnapshotContext
+          ? persistedLockedSnapshotContextSchema.parse(parsedFile.lockedSnapshotContext)
+          : null,
       };
-      writeJsonAtomically(filePath, payload);
+    },
+    save(nextPayload) {
+      const state = validatePersistedState(nextPayload.state);
+      const persistedPayload = {
+        version: PERSISTED_STATE_VERSION,
+        state,
+      };
+
+      if (state.raceState === RACE_STATES.LOCKED && nextPayload.lockedSnapshotContext) {
+        persistedPayload.lockedSnapshotContext = persistedLockedSnapshotContextSchema.parse(
+          nextPayload.lockedSnapshotContext
+        );
+      }
+
+      writeJsonAtomically(filePath, persistedPayload);
     },
   };
 }
