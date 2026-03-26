@@ -1500,6 +1500,108 @@
     `;
   }
 
+  function frontDeskSummaryCard({ kicker, title, detail, tone = "safe", metaLabel = "", content = "", metrics = [] }) {
+    return `
+      <article class="frontdesk-summary-card tone-${escapeHtml(tone)}">
+        <div class="frontdesk-summary-head">
+          <div>
+            <p class="queue-kicker">${escapeHtml(kicker)}</p>
+            <strong class="queue-title">${escapeHtml(title)}</strong>
+          </div>
+          ${metaLabel ? `<span class="chip tiny-chip">${escapeHtml(metaLabel)}</span>` : ""}
+        </div>
+        <p class="frontdesk-summary-detail">${escapeHtml(detail)}</p>
+        ${content}
+        <div class="frontdesk-summary-metrics">
+          ${metrics
+            .map(
+              (metric) => `
+                <div class="frontdesk-summary-metric">
+                  <span>${escapeHtml(metric.label)}</span>
+                  <strong>${escapeHtml(metric.value)}</strong>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </article>
+    `;
+  }
+
+  function frontDeskRosterPreview(session, limit = 4) {
+    if (!session || session.racers.length === 0) {
+      return '<p class="compact-empty-note">No racers staged yet.</p>';
+    }
+
+    const visibleRacers = session.racers.slice(0, limit);
+    return `
+      <div class="queue-roster frontdesk-roster-preview">
+        ${visibleRacers
+          .map(
+            (racer) => `
+              <div class="queue-racer-row">
+                <span>${escapeHtml(racer.name)}</span>
+                <strong>${escapeHtml(racer.carNumber || "--")}</strong>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+      ${
+        session.racers.length > visibleRacers.length
+          ? `<p class="queue-overflow-note">+${session.racers.length - visibleRacers.length} more racers staged</p>`
+          : ""
+      }
+    `;
+  }
+
+  function queuedSessionCompactList(sessions) {
+    if (sessions.length === 0) {
+      return '<p class="compact-empty-note">Create another session to keep the queue visible beyond the next slot.</p>';
+    }
+
+    return `
+      <div class="queued-session-list">
+        ${sessions
+          .map((session) => {
+            const actionState = sessionActionState(session);
+            return `
+              <article class="queued-session-row">
+                <div class="queued-session-copy">
+                  <strong>${escapeHtml(session.name)}</strong>
+                  <span>${escapeHtml(`${session.racers.length} racers queued`)}</span>
+                </div>
+                <div class="controls queued-session-actions">
+                  ${buttonMarkup({
+                    label: "Make Current",
+                    variant: "ghost",
+                    size: "mini",
+                    disabled: Boolean(actionState.selectReason),
+                    attrs: `data-action="stage-session" data-session-id="${escapeHtml(session.id)}"`,
+                  })}
+                  ${buttonMarkup({
+                    label: "Edit",
+                    variant: "ghost",
+                    size: "mini",
+                    disabled: Boolean(actionState.editReason),
+                    attrs: `data-action="edit-session" data-session-id="${escapeHtml(session.id)}"`,
+                  })}
+                  ${buttonMarkup({
+                    label: "Delete",
+                    variant: "danger",
+                    size: "mini",
+                    disabled: Boolean(actionState.deleteReason),
+                    attrs: `data-action="delete-session" data-session-id="${escapeHtml(session.id)}"`,
+                  })}
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
   function queuedSessionList() {
     const queuedSessions = getQueuedSessions().filter(
       (session) => session.id !== state.raceSnapshot.nextSessionId
@@ -1613,73 +1715,93 @@
     const formState = getFrontDeskFormState();
     const currentSession = state.raceSnapshot.currentSession || formState.activeSession;
     const nextSession = state.raceSnapshot.nextSession;
-    const queueCount = getQueuedSessions().length;
+    const queuedSessions = getQueuedSessions();
+    const queuedLater = queuedSessions.filter((session) => session.id !== state.raceSnapshot.nextSessionId);
+    const queueCount = queuedSessions.length;
+    const currentSummary = currentSession
+      ? frontDeskSummaryCard({
+          kicker: "Current",
+          title: currentSession.name,
+          detail: "Active operator focus for roster and handoff control.",
+          tone: "safe",
+          metaLabel: STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state,
+          content: frontDeskRosterPreview(currentSession),
+          metrics: [
+            { label: "Racers", value: String(currentSession.racers.length) },
+            { label: "State", value: STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state },
+          ],
+        })
+      : frontDeskSummaryCard({
+          kicker: "Current",
+          title: "No current session",
+          detail: "Create a session first. The current slot becomes the operator anchor immediately after staging.",
+          tone: "warning",
+          metaLabel: "Waiting",
+          metrics: [
+            { label: "Current", value: "None" },
+            { label: "Next", value: nextSession ? nextSession.name : "None" },
+          ],
+        });
+    const nextSummary = nextSession
+      ? frontDeskSummaryCard({
+          kicker: "Next Up",
+          title: nextSession.name,
+          detail: "Keep the next handoff visible so the right lineup is ready without hunting through the queue.",
+          tone: "warning",
+          metaLabel: "Queued next",
+          content: frontDeskRosterPreview(nextSession),
+          metrics: [
+            { label: "Racers", value: String(nextSession.racers.length) },
+            { label: "Queue", value: `${queueCount}` },
+          ],
+        })
+      : frontDeskSummaryCard({
+          kicker: "Next Up",
+          title: "No next session",
+          detail: "Create a second session to make the next handoff visible before the active heat changes.",
+          tone: "warning",
+          metaLabel: "Open slot",
+          metrics: [
+            { label: "Queued", value: `${queueCount}` },
+            { label: "Action", value: "Create" },
+          ],
+        });
+    const queueSummary = frontDeskSummaryCard({
+      kicker: "Queued later",
+      title: queuedLater.length ? `${queuedLater.length} later session${queuedLater.length === 1 ? "" : "s"}` : "No later queue",
+      detail: queuedLater.length
+        ? queuedLater.slice(0, 2).map((session) => session.name).join(" • ")
+        : "No later queued sessions yet. Add another heat only when the desk needs a visible backlog.",
+      tone: queuedLater.length ? "warning" : "safe",
+      metaLabel: `${queueCount} queued`,
+      metrics: [
+        { label: "Current", value: currentSession ? currentSession.name : "None" },
+        { label: "Next", value: nextSession ? nextSession.name : "None" },
+      ],
+    });
 
     return [
       panel(
         "Front Desk Workflow",
         `
           <div class="frontdesk-workflow ${manualAssignmentEnabled() ? "has-secondary" : "is-single-column"}">
-            <div class="front-desk-primary">
-              <div class="frontdesk-overview">
-                ${
-                  currentSession
-                    ? queueSessionCard(currentSession, "current")
-                    : `
-                      <article class="queue-card queue-card-current">
-                        <div class="queue-card-head">
-                          <div>
-                            <p class="queue-kicker">Current</p>
-                            <strong class="queue-title">No current session</strong>
-                          </div>
-                        </div>
-                        <p class="hint">Create a session to start the queue.</p>
-                      </article>
-                    `
-                }
-                ${
-                  nextSession
-                    ? queueSessionCard(nextSession, "next")
-                    : `
-                      <article class="queue-card queue-card-next">
-                        <div class="queue-card-head">
-                          <div>
-                            <p class="queue-kicker">Next Up</p>
-                            <strong class="queue-title">No next session</strong>
-                          </div>
-                        </div>
-                        <p class="hint">Create another heat to keep the next slot visible.</p>
-                      </article>
-                    `
-                }
+            <div class="frontdesk-console">
+              <p class="frontdesk-workflow-label">Current / next / queued at a glance</p>
+              <div class="frontdesk-summary-strip">
+                ${currentSummary}
+                ${nextSummary}
+                ${queueSummary}
               </div>
-              <div class="front-desk-section">
-                <div class="frontdesk-block">
+              <div class="frontdesk-ops-grid">
+                <div class="frontdesk-block frontdesk-flow-card">
                   <div class="frontdesk-block-head">
                     <div>
-                      <p class="section-kicker">Queue block</p>
-                      <strong class="queue-title">Current / next / queued</strong>
+                      <p class="section-kicker">Queue control</p>
+                      <strong class="queue-title">${formState.updateMode ? "Edit session" : "Create and queue sessions"}</strong>
                     </div>
                     <span class="chip tiny-chip">${queueCount} queued</span>
                   </div>
-                  <div class="queue-lane-section">
-                    <p class="queue-kicker">Queued later</p>
-                    ${queuedSessionList()}
-                  </div>
-                </div>
-                <div id="front-desk-guards">
-                  ${formState.frontDeskReasons}
-                </div>
-              </div>
-              <div class="front-desk-section">
-                <div class="frontdesk-block">
-                  <div class="frontdesk-block-head">
-                    <div>
-                      <p class="section-kicker">Session flow</p>
-                      <strong class="queue-title">${formState.updateMode ? "Edit session" : "Create a queued session"}</strong>
-                    </div>
-                  </div>
-                  <div class="ops-board">
+                  <div class="frontdesk-form-grid">
                     <div class="form-stack">
                       <label class="field">
                         <span>Session name</span>
@@ -1694,9 +1816,9 @@
                         ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
                       </div>
                     </div>
-                    <div class="summary-stack">
+                    <div class="summary-stack frontdesk-truth-card">
                       <p class="section-kicker">Workflow truth</p>
-                      <strong class="summary-value">${escapeHtml(currentSession ? currentSession.name : "No current session")}</strong>
+                      <strong class="frontdesk-truth-value">${escapeHtml(currentSession ? currentSession.name : "No current session")}</strong>
                       <div class="stack-list compact-list">
                         <div class="info-row"><span>Current</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
                         <div class="info-row"><span>Next</span><strong>${escapeHtml(nextSession ? nextSession.name : "None")}</strong></div>
@@ -1704,8 +1826,18 @@
                       </div>
                     </div>
                   </div>
+                  <div class="frontdesk-inline-card">
+                    <div class="frontdesk-inline-head">
+                      <p class="queue-kicker">Queued later</p>
+                      <span class="chip tiny-chip">${queuedLater.length}</span>
+                    </div>
+                    ${queuedSessionCompactList(queuedLater)}
+                  </div>
+                  <div id="front-desk-guards" class="frontdesk-guard-strip">
+                    ${formState.frontDeskReasons}
+                  </div>
                 </div>
-                <div class="frontdesk-block">
+                <div class="frontdesk-block frontdesk-racer-card">
                   <div class="frontdesk-block-head">
                     <div>
                       <p class="section-kicker">Racer management</p>

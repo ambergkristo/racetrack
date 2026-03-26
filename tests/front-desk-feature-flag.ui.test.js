@@ -106,4 +106,5 @@ test("front-desk shows the manual assignment panel when the flag is on", async (
   assert.equal(html.includes("FF_MANUAL_CAR_ASSIGNMENT"), true);
   assert.equal(html.includes("frontdesk-workflow has-secondary"), true);
   assert.equal(html.includes('class="front-desk-secondary"'), true);
+  assert.equal(html.includes("frontdesk-summary-strip"), true);
 });
