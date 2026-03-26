@@ -488,6 +488,10 @@
     };
   }
 
+  function publicStateMeaning(snapshot = state.raceSnapshot) {
+    return getFlagMeta(snapshot).detail || STATE_META[snapshot.state]?.detail || "";
+  }
+
   function hasRaceData() {
     return Boolean(state.lastSyncAt);
   }
@@ -2318,13 +2322,13 @@
             <div class="public-glance-copy">
               <p class="section-kicker">Primary question</p>
               <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
-              <span class="public-state-detail">${escapeHtml(flagMeta.detail)}</span>
+              <span class="public-state-detail">${escapeHtml(publicStateMeaning())}</span>
             </div>
             <div class="glance-metric-grid">
               ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
+              ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
               ${kpiPill("Leader", leader ? leader.name : "Pending", leader ? "safe" : "warning")}
               ${kpiPill("Best Lap", leader ? formatLap(leader.bestLapTimeMs) : "--", "safe")}
-              ${kpiPill("Rows", String(state.raceSnapshot.leaderboard.length), state.raceSnapshot.leaderboard.length ? "safe" : "warning")}
             </div>
           </div>
           <div class="tower-hero${finishedClass()}">
@@ -2450,10 +2454,10 @@
         `
           <div class="flag-shell flag-shell-minimal">
             <div class="flag-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
-              <p class="section-kicker">Primary question</p>
+              <p class="section-kicker">Current flag</p>
               <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
               <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
-              <p>${escapeHtml(publicRouteQuestion())}</p>
+              <p>${escapeHtml(publicStateMeaning())}</p>
               <span class="flag-session">${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
               <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
             </div>
