@@ -1242,6 +1242,10 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.next-race-grid {
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+}
+
 .session-board {
   display: grid;
   gap: 14px;
@@ -1259,16 +1263,24 @@ body {
 
 .roster-pill {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid var(--soft-border);
   background: rgba(255, 255, 255, 0.03);
 }
 
+.roster-pill-car {
+  color: var(--warning);
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .roster-pill strong {
   font-family: "Orbitron", "Segoe UI", sans-serif;
-  font-size: 0.95rem;
+  font-size: 1rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1845,9 +1857,25 @@ body {
   min-height: 320px;
 }
 
+.countdown-session-name {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .countdown-side,
 .flag-detail-panel {
   align-content: center;
+}
+
+.countdown-side-display {
+  align-content: start;
+}
+
+.countdown-side-display .roster-pill-grid {
+  margin-top: 2px;
 }
 
 .countdown-side strong,
@@ -1870,21 +1898,46 @@ body {
 }
 
 .flag-shell-minimal .flag-board {
-  min-height: min(68vh, 760px);
-  gap: 18px;
+  min-height: min(72vh, 820px);
+  gap: 12px;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    var(--elevated);
 }
 
 .flag-shell-minimal .flag-code {
-  font-size: clamp(4.4rem, 14vw, 11rem);
+  font-size: clamp(6rem, 18vw, 14rem);
+  line-height: 0.88;
 }
 
 .flag-shell-minimal .flag-board strong {
-  font-size: clamp(1.6rem, 4vw, 3rem);
+  font-size: clamp(1.8rem, 4.2vw, 3.4rem);
+  line-height: 1;
 }
 
 .flag-detail-panel {
   display: grid;
   gap: 12px;
+}
+
+.flag-display-meta {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.next-session-board {
+  border-color: rgba(0, 255, 123, 0.24);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
 }
 
 .session-overlay {

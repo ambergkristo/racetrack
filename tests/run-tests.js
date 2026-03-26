@@ -8,6 +8,7 @@ require("./race-control-regression.integration.test");
 require("./phase4-race-control-parity.ui.test");
 require("./phase2-public-truth-regression.ui.test");
 require("./phase4-public-state-language.ui.test");
+require("./phase5-public-display-polish.ui.test");
 require("./backend-hardening.integration.test");
 require("./race-store.test");
 require("./race-state-machine.test");

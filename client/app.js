@@ -2027,14 +2027,34 @@
           .map(
             (racer) => `
               <div class="roster-pill">
+                <span class="roster-pill-car">Car ${escapeHtml(racer.carNumber || "--")}</span>
                 <strong>${escapeHtml(racer.name)}</strong>
-                <span>Car ${escapeHtml(racer.carNumber || "--")}</span>
               </div>
             `
           )
           .join("")}
       </div>
     `;
+  }
+
+  function publicPitNotice(snapshot = state.raceSnapshot) {
+    if (snapshot.state === "FINISHED") {
+      return inlineAlert({
+        tone: "warning",
+        title: "Current heat finished",
+        detail: "Drivers return to pit. The next session stays on deck until lock and handoff.",
+      });
+    }
+
+    if (snapshot.state === "LOCKED") {
+      return inlineAlert({
+        tone: "danger",
+        title: "Track clear for next heat",
+        detail: "Finished drivers go to pit. The next queued session is ready for handoff.",
+      });
+    }
+
+    return "";
   }
 
   function raceControlPanel() {
@@ -2314,36 +2334,38 @@
     const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
     const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 8);
+    const leaderTitle = leader ? `#${leader.position} ${leader.name}` : "Waiting for first lap";
+    const leaderCurrentLap = leader ? formatLap(leader.currentLapTimeMs) : "--";
     return [
       panel(
         "Timing Tower",
         `
           <div class="public-glance-shell">
             <div class="public-glance-copy">
-              <p class="section-kicker">Primary question</p>
+              <p class="section-kicker">Live ranking</p>
               <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
               <span class="public-state-detail">${escapeHtml(publicStateMeaning())}</span>
             </div>
             <div class="glance-metric-grid">
-              ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
               ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
-              ${kpiPill("Leader", leader ? leader.name : "Pending", leader ? "safe" : "warning")}
-              ${kpiPill("Best Lap", leader ? formatLap(leader.bestLapTimeMs) : "--", "safe")}
+              ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
+              ${kpiPill("Current Lap", leaderCurrentLap, leader ? "warning" : "idle")}
+              ${kpiPill("Countdown", formatTime(state.raceSnapshot.remainingSeconds), "danger")}
             </div>
           </div>
           <div class="tower-hero${finishedClass()}">
             <div class="tower-hero-copy">
-              <p class="section-kicker">Leader on track</p>
-              <strong class="tower-hero-title">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
-              <span class="tower-hero-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+              <p class="section-kicker">Race leader</p>
+              <strong class="tower-hero-title">${escapeHtml(leaderTitle)}</strong>
+              <span class="tower-hero-detail">${escapeHtml(activeSession ? `${activeSession.name} on track` : "No active session")}</span>
             </div>
             <div class="tower-stat">
               <span>Best lap</span>
               <strong>${escapeHtml(leader ? formatLap(leader.bestLapTimeMs) : "--")}</strong>
             </div>
             <div class="tower-stat">
-              <span>State</span>
-              <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
+              <span>Laps</span>
+              <strong>${escapeHtml(leader ? String(leader.lapCount) : "--")}</strong>
             </div>
           </div>
           ${leaderboardTable(state.raceSnapshot.leaderboard, { limit: 8 })}
@@ -2362,6 +2384,7 @@
     const activeSession = getDisplaySession();
     const queued = getQueuedSessions()[0] || null;
     const flagMeta = getFlagMeta();
+    const pitNotice = publicPitNotice();
 
     return [
       panel(
@@ -2369,18 +2392,19 @@
         `
           <div class="public-glance-shell">
             <div class="public-glance-copy">
-              <p class="section-kicker">Primary question</p>
+              <p class="section-kicker">Track handoff</p>
               <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
               <span class="public-state-detail">${escapeHtml(flagMeta.detail)}</span>
             </div>
             <div class="glance-metric-grid">
-              ${kpiPill("Track", activeSession ? activeSession.name : "No active session", activeSession ? "warning" : "danger")}
-              ${kpiPill("On Deck", queued ? queued.name : "Waiting", queued ? "safe" : "warning")}
-              ${kpiPill("Current Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "warning")}
-              ${kpiPill("Next Racers", String(queued ? queued.racers.length : 0), queued ? "safe" : "warning")}
+              ${kpiPill("Track State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
+              ${kpiPill("Next Session", queued ? queued.name : "Waiting", queued ? "safe" : "warning")}
+              ${kpiPill("Cars Ready", String(queued ? queued.racers.length : 0), queued ? "safe" : "warning")}
+              ${kpiPill("Current Heat", activeSession ? activeSession.name : "No active session", activeSession ? "warning" : "danger")}
             </div>
           </div>
-          <div class="session-board-grid${finishedClass()}">
+          ${pitNotice}
+          <div class="session-board-grid next-race-grid${finishedClass()}">
             <div class="session-board tone-${escapeHtml(flagMeta.tone)}">
               <p class="section-kicker">On track now</p>
               <strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
@@ -2390,10 +2414,10 @@
                 emptyDetail: "Front desk has not staged an active session yet.",
               })}
             </div>
-            <div class="session-board tone-safe">
-              <p class="section-kicker">Up next</p>
+            <div class="session-board tone-safe next-session-board">
+              <p class="section-kicker">Next to grid</p>
               <strong>${escapeHtml(queued ? queued.name : "No queued session")}</strong>
-              <span>${escapeHtml(queued ? "Next queued lineup waiting for handoff." : "No next lineup has been queued yet.")}</span>
+              <span>${escapeHtml(queued ? "Cars and racers ready for the next handoff." : "No next lineup has been queued yet.")}</span>
               ${rosterStrip(queued, {
                 emptyTitle: "Queue is empty",
                 emptyDetail: "Add and queue the next session from front desk.",
@@ -2417,20 +2441,25 @@
         `
           <div class="countdown-focus-shell">
             <div class="public-glance-copy">
-              <p class="section-kicker">Primary question</p>
+              <p class="section-kicker">Distance read</p>
               <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
-              <span class="public-state-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+              <span class="public-state-detail">${escapeHtml(flagMeta.detail)}</span>
             </div>
             <div class="countdown-shell tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
               <div class="countdown-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
-                <p class="section-kicker">Official timer</p>
+                <p class="section-kicker">Current heat</p>
+                <strong class="countdown-session-name">${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
                 <div class="countdown-digits">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</div>
                 <p class="hero-copy">${escapeHtml(STATE_META[state.raceSnapshot.state]?.detail || "")}</p>
               </div>
-              <div class="countdown-side">
+              <div class="countdown-side countdown-side-display">
                 <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
-                <strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
-                <span>${escapeHtml(flagMeta.detail)}</span>
+                <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
+                ${rosterStrip(activeSession, {
+                  emptyTitle: "No roster on screen",
+                  emptyDetail: "Stage a session to show the active lineup.",
+                  limit: 4,
+                })}
                 <div class="stack-list">
                   <div class="info-row"><span>State</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
                   <div class="info-row"><span>Next</span><strong>${escapeHtml(queued ? queued.name : "Waiting")}</strong></div>
@@ -2454,12 +2483,12 @@
         `
           <div class="flag-shell flag-shell-minimal">
             <div class="flag-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
-              <p class="section-kicker">Current flag</p>
               <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
               <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
-              <p>${escapeHtml(publicStateMeaning())}</p>
-              <span class="flag-session">${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
-              <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
+            </div>
+            <div class="flag-display-meta">
+              <span>${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
+              <span>${escapeHtml(publicStateMeaning())}</span>
             </div>
           </div>
         `,
