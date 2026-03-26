@@ -2650,26 +2650,34 @@ body {
   display: none;
 }
 
-.route-front-desk .staff-status-panel,
-.route-front-desk .frontdesk-panel {
-  grid-column: 1 / -1;
+.route-front-desk .staff-status-panel {
+  grid-column: span 4;
+  padding-bottom: 12px;
 }
 
-.route-front-desk .staff-status-panel {
-  padding-bottom: 14px;
+.route-front-desk .frontdesk-panel {
+  grid-column: span 8;
+  padding: 14px;
 }
 
 .route-front-desk .status-marquee {
-  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+  grid-template-columns: minmax(0, 0.92fr) minmax(240px, 1.08fr);
   gap: 12px;
+  align-items: start;
+}
+
+.route-front-desk .status-marquee-copy {
+  gap: 6px;
 }
 
 .route-front-desk .staff-status-metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.route-front-desk .frontdesk-panel {
-  padding: 14px;
+.route-front-desk .staff-chip-row {
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, max-content));
 }
 
 .route-front-desk .frontdesk-workflow {
@@ -2678,36 +2686,189 @@ body {
 }
 
 .route-front-desk .frontdesk-workflow.has-secondary {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.74fr);
 }
 
-.route-front-desk .front-desk-primary {
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+.route-front-desk .frontdesk-console {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+
+.route-front-desk .frontdesk-workflow-label {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.route-front-desk .frontdesk-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.route-front-desk .frontdesk-summary-card,
+.route-front-desk .frontdesk-inline-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(16, 18, 26, 0.92);
+}
+
+.route-front-desk .frontdesk-summary-card.tone-safe {
+  border-color: rgba(0, 255, 123, 0.22);
+}
+
+.route-front-desk .frontdesk-summary-card.tone-warning {
+  border-color: rgba(255, 212, 0, 0.22);
+}
+
+.route-front-desk .frontdesk-summary-head,
+.route-front-desk .frontdesk-inline-head,
+.route-front-desk .queued-session-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.route-front-desk .frontdesk-summary-detail,
+.route-front-desk .compact-empty-note,
+.route-front-desk .queued-session-copy span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.24;
+}
+
+.route-front-desk .frontdesk-summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.route-front-desk .frontdesk-summary-metric {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.route-front-desk .frontdesk-summary-metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.route-front-desk .frontdesk-summary-metric strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.92rem;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+}
+
+.route-front-desk .frontdesk-roster-preview {
+  gap: 0;
+  margin-top: -2px;
+}
+
+.route-front-desk .frontdesk-roster-preview .queue-racer-row {
+  padding: 4px 0;
+}
+
+.route-front-desk .frontdesk-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
   gap: 12px;
   align-items: start;
 }
 
-.route-front-desk .frontdesk-overview {
-  grid-column: 1 / -1;
-}
-
-.route-front-desk .front-desk-section {
-  align-content: start;
-}
-
 .route-front-desk .frontdesk-block,
-.route-front-desk .queue-card,
-.route-front-desk .summary-stack {
+.route-front-desk .summary-stack,
+.route-front-desk .queue-card {
   padding: 12px;
 }
 
+.route-front-desk .frontdesk-flow-card,
+.route-front-desk .frontdesk-racer-card,
+.route-front-desk .front-desk-secondary {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.route-front-desk .frontdesk-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(240px, 0.88fr);
+  gap: 10px;
+}
+
+.route-front-desk .frontdesk-truth-card {
+  min-height: 0;
+}
+
+.route-front-desk .frontdesk-truth-value {
+  font-size: 1.08rem;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  line-height: 1.05;
+}
+
+.route-front-desk .frontdesk-inline-card {
+  display: grid;
+  gap: 10px;
+}
+
+.route-front-desk .queued-session-list {
+  display: grid;
+  gap: 8px;
+}
+
+.route-front-desk .queued-session-row {
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.route-front-desk .queued-session-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.route-front-desk .queued-session-copy strong {
+  font-size: 0.92rem;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+}
+
+.route-front-desk .queued-session-actions {
+  justify-content: flex-end;
+}
+
+.route-front-desk .frontdesk-guard-strip .guard-list {
+  margin-top: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.route-front-desk .frontdesk-guard-strip .guard-item {
+  margin-top: 0;
+}
+
 .route-front-desk .ops-board {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.84fr);
   gap: 10px;
 }
 
 .route-front-desk .racer-board {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr) auto;
 }
 
 .route-front-desk .field input,
@@ -2724,13 +2885,8 @@ body {
   padding: 7px 8px;
 }
 
-.route-front-desk .queue-card-head,
-.route-front-desk .frontdesk-block-head {
-  gap: 10px;
-}
-
 .route-front-desk .queue-title {
-  font-size: 0.96rem;
+  font-size: 0.94rem;
 }
 
 .route-front-desk .queue-kicker,
@@ -2742,7 +2898,7 @@ body {
 .route-front-desk .panel-copy,
 .route-front-desk .info-row,
 .route-front-desk .staff-chip-row {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 1180px) {
