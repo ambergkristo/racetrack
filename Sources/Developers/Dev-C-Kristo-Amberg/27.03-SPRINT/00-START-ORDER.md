@@ -1,46 +1,61 @@
 # 00 Start Order
-## Status
+
+## Staatus
 ACTIVE
-## Goal
-Määrata Dev C tööjärjekord public usability, state language mirror'i ja demo koherentsi jaoks pärast lukustatud M3 baseline'i.
-## Scope for This Dev
-- Alusta kohe Phase 2 public usability tööga.
-- Phase 3-s ole vaikimisi mitteaktiivne, välja arvatud väike compatibility note.
-- Phase 4-s alusta pärast või Dev B töö lõppfaasis, et peegeldada sama state language'it public route'idele.
-- Phase 5-s juhi public display polish sprinti.
-- Phase 6-s oma public demo coherence.
-## Not In Scope
-- Front-desk workflow omamine Dev B asemel.
-- Backend truth muutmine Dev A asemel.
-- Release checklist omamine Dev D asemel.
-- Uus tootescope või M3 reopen.
-- Staff usability juhtimine.
-## Dependencies
-- Phase 2: võib alustada kohe paralleelselt Dev A ja Dev B-ga.
-- Phase 3: mitteaktiivne, välja arvatud vajaduspõhine compatibility note.
-- Phase 4: sõltub Dev B ja Dev A state language'i stabiliseerimisest.
-- Phase 5: juhib, Dev B toetab, Dev D alustab pärast esimest usable passi.
-- Phase 6: sõltub, et public route'id on vähemalt ühe PASS iteration'iga kaetud.
-## Start Condition
-- Phase 2-ga võid alustada kohe.
-- Phase 4 ei tohi alata enne, kui Dev B ja Dev A annavad proof'i:
-  - race-control state language
-  - FINISHED ja LOCKED eristus
-- Phase 5 lead algab siis, kui Phase 2 public usability pass on tehtud.
-## Task List
-- Loe läbi kõik enda sprint failid järjekorras 01 -> 05.
-- Tee Phase 2 jaoks public route usability audit.
-- Hoia Phase 3 faili mitteaktiivse compatibility note jaoks valmis.
-- Tee Phase 4 jaoks mirror language checklist.
-- Juhi Phase 5 public polish'i ja lukusta Phase 6 demo coherence.
-## Acceptance Checks
-- Phase 2, 4, 5 ja 6 järjekord on selge.
-- Phase 3 mitteaktiivsus on üheselt kirjas.
-- Public language ei lähe staff truth'ist lahku.
-## Evidence Required
-- Route-by-route screenshot või verification aktiivsetes faasides.
-- PASS/FAIL readiness märge enne järgmisse faasi liikumist.
-- Kui Phase 3 aktiveerub, konkreetne compatibility proof.
-## Prompt Order Note
-- Promptide järjekord Dev C jaoks: `01-PHASE-2-P0-UX-CORRECTION.md` -> vaikimisi skip `02-PHASE-3-FRONT-DESK-WORKFLOW.md` -> `03-PHASE-4-RACE-CONTROL-CLARITY.md` -> `04-PHASE-5-PUBLIC-DISPLAY-POLISH.md` -> `05-PHASE-6-DEMO-READINESS.md`.
-- No scope drift: ära ava M3 uuesti, ära muuda lifecycle truth'i, ära lõhu OFF/ON flag käitumist, eelista minimaalseid kõrge väärtusega muudatusi ja lõpeta iga faas tõendiga.
+
+## Eesmärk
+Määrata Dev C ametlik post-M3 start-order public usability, state language mirror'i, public display polish'i ja demo koherentsi jaoks.
+
+## Millal alustada
+- Phase 2: alusta kohe paralleelselt Dev A ja Dev B-ga.
+- Phase 3: ära alusta vaikimisi; liigu sisse ainult siis, kui on vaja compatibility input'i.
+- Phase 4: alusta pärast või Dev B töö lõpuosas, kui race-control truth ja sõnavara on olemas.
+- Phase 5: alusta esimesena ja juhi faasi.
+- Phase 6: alusta värske `main` pealt pärast eelmiste faaside PASS merge'i.
+
+## Branch naming
+- Phase 2: `feat/phase-2-devC-public-usability`
+- Phase 4: `feat/phase-4-devC-public-state-language`
+- Phase 5: `feat/phase-5-devC-public-display-polish`
+- Phase 6: `feat/phase-6-devC-public-demo-readiness`
+- Phase 3-s eraldi branchi ei kasutata, kui puudub selge compatibility vajadus.
+
+## Integration branch rule
+- Phase 2 töö peab minema branchi `integration/phase-2-ux-correction`.
+- Phase 4 töö peab minema branchi `integration/phase-4-race-control-clarity`.
+- Phase 5 töö peab minema branchi `integration/phase-5-public-display-polish`.
+- Phase 6 töö peab minema branchi `integration/phase-6-demo-readiness`.
+- Kui Phase 3 compatibility input siiski tekib, peab see minema branchi `integration/phase-3-front-desk-workflow`.
+- Ükski Dev C branch ei lähe otse `main`-i.
+
+## Mida teha
+- Loe enne tööd läbi enda Phase 2-6 failid järjekorras.
+- Phase 2 jaoks tee public route usability audit ja parandused.
+- Phase 3 hoia reservis ainult compatibility märkuste jaoks.
+- Phase 4 jaoks peegelda public route'idele sama state language, mis on race-control truth'is.
+- Phase 5 ajal juhi public display polish tööd.
+- Phase 6 ajal lukusta public demo coherence.
+
+## Tõend enne merge'i `main`-i
+- Dev C muudatus peab olema maandunud vastava faasi integration branchi.
+- Vastava faasi gate või regression peab olema integration branchil käivitatud.
+- Integration branch peab olema sõnaselgelt PASS.
+- Tõend peab sisaldama vähemalt screenshot'i, route verification'it või muud faasile sobivat public proof'i.
+
+## Integration Reminder
+- Arendaja branch ei lähe nende post-M3 faaside jooksul KUNAGI otse `main`-i.
+- Enne merge'i `main`-i peab Codex kontrollima:
+1. kas kõik selle faasi aktiivsed dev branchid on jõudnud faasi integration branchi
+2. kas nõutud faasi gate või regression on käivitatud
+3. kas integration branch on PASS
+- Kui mõni tingimus ei ole täidetud, peab Codex peatuma ja ütlema:
+`Phase integration is required before merge to main.`
+
+## No scope drift
+- ära ava M3 uuesti
+- ära disaini süsteemi nullist ümber
+- ära muuda lifecycle truth'i
+- ära lõhu OFF/ON feature-flag käitumist
+- eelista minimaalseid, kõrge väärtusega muudatusi
+- iga faas peab lõppema tõendi ja PASS/FAIL tulemusega
+- `main` jääb faaside vahel ainsaks tõeallikaks

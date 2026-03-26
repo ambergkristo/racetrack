@@ -1,47 +1,61 @@
 # 00 Start Order
-## Status
+
+## Staatus
 ACTIVE
-## Goal
-Määrata Dev A töö järjekord 27.03 post-M3 sprinti jaoks nii, et backend truth toetaks UX-i, workflow'd ja demo't ilma M3 lukustatud käitumist lõhkumata.
-## Scope for This Dev
-- Alusta kohe Phase 2 backend truth tööga.
-- Alusta Phase 3 queue truth tööga paralleelselt Dev B-ga.
-- Alusta Phase 4 state-label truth tööga paralleelselt Dev B-ga.
-- Phase 5-s ole vaikimisi mitteaktiivne, välja arvatud juhul, kui Dev C või Dev B annab explicit backend support vajaduse.
-- Phase 6-s toeta backend truth'i ja viimaseid demo jaoks vajalikke selgitavaid täpsustusi.
-## Not In Scope
-- M3 reopen.
-- Uus persistence scope.
-- Uued lifecycle transitions.
-- UI layouti juhtimine Dev B või Dev C eest.
-- Feature flag käitumise ümbermõtestamine.
-## Dependencies
-- Phase 2: võib alustada kohe paralleelselt Dev B ja Dev C-ga.
-- Phase 3: võib alustada kohe paralleelselt Dev B-ga.
-- Phase 4: võib alustada kohe paralleelselt Dev B-ga.
-- Phase 5: oota ainult siis, kui Dev C või Dev B küsib backend support'i ja toob konkreetse puudujäägi.
-- Phase 6: alusta, kui Phase 2–5 põhivood on tõendiga kaetud.
-## Start Condition
-- Võid alustada kohe.
-- Enne Phase 5 backend tuge on vaja Dev C või Dev B poolt tõendit:
-  - milline route vajab uut derived field'i või täpsemat state truth'i
-  - screenshot või route verification, mis näitab puudujääki
-## Task List
-- Loe enne tööd läbi kõik enda 27.03 sprint failid järjekorras 01 -> 05.
-- Tee Phase 2 jaoks snapshot/view-model truth nimekiri.
-- Tee Phase 3 jaoks queue/current/next ordering reeglite nimekiri.
-- Tee Phase 4 jaoks FINISHED vs LOCKED semantika eristuse kontrollnimekiri.
-- Hoia Phase 5 reserveeritud ainult explicit backend support jaoks.
-- Phase 6 ajal anna Dev D-le backend truth kontrollpunktid demo scripti jaoks.
-## Acceptance Checks
-- Phase 2, 3 ja 4 algusjärjekord on üheselt arusaadav.
-- Üheski faasis ei ole sul luba muuta lifecycle truth'i ilma eraldi põhjenduseta.
-- Phase 5 passiivsus on selgelt märgitud.
-- Phase 6 backend support on seotud konkreetse demo või truth vajadusega.
-## Evidence Required
-- Link või märge igale oma faasidokumendile.
-- Töö alguses lühike PASS/FAIL readiness märge iga faasi kohta.
-- Kui Phase 5 aktiveerub, konkreetne screenshot või route verification põhjendus.
-## Prompt Order Note
-- Promptide järjekord Dev A jaoks: `01-PHASE-2-P0-UX-CORRECTION.md` -> `02-PHASE-3-FRONT-DESK-WORKFLOW.md` -> `03-PHASE-4-RACE-CONTROL-CLARITY.md` -> vajadusel `04-PHASE-5-PUBLIC-DISPLAY-POLISH.md` -> `05-PHASE-6-DEMO-READINESS.md`.
-- No scope drift: ära ava M3 uuesti, ära muuda lifecycle truth'i, ära lõhu OFF/ON flag käitumist, eelista minimaalseid kõrge väärtusega muudatusi ja lõpeta iga faas tõendiga.
+
+## Eesmärk
+Määrata Dev A ametlik post-M3 start-order nii, et backend truth toetaks UX-i, workflow'd ja demo valmisolekut ilma lukustatud M3 käitumist murdmata.
+
+## Millal alustada
+- Phase 2: alusta kohe.
+- Phase 3: alusta kohe paralleelselt Dev B-ga.
+- Phase 4: alusta kohe paralleelselt Dev B-ga.
+- Phase 5: oota, kuni Dev B või Dev C tõendab explicit backend support vajaduse.
+- Phase 6: alusta värske `main` pealt pärast eelmiste faaside PASS merge'i.
+
+## Branch naming
+- Phase 2: `feat/phase-2-devA-truth-ui-support`
+- Phase 3: `feat/phase-3-devA-frontdesk-backend-truth`
+- Phase 4: `feat/phase-4-devA-state-clarity-support`
+- Phase 6: `feat/phase-6-devA-backend-demo-support`
+- Phase 5 kasutab Dev A branchi ainult siis, kui backend support on sõnaselgelt aktiveeritud ja see töö tuleb teha värskeima `main` pealt.
+
+## Integration branch rule
+- Phase 2 töö peab minema branchi `integration/phase-2-ux-correction`.
+- Phase 3 töö peab minema branchi `integration/phase-3-front-desk-workflow`.
+- Phase 4 töö peab minema branchi `integration/phase-4-race-control-clarity`.
+- Phase 5 võimalik backend support peab minema branchi `integration/phase-5-public-display-polish`.
+- Phase 6 töö peab minema branchi `integration/phase-6-demo-readiness`.
+- Ükski Dev A branch ei lähe otse `main`-i.
+
+## Mida teha
+- Loe enne tööd läbi enda Phase 2-6 failid järjekorras.
+- Phase 2 jaoks lukusta snapshot, derived field ja state mapping truth.
+- Phase 3 jaoks lukusta queue/current/next ordering truth.
+- Phase 4 jaoks lukusta FINISHED vs LOCKED eristus backend truth'i tasemel.
+- Phase 5 puhul tee ainult selgelt küsitud backend support.
+- Phase 6 ajal anna demo jaoks viimased backend truth kontrollpunktid.
+
+## Tõend enne merge'i `main`-i
+- Dev A muudatus peab olema maandunud vastava faasi integration branchi.
+- Vastava faasi gate või regression peab olema integration branchil käivitatud.
+- Integration branch peab olema sõnaselgelt PASS.
+- Tõend peab sisaldama vähemalt route verification'it, testi või muud faasile sobivat truth/proof märget.
+
+## Integration Reminder
+- Arendaja branch ei lähe nende post-M3 faaside jooksul KUNAGI otse `main`-i.
+- Enne merge'i `main`-i peab Codex kontrollima:
+1. kas kõik selle faasi aktiivsed dev branchid on jõudnud faasi integration branchi
+2. kas nõutud faasi gate või regression on käivitatud
+3. kas integration branch on PASS
+- Kui mõni tingimus ei ole täidetud, peab Codex peatuma ja ütlema:
+`Phase integration is required before merge to main.`
+
+## No scope drift
+- ära ava M3 uuesti
+- ära disaini süsteemi nullist ümber
+- ära muuda lifecycle truth'i
+- ära lõhu OFF/ON feature-flag käitumist
+- eelista minimaalseid, kõrge väärtusega muudatusi
+- iga faas peab lõppema tõendi ja PASS/FAIL tulemusega
+- `main` jääb faaside vahel ainsaks tõeallikaks

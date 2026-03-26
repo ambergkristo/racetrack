@@ -1,45 +1,61 @@
 # 00 Start Order
-## Status
+
+## Staatus
 ACTIVE
-## Goal
-Määrata Dev B tööjärjekord staff route usability, workflow clarity ja demo readiness jaoks pärast lukustatud M3 baseline'i.
-## Scope for This Dev
-- Alusta kohe Phase 2 staff usability tööga.
-- Alusta kohe Phase 3 front-desk workflow tööga paralleelselt Dev A-ga.
-- Alusta kohe Phase 4 race-control clarity tööga paralleelselt Dev A-ga.
-- Phase 5-s toeta Dev C public semantika kooskõla kontrolliga.
-- Phase 6-s oma front-desk ja operator flow demo readiness.
-## Not In Scope
-- Front-desk workflow omamine Dev B asemel.
-- Public display täielik omamine Dev C asemel.
-- CI gate'i omamine Dev D asemel.
-- Backend truth ümberkirjutamine Dev A eest.
-- Uus tootescope või M3 reopen.
-## Dependencies
-- Phase 2: võib alustada kohe paralleelselt Dev A ja Dev C-ga.
-- Phase 3: võib alustada kohe paralleelselt Dev A-ga.
-- Phase 4: võib alustada kohe paralleelselt Dev A-ga.
-- Phase 5: algab koos Dev C esimese public passiga.
-- Phase 6: sõltub sellest, et varasemad staff flow muudatused on tõendiga olemas.
-## Start Condition
-- Võid alustada kohe.
-- Enne Phase 5 semantikakontrolli peab Dev C-l olema esimene kasutatav public-display pass.
-- Enne Phase 6 lõppkinnitust peab Dev D-l olema vähemalt üks smoke jooks või checklist draft.
-## Task List
-- Loe läbi kõik enda sprint failid järjekorras 01 -> 05.
-- Tee Phase 2 jaoks staff usability probleemide lühiloend route kaupa.
-- Tee Phase 3 jaoks front-desk workflow sammud current/next/queued vaates.
-- Tee Phase 4 jaoks race-control operator path ilma selgitust vajamata.
-- Phase 5 ajal kinnita staff/public semantika 1:1.
-- Phase 6 ajal lukusta demoks operator flow järjekord.
-## Acceptance Checks
-- Iga staff route jaoks on olemas järgmine tegevus ühe pilguga loetavalt.
-- Front-desk, race-control ja lap-tracker tööjärjekord on omavahel kooskõlas.
-- Public semantika kontroll on eraldi märgitud, mitte segatud UI redesign'iga.
-## Evidence Required
-- Iga faasi kohta route verification.
-- Vähemalt üks screenshot staff route kohta igas aktiivses faasis.
-- PASS/FAIL readiness märge enne järgmisse faasi liikumist.
-## Prompt Order Note
-- Promptide järjekord Dev B jaoks: `01-PHASE-2-P0-UX-CORRECTION.md` -> `02-PHASE-3-FRONT-DESK-WORKFLOW.md` -> `03-PHASE-4-RACE-CONTROL-CLARITY.md` -> `04-PHASE-5-PUBLIC-DISPLAY-POLISH.md` -> `05-PHASE-6-DEMO-READINESS.md`.
-- No scope drift: ära ava M3 uuesti, ära muuda lifecycle truth'i, ära lõhu OFF/ON flag käitumist, eelista minimaalseid kõrge väärtusega muudatusi ja lõpeta iga faas tõendiga.
+
+## Eesmärk
+Määrata Dev B ametlik post-M3 start-order staff usability, front-desk workflow, race-control clarity ja demo readiness tööks.
+
+## Millal alustada
+- Phase 2: alusta kohe paralleelselt Dev A ja Dev C-ga.
+- Phase 3: alusta kohe paralleelselt Dev A-ga.
+- Phase 4: alusta kohe paralleelselt Dev A-ga.
+- Phase 5: alusta siis, kui Dev C esimene kasutatav public pass on olemas.
+- Phase 6: alusta värske `main` pealt pärast eelmiste faaside PASS merge'i.
+
+## Branch naming
+- Phase 2: `feat/phase-2-devB-staff-usability`
+- Phase 3: `feat/phase-3-devB-frontdesk-workflow`
+- Phase 4: `feat/phase-4-devB-race-control-clarity`
+- Phase 5: `feat/phase-5-devB-semantics-alignment`
+- Phase 6: `feat/phase-6-devB-operator-demo-flow`
+
+## Integration branch rule
+- Phase 2 töö peab minema branchi `integration/phase-2-ux-correction`.
+- Phase 3 töö peab minema branchi `integration/phase-3-front-desk-workflow`.
+- Phase 4 töö peab minema branchi `integration/phase-4-race-control-clarity`.
+- Phase 5 töö peab minema branchi `integration/phase-5-public-display-polish`.
+- Phase 6 töö peab minema branchi `integration/phase-6-demo-readiness`.
+- Ükski Dev B branch ei lähe otse `main`-i.
+
+## Mida teha
+- Loe enne tööd läbi enda Phase 2-6 failid järjekorras.
+- Phase 2 jaoks tee staff usability parandused ja märgi route kaupa probleemid.
+- Phase 3 jaoks oma front-desk workflow current/next/queued töökäik.
+- Phase 4 jaoks oma race-control clarity ja operator path.
+- Phase 5 ajal joonda staff/public semantika Dev C tööga.
+- Phase 6 ajal lukusta operator demo flow.
+
+## Tõend enne merge'i `main`-i
+- Dev B muudatus peab olema maandunud vastava faasi integration branchi.
+- Vastava faasi gate või regression peab olema integration branchil käivitatud.
+- Integration branch peab olema sõnaselgelt PASS.
+- Tõend peab sisaldama vähemalt route verification'it, screenshot'i või muud faasile sobivat usability/workflow proof'i.
+
+## Integration Reminder
+- Arendaja branch ei lähe nende post-M3 faaside jooksul KUNAGI otse `main`-i.
+- Enne merge'i `main`-i peab Codex kontrollima:
+1. kas kõik selle faasi aktiivsed dev branchid on jõudnud faasi integration branchi
+2. kas nõutud faasi gate või regression on käivitatud
+3. kas integration branch on PASS
+- Kui mõni tingimus ei ole täidetud, peab Codex peatuma ja ütlema:
+`Phase integration is required before merge to main.`
+
+## No scope drift
+- ära ava M3 uuesti
+- ära disaini süsteemi nullist ümber
+- ära muuda lifecycle truth'i
+- ära lõhu OFF/ON feature-flag käitumist
+- eelista minimaalseid, kõrge väärtusega muudatusi
+- iga faas peab lõppema tõendi ja PASS/FAIL tulemusega
+- `main` jääb faaside vahel ainsaks tõeallikaks

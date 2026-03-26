@@ -1,46 +1,60 @@
 # 00 Start Order
-## Status
+
+## Staatus
 ACTIVE
-## Goal
-Määrata Dev D tööjärjekord 27.03 post-M3 sprinti jaoks nii, et ta testiks päris muudatusi, mitte baseline'i, ja lõpetaks sprinti release checklist'i, smoke'i ning fallback-plaaniga.
-## Scope for This Dev
-- Phase 2 regressiooni- ja truth-katte töö pärast seda, kui Dev A, Dev B ja Dev C esimene kasutatav pass on pushitud või merge'itud.
-- Phase 3 front-desk workflow regressioon pärast Dev A ja Dev B queue/current/next muudatusi.
-- Phase 4 transition regression pärast Dev A, Dev B ja Dev C clarity muudatusi.
-- Phase 5 fullscreen smoke ja readability proof pärast Dev C esimest kasutatavat public-display passi.
-- Phase 6 release checklist'i, smoke script'i ja fallback-plaani omamine.
-## Not In Scope
-- UI juhtimine Dev B või Dev C eest.
-- Backend truth'i defineerimine Dev A eest.
-- Uute feature'ite lisamine.
-- M3 uuesti avamine.
-- Layout'i või süsteemi ümberdisain.
-## Dependencies
-- Phase 2: oota, kuni Dev A, Dev B ja Dev C on vähemalt ühe kasutatava UI või API muudatuse pushinud või merge'inud.
-- Phase 3: oota, kuni Dev A ja Dev B front-desk workflow muudatused on kättesaadavad.
-- Phase 4: oota, kuni Dev A, Dev B ja Dev C clarity muudatused on kättesaadavad.
-- Phase 5: oota, kuni Dev C esimene kasutatav public-display pass on olemas.
-- Phase 6: tööta koos kõigiga, aga oma ise checklist'i, smoke'i ja fallback'i.
-## Start Condition
-- Ühtegi aktiivset faasi ei tohi alustada enne, kui on olemas midagi päriselt testitavat.
-- Enne iga aktiivse faasi algust on vaja:
-  - screenshot'i või route verification'it
-  - commit'i, push'i või merge'i viidet
-  - lühikest märkust selle kohta, mida täpselt testida tuleb
-## Task List
-- Loe enne tööd läbi kõik enda 27.03 sprint failid järjekorras 01 -> 05.
-- Kinnita enne iga faasi, et branch või `main` sisaldab testitavat muudatust.
-- Käivita regressioonid alles siis, kui kasutatav pass on tõendiga olemas.
-- Hoia Phase 6 release checklist'i mustandit jooksvalt ajakohasena.
-## Acceptance Checks
-- Ühtegi regressiooni ei joosta vaakumis.
-- Iga regressioon on seotud päriselt kättesaadava muudatusega.
-- Phase 6 checklist koondab kogu sprinti tõendid üheks kasutatavaks paketiks.
-## Evidence Required
-- Tõend selle kohta, mida täpselt testiti.
-- PASS/FAIL märge iga faasi lõpus.
-- Testitulemus, screenshot ja route verification kõigi aktiivsete faaside kohta.
-## Prompt Order Note
-- Promptide järjekord Dev D jaoks: `01-PHASE-2-P0-UX-CORRECTION.md` -> `02-PHASE-3-FRONT-DESK-WORKFLOW.md` -> `03-PHASE-4-RACE-CONTROL-CLARITY.md` -> `04-PHASE-5-PUBLIC-DISPLAY-POLISH.md` -> `05-PHASE-6-DEMO-READINESS.md`.
-- Ära käivita regressiooni enne, kui vastav faas on reaalselt olemas.
-- No scope drift: ära ava M3 uuesti, ära muuda lifecycle truth'i, ära lõhu OFF/ON flag käitumist, eelista minimaalseid kõrge väärtusega muudatusi ja lõpeta iga faas tõendiga.
+
+## Eesmärk
+Määrata Dev D ametlik post-M3 start-order nii, et regression, gate, smoke ja fallback kontrollid jookseksid päris integratsiooni peal, mitte vaakumis.
+
+## Millal alustada
+- Phase 2: ära alusta kohe; alusta alles siis, kui Dev A, Dev B ja Dev C esimene kasutatav pass on olemas.
+- Phase 3: alusta alles siis, kui Dev A ja Dev B workflow muudatused on olemas.
+- Phase 4: alusta alles siis, kui Dev A, Dev B ja Dev C päris clarity muudatused on olemas.
+- Phase 5: alusta alles siis, kui Dev C esimene kasutatav public pass on olemas.
+- Phase 6: tööta koos kõigiga värske `main` pealt pärast eelmiste faaside PASS merge'i.
+
+## Branch naming
+- Phase 2: `feat/phase-2-devD-truth-regression`
+- Phase 3: `feat/phase-3-devD-frontdesk-regression`
+- Phase 4: `feat/phase-4-devD-race-control-regression`
+- Phase 5: `feat/phase-5-devD-display-regression`
+- Phase 6: `feat/phase-6-devD-release-checklist-fallback`
+
+## Integration branch rule
+- Phase 2 gate käib branchil `integration/phase-2-ux-correction`.
+- Phase 3 gate käib branchil `integration/phase-3-front-desk-workflow`.
+- Phase 4 gate käib branchil `integration/phase-4-race-control-clarity`.
+- Phase 5 gate käib branchil `integration/phase-5-public-display-polish`.
+- Phase 6 final gate käib branchil `integration/phase-6-demo-readiness`.
+- Dev D ei tee merge'i `main`-i üksikust regressioonibranchist.
+
+## Mida teha
+- Loe enne tööd läbi enda Phase 2-6 failid järjekorras.
+- Alusta regressiooni alles siis, kui vastav faas on reaalselt testitav.
+- Seo iga regression jooks konkreetse integration branchi sisuga.
+- Hoia PASS/FAIL otsus, smoke, fallback ja checklist tõendid koos.
+- Phase 6 ajal koonda kogu sprinti lõplik readiness pakett.
+
+## Tõend enne merge'i `main`-i
+- Kõik aktiivsed dev branchid peavad olema jõudnud vastava faasi integration branchi.
+- Nõutud gate või regression peab olema integration branchil käivitatud.
+- Integration branch peab olema sõnaselgelt PASS.
+- Tõend peab sisaldama vähemalt testitulemust, screenshot'i, route verification'it või muud faasile sobivat gate proof'i.
+
+## Integration Reminder
+- Arendaja branch ei lähe nende post-M3 faaside jooksul KUNAGI otse `main`-i.
+- Enne merge'i `main`-i peab Codex kontrollima:
+1. kas kõik selle faasi aktiivsed dev branchid on jõudnud faasi integration branchi
+2. kas nõutud faasi gate või regression on käivitatud
+3. kas integration branch on PASS
+- Kui mõni tingimus ei ole täidetud, peab Codex peatuma ja ütlema:
+`Phase integration is required before merge to main.`
+
+## No scope drift
+- ära ava M3 uuesti
+- ära disaini süsteemi nullist ümber
+- ära muuda lifecycle truth'i
+- ära lõhu OFF/ON feature-flag käitumist
+- eelista minimaalseid, kõrge väärtusega muudatusi
+- iga faas peab lõppema tõendi ja PASS/FAIL tulemusega
+- `main` jääb faaside vahel ainsaks tõeallikaks
