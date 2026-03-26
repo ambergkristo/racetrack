@@ -101,12 +101,12 @@
     CHECKERED: {
       label: "Checkered",
       tone: "warning",
-      detail: "Finish has been called. Crossings still count until lock.",
+      detail: "Finish has been called. Post-finish laps are still accepted until lock.",
     },
     LOCKED: {
       label: "Locked",
       tone: "danger",
-      detail: "The session is locked and lap input is blocked.",
+      detail: "Race is locked. Results are final and lap input is blocked.",
     },
   };
 
@@ -129,12 +129,12 @@
     FINISHED: {
       label: "Finished",
       tone: "warning",
-      detail: "Finish has been called. Crossings still count until lock.",
+      detail: "Finish has been called. Post-finish laps are still accepted until lock.",
     },
     LOCKED: {
       label: "Locked",
       tone: "danger",
-      detail: "The session is locked and lap input is blocked.",
+      detail: "Race is locked. Results are final and lap input is blocked.",
     },
   };
 
@@ -2038,27 +2038,30 @@
     const activeSession = getActiveSession();
     const accessReason = staffAccessReason();
     const flagMeta = getFlagMeta(snapshot);
+    const checkeredActive = snapshot.state === "FINISHED";
+    const lockedActive = snapshot.state === "LOCKED";
     const startReason = firstReason(
       accessReason,
-      state.pending ? "Wait for the current request to finish." : "",
-      activeSession ? "" : "Stage a session before starting the race.",
-      snapshot.state === "STAGING" ? "" : "Start Race is only available from STAGING."
+      state.pending ? "Wait for current request." : "",
+      activeSession ? "" : "Stage a session first.",
+      snapshot.state === "STAGING" ? "" : "Only from staging."
     );
     const finishReason = firstReason(
       accessReason,
-      state.pending ? "Wait for the current request to finish." : "",
-      snapshot.state === "RUNNING" ? "" : "Finish Race is only available while RUNNING."
+      state.pending ? "Wait for current request." : "",
+      snapshot.state === "RUNNING" ? "" : "Only while running."
     );
     const lockReason = firstReason(
       accessReason,
-      state.pending ? "Wait for the current request to finish." : "",
-      snapshot.state === "FINISHED" ? "" : "End + Lock is only available after FINISHED."
+      state.pending ? "Wait for current request." : "",
+      snapshot.state === "FINISHED" ? "" : "Only after finish."
     );
     const modeReason = firstReason(
       accessReason,
-      state.pending ? "Wait for the current request to finish." : "",
-      snapshot.state === "RUNNING" ? "" : "Mode changes are only available while RUNNING."
+      state.pending ? "Wait for current request." : "",
+      snapshot.state === "RUNNING" ? "" : "Modes only during running."
     );
+    const modeVisible = snapshot.state === "RUNNING";
 
     const modeButtons = RACE_CONTROL_MODES.map((mode) => {
       const active = snapshot.mode === mode;
@@ -2076,30 +2079,65 @@
         "Race Control Console",
         `
           <div class="race-control-shell">
-            <div class="command-stage tone-${flagMeta.tone}">
+            <div class="command-stage tone-${flagMeta.tone} ${checkeredActive ? "checkered-stage" : ""} ${lockedActive ? "locked-stage" : ""}">
               <div class="command-stage-copy">
                 <p class="section-kicker">Current authority</p>
                 <strong class="command-stage-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
                 <span class="command-stage-detail">${escapeHtml(activeSession ? activeSession.name : "No session staged")}</span>
+                ${
+                  checkeredActive
+                    ? `
+                      <div class="checkered-callout">
+                        <span class="checkered-flag">Checkered</span>
+                        <strong>Finish is called. Post-finish laps still count until lock.</strong>
+                      </div>
+                    `
+                    : ""
+                }
+                ${
+                  lockedActive
+                    ? `
+                      <div class="locked-callout">
+                        <span class="locked-badge">Locked</span>
+                        <strong>Race is locked. Results are final and lap input is blocked.</strong>
+                      </div>
+                    `
+                    : ""
+                }
               </div>
               <div class="race-control-actions">
-                ${buttonMarkup({ id: "race-start-btn", label: "Start Race", disabled: Boolean(startReason) })}
-                ${buttonMarkup({ id: "race-finish-btn", label: "Finish Race", variant: "warning", disabled: Boolean(finishReason) })}
-                ${buttonMarkup({ id: "race-lock-btn", label: "End + Lock", variant: "danger", disabled: Boolean(lockReason) })}
+                <div class="race-command race-command-start ${startReason ? "is-blocked" : "is-live"}">
+                  ${buttonMarkup({ id: "race-start-btn", label: "Start Race", disabled: Boolean(startReason) })}
+                  <p class="command-hint">${escapeHtml(startReason || "Begin the live race.")}</p>
+                </div>
+                <div class="race-command race-command-finish ${finishReason ? "is-blocked" : "is-live"}">
+                  ${buttonMarkup({ id: "race-finish-btn", label: "Finish Race", variant: "warning", disabled: Boolean(finishReason) })}
+                  <p class="command-hint">${escapeHtml(finishReason || "Call checkered and keep post-finish laps open.")}</p>
+                </div>
+                <div class="race-command race-command-lock ${lockReason ? "is-blocked" : "is-live"}">
+                  ${buttonMarkup({ id: "race-lock-btn", label: "End + Lock", variant: "danger", disabled: Boolean(lockReason) })}
+                  <p class="command-hint">${escapeHtml(lockReason || "Close scoring and lock the result.")}</p>
+                </div>
               </div>
             </div>
             <div class="race-control-sidecar">
               <p class="section-kicker">Flag mode</p>
               <strong class="summary-value">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</strong>
-              ${actionGuardList([{ label: "Mode controls", reason: modeReason }])}
-              <div class="mode-grid">${modeButtons}</div>
+              ${
+                modeVisible
+                  ? `
+                    <p class="hint">Mode controls are live only while the race is running.</p>
+                    <div class="mode-grid">${modeButtons}</div>
+                  `
+                  : `
+                    <div class="mode-standby">
+                      <strong>Mode controls hidden</strong>
+                      <span>${escapeHtml(modeReason)}</span>
+                    </div>
+                  `
+              }
             </div>
           </div>
-          ${actionGuardList([
-            { label: "Start Race", reason: startReason },
-            { label: "Finish Race", reason: finishReason },
-            { label: "End + Lock", reason: lockReason },
-          ])}
         `,
         "warning",
         "panel-wide"
