@@ -43,6 +43,30 @@ function resolveNextSession(snapshot) {
   return nextSession ? clone(nextSession) : null;
 }
 
+function resolveQueueView(snapshot) {
+  const sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
+  const currentSession =
+    snapshot.currentSession ||
+    (snapshot.activeSessionId
+      ? sessions.find((session) => session.id === snapshot.activeSessionId) || null
+      : null);
+  const queuedSessions =
+    snapshot.queuedSessions ||
+    sessions.filter((session) => session.id !== (currentSession?.id || snapshot.activeSessionId));
+  const nextSession =
+    snapshot.nextSession ||
+    (queuedSessions.length > 0 ? queuedSessions[0] : resolveNextSession(snapshot));
+
+  return {
+    currentSessionId: currentSession ? currentSession.id : null,
+    currentSession: currentSession ? clone(currentSession) : null,
+    nextSessionId: nextSession ? nextSession.id : null,
+    nextSession: nextSession ? clone(nextSession) : null,
+    queuedSessionIds: queuedSessions.map((session) => session.id),
+    queuedSessions: clone(queuedSessions),
+  };
+}
+
 function resolveFinalResults(snapshot, lockedSnapshotContext) {
   if (snapshot.state === RACE_STATES.FINISHED) {
     return clone(snapshot.leaderboard);
@@ -60,12 +84,18 @@ function resolveFinalResults(snapshot, lockedSnapshotContext) {
 function buildRaceSnapshotViewModel(snapshot, lockedSnapshotContext = null) {
   const normalizedLockedSnapshotContext =
     normalizeLockedSnapshotContext(lockedSnapshotContext);
+  const queueView = resolveQueueView(snapshot);
 
   return {
     ...snapshot,
     flag: resolveFlag(snapshot),
     lapEntryAllowed: canAcceptLapInput(snapshot.state),
-    nextSession: resolveNextSession(snapshot),
+    currentSessionId: queueView.currentSessionId,
+    currentSession: queueView.currentSession,
+    nextSessionId: queueView.nextSessionId,
+    nextSession: queueView.nextSession,
+    queuedSessionIds: queueView.queuedSessionIds,
+    queuedSessions: queueView.queuedSessions,
     lockedSession:
       snapshot.state === RACE_STATES.LOCKED
         ? normalizedLockedSnapshotContext.lockedSession

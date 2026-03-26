@@ -92,3 +92,42 @@ test("race store exposes checkered finish state and freezes the locked session s
   assert.equal(lockedSnapshot.leaderboard[0].racerId, racer.id);
   assert.equal(lockedSnapshot.leaderboard[0].lapCount, 1);
 });
+
+test("race store exposes canonical current, next, and queued session truth", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 60,
+    now: () => 2_000,
+  });
+
+  const heat1 = raceStore.createSession({ name: "Heat 1" });
+  const heat2 = raceStore.createSession({ name: "Heat 2" });
+  const heat3 = raceStore.createSession({ name: "Heat 3" });
+
+  let snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.currentSessionId, heat1.id);
+  assert.equal(snapshot.currentSession?.id, heat1.id);
+  assert.equal(snapshot.nextSessionId, heat2.id);
+  assert.deepEqual(snapshot.queuedSessionIds, [heat2.id, heat3.id]);
+
+  raceStore.selectSession(heat3.id);
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.currentSessionId, heat3.id);
+  assert.equal(snapshot.nextSessionId, heat1.id);
+  assert.deepEqual(snapshot.queuedSessionIds, [heat1.id, heat2.id]);
+
+  raceStore.deleteSession(heat1.id);
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.currentSessionId, heat3.id);
+  assert.equal(snapshot.nextSessionId, heat2.id);
+  assert.deepEqual(snapshot.queuedSessionIds, [heat2.id]);
+
+  raceStore.startRace();
+  raceStore.finishRace();
+  raceStore.lockRace();
+
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.currentSessionId, null);
+  assert.equal(snapshot.currentSession, null);
+  assert.equal(snapshot.nextSessionId, heat2.id);
+  assert.deepEqual(snapshot.queuedSessionIds, [heat2.id]);
+});

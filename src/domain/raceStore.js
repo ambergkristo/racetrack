@@ -28,6 +28,25 @@ function normalizeOptionalString(value) {
   return trimmed === "" ? null : trimmed;
 }
 
+function buildQueueView(sessions, activeSessionId) {
+  const currentSession = activeSessionId
+    ? sessions.find((session) => session.id === activeSessionId) || null
+    : null;
+  const queuedSessions = currentSession
+    ? sessions.filter((session) => session.id !== currentSession.id)
+    : sessions.slice();
+  const nextSession = queuedSessions[0] || null;
+
+  return {
+    currentSessionId: currentSession ? currentSession.id : null,
+    currentSession: currentSession ? clone(currentSession) : null,
+    nextSessionId: nextSession ? nextSession.id : null,
+    nextSession: nextSession ? clone(nextSession) : null,
+    queuedSessionIds: queuedSessions.map((session) => session.id),
+    queuedSessions: clone(queuedSessions),
+  };
+}
+
 function createInitialState(raceDurationSeconds) {
   return {
     raceState: RACE_STATES.IDLE,
@@ -123,15 +142,15 @@ function createRaceStore({
     syncFlagFromState();
   }
 
-  function assertEditableSession(sessionId) {
+  function assertSessionMutationAllowed(sessionId, code, message) {
     if (state.activeSessionId !== sessionId) {
       return;
     }
 
     ensure(
       state.raceState !== RACE_STATES.RUNNING && state.raceState !== RACE_STATES.FINISHED,
-      "SESSION_EDIT_BLOCKED",
-      "Active session cannot be edited while the race is running or finished.",
+      code,
+      message,
       409
     );
   }
@@ -155,7 +174,11 @@ function createRaceStore({
 
   function updateSession(sessionId, { name }) {
     const session = getSession(sessionId);
-    assertEditableSession(sessionId);
+    assertSessionMutationAllowed(
+      sessionId,
+      "SESSION_EDIT_FORBIDDEN",
+      "Current session cannot be edited while the race is running or finished."
+    );
 
     if (typeof name === "string") {
       session.name = name.trim();
@@ -167,7 +190,11 @@ function createRaceStore({
 
   function deleteSession(sessionId) {
     const session = getSession(sessionId);
-    assertEditableSession(sessionId);
+    assertSessionMutationAllowed(
+      sessionId,
+      "SESSION_DELETE_FORBIDDEN",
+      "Current session cannot be deleted while the race is running or finished."
+    );
 
     state.sessions = state.sessions.filter((item) => item.id !== session.id);
 
@@ -227,7 +254,11 @@ function createRaceStore({
 
   function addRacer(sessionId, { name, carNumber }) {
     const session = getSession(sessionId);
-    assertEditableSession(sessionId);
+    assertSessionMutationAllowed(
+      sessionId,
+      "SESSION_EDIT_FORBIDDEN",
+      "Current session cannot be edited while the race is running or finished."
+    );
     ensureUniqueRacerName(session, name);
 
     const racer = {
@@ -250,7 +281,11 @@ function createRaceStore({
 
   function updateRacer(sessionId, racerId, { name, carNumber }) {
     const session = getSession(sessionId);
-    assertEditableSession(sessionId);
+    assertSessionMutationAllowed(
+      sessionId,
+      "SESSION_EDIT_FORBIDDEN",
+      "Current session cannot be edited while the race is running or finished."
+    );
     const racer = session.racers.find((item) => item.id === racerId);
     ensure(racer, "RACER_NOT_FOUND", `Racer ${racerId} was not found.`, 404);
 
@@ -271,7 +306,11 @@ function createRaceStore({
 
   function removeRacer(sessionId, racerId) {
     const session = getSession(sessionId);
-    assertEditableSession(sessionId);
+    assertSessionMutationAllowed(
+      sessionId,
+      "SESSION_EDIT_FORBIDDEN",
+      "Current session cannot be edited while the race is running or finished."
+    );
     const racer = session.racers.find((item) => item.id === racerId);
     ensure(racer, "RACER_NOT_FOUND", `Racer ${racerId} was not found.`, 404);
 
@@ -460,6 +499,7 @@ function createRaceStore({
     const activeSession = state.activeSessionId
       ? state.sessions.find((session) => session.id === state.activeSessionId)
       : null;
+    const queueView = buildQueueView(state.sessions, state.activeSessionId);
 
     return {
       state: state.raceState,
@@ -471,6 +511,12 @@ function createRaceStore({
       endsAt: state.timerEndsAt,
       activeSessionId: state.activeSessionId,
       activeSession: activeSession ? clone(activeSession) : null,
+      currentSessionId: queueView.currentSessionId,
+      currentSession: queueView.currentSession,
+      nextSessionId: queueView.nextSessionId,
+      nextSession: queueView.nextSession,
+      queuedSessionIds: queueView.queuedSessionIds,
+      queuedSessions: queueView.queuedSessions,
       lockedSession: state.lockedSession ? clone(state.lockedSession) : null,
       sessions: clone(state.sessions),
       leaderboard: buildLeaderboard(),
