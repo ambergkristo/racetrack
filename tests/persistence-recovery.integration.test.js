@@ -262,6 +262,15 @@ test("persistence restores RUNNING without lap reset or recovery auto-transition
       frontDeskHeaders()
     );
     const racerId = createdRacer.json.racer.id;
+    const queuedSession = await requestJson(
+      firstBoot.url,
+      "/api/sessions",
+      "POST",
+      { name: "Heat 2" },
+      frontDeskHeaders()
+    );
+    assert.equal(queuedSession.status, 201);
+    const nextSessionId = queuedSession.json.session.id;
 
     const startedRace = await requestJson(
       firstBoot.url,
@@ -348,6 +357,15 @@ test("RUN -> laps -> FINISH -> restart preserves finished state and checkered la
       frontDeskHeaders()
     );
     const racerId = createdRacer.json.racer.id;
+    const queuedSession = await requestJson(
+      firstBoot.url,
+      "/api/sessions",
+      "POST",
+      { name: "Heat 2" },
+      frontDeskHeaders()
+    );
+    assert.equal(queuedSession.status, 201);
+    const nextSessionId = queuedSession.json.session.id;
 
     await requestJson(firstBoot.url, "/api/race/start", "POST", {}, raceControlHeaders());
     await requestJson(
@@ -383,9 +401,12 @@ test("RUN -> laps -> FINISH -> restart preserves finished state and checkered la
       const restoredSnapshot = await requestJson(secondBoot.url, "/api/race", "GET");
       assert.equal(restoredSnapshot.status, 200);
       assert.equal(restoredSnapshot.json.state, "FINISHED");
+      assert.equal(restoredSnapshot.json.flag, "CHECKERED");
+      assert.equal(restoredSnapshot.json.lapEntryAllowed, true);
       assert.equal(restoredSnapshot.json.activeSessionId, sessionId);
       assert.equal(restoredSnapshot.json.activeSession.racers[0].lapCount, 2);
       assert.equal(restoredSnapshot.json.leaderboard[0].lapCount, 2);
+      assert.equal(restoredSnapshot.json.finalResults.length, 1);
       assert.equal(restoredSnapshot.json.remainingSeconds, 0);
 
       const finishedLap = await requestJson(
@@ -430,6 +451,15 @@ test("LOCK -> restart preserves locked state exactly", async () => {
       frontDeskHeaders()
     );
     const racerId = createdRacer.json.racer.id;
+    const queuedSession = await requestJson(
+      firstBoot.url,
+      "/api/sessions",
+      "POST",
+      { name: "Heat 2" },
+      frontDeskHeaders()
+    );
+    assert.equal(queuedSession.status, 201);
+    const nextSessionId = queuedSession.json.session.id;
 
     await requestJson(firstBoot.url, "/api/race/start", "POST", {}, raceControlHeaders());
     await requestJson(
@@ -457,8 +487,14 @@ test("LOCK -> restart preserves locked state exactly", async () => {
       const restoredSnapshot = await requestJson(secondBoot.url, "/api/race", "GET");
       assert.equal(restoredSnapshot.status, 200);
       assert.equal(restoredSnapshot.json.state, "LOCKED");
+      assert.equal(restoredSnapshot.json.flag, "LOCKED");
+      assert.equal(restoredSnapshot.json.lapEntryAllowed, false);
       assert.equal(restoredSnapshot.json.activeSessionId, null);
       assert.equal(restoredSnapshot.json.activeSession, null);
+      assert.equal(restoredSnapshot.json.nextSession.id, nextSessionId);
+      assert.equal(restoredSnapshot.json.lockedSession.id, sessionId);
+      assert.equal(restoredSnapshot.json.finalResults.length, 1);
+      assert.equal(restoredSnapshot.json.finalResults[0].racerId, racerId);
 
       const blockedLap = await requestJson(
         secondBoot.url,

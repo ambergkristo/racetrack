@@ -953,6 +953,14 @@ body {
   gap: 20px;
 }
 
+.staff-shell {
+  width: min(1680px, 100%);
+}
+
+.staff-route-grid {
+  align-items: start;
+}
+
 .panel {
   position: relative;
   background:
@@ -982,6 +990,15 @@ body {
   letter-spacing: 0.16em;
 }
 
+.front-desk-embedded-panel {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    var(--elevated);
+}
+
 .section-kicker {
   margin: 0;
   color: var(--muted);
@@ -996,6 +1013,11 @@ body {
 .command-stage,
 .ops-board,
 .assignment-shell,
+.front-desk-shell,
+.front-desk-primary,
+.front-desk-secondary,
+.race-control-shell,
+.lap-tracker-shell,
 .lap-stage,
 .tower-hero,
 .event-marquee,
@@ -1010,6 +1032,9 @@ body {
 .status-marquee,
 .command-stage,
 .assignment-shell,
+.front-desk-shell,
+.race-control-shell,
+.lap-tracker-shell,
 .event-marquee {
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 1fr);
   align-items: stretch;
@@ -1020,6 +1045,10 @@ body {
 .status-marquee-copy,
 .command-stage-copy,
 .lap-stage-copy,
+.front-desk-section,
+.race-control-actions,
+.race-control-sidecar,
+.lap-tracker-sidecar,
 .assignment-console,
 .assignment-roster-shell {
   display: grid;
@@ -1030,7 +1059,8 @@ body {
 .status-marquee-title,
 .command-stage-title,
 .tower-hero-title,
-.summary-value {
+.summary-value,
+.public-question {
   font-family: "Orbitron", "Segoe UI", sans-serif;
   color: var(--ink);
   line-height: 1;
@@ -1041,13 +1071,15 @@ body {
 .overview-title,
 .status-marquee-title,
 .command-stage-title,
-.tower-hero-title {
+.tower-hero-title,
+.public-question {
   font-size: clamp(1.5rem, 3vw, 2.6rem);
 }
 
 .status-marquee,
 .command-stage,
 .lap-stage,
+.front-desk-embedded-panel,
 .assignment-console,
 .assignment-roster-shell,
 .event-marquee,
@@ -1078,6 +1110,83 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+}
+
+.public-glance-shell,
+.session-board-grid,
+.roster-pill-grid,
+.glance-metric-grid,
+.countdown-focus-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.public-glance-shell {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  margin-bottom: 18px;
+  align-items: start;
+}
+
+.public-glance-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.session-board-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.session-board {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    var(--elevated);
+}
+
+.roster-pill-grid {
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+}
+
+.roster-pill {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.roster-pill strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.roster-pill span,
+.leaderboard-footer,
+.flag-session {
+  color: var(--muted);
+}
+
+.glance-metric-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.leaderboard-footer {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.92rem;
+}
+
+.countdown-focus-shell {
+  gap: 18px;
 }
 
 .assignment-card {
@@ -1230,6 +1339,18 @@ body {
   align-items: start;
 }
 
+.front-desk-primary {
+  align-content: start;
+}
+
+.front-desk-secondary {
+  align-content: start;
+}
+
+.front-desk-shell {
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+}
+
 .form-stack,
 .summary-stack {
   display: grid;
@@ -1254,6 +1375,24 @@ body {
 
 .racer-board {
   grid-template-columns: 1.2fr 0.7fr auto;
+}
+
+.race-control-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+}
+
+.race-control-sidecar,
+.lap-tracker-sidecar {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--soft-border);
+  background: rgba(255, 255, 255, 0.03);
+  align-content: start;
+}
+
+.lap-tracker-shell {
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
 }
 
 .field {
@@ -1297,8 +1436,21 @@ body {
   gap: 12px;
 }
 
+.staff-status-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.staff-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .kpi-pill {
-  min-height: 84px;
+  min-height: 78px;
   padding: 12px 14px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
@@ -1318,7 +1470,7 @@ body {
 }
 
 .telemetry-table.compact {
-  min-width: 420px;
+  min-width: 360px;
 }
 
 .telemetry-table thead {
@@ -1438,6 +1590,7 @@ body {
 
 .lap-grid {
   margin-top: 0;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .lap-stage {
@@ -1488,6 +1641,23 @@ body {
   min-height: 360px;
 }
 
+.flag-shell-minimal {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.flag-shell-minimal .flag-board {
+  min-height: min(68vh, 760px);
+  gap: 18px;
+}
+
+.flag-shell-minimal .flag-code {
+  font-size: clamp(4.4rem, 14vw, 11rem);
+}
+
+.flag-shell-minimal .flag-board strong {
+  font-size: clamp(1.6rem, 4vw, 3rem);
+}
+
 .flag-detail-panel {
   display: grid;
   gap: 12px;
@@ -1513,15 +1683,25 @@ body {
 
 @media (max-width: 1180px) {
   .overview-shell,
+  .public-glance-shell,
   .public-state-shell,
   .status-marquee,
   .command-stage,
   .assignment-shell,
+  .front-desk-shell,
+  .race-control-shell,
+  .lap-tracker-shell,
   .event-marquee,
   .countdown-shell,
   .flag-shell,
+  .session-board-grid,
   .tower-hero,
   .racer-board {
+    grid-template-columns: 1fr;
+  }
+
+  .race-control-actions,
+  .staff-status-metrics {
     grid-template-columns: 1fr;
   }
 }
@@ -1550,7 +1730,17 @@ body {
   .event-marquee,
   .countdown-shell,
   .flag-shell,
+  .session-board,
   .tower-hero {
     padding: 16px;
+  }
+
+  .glance-metric-grid,
+  .roster-pill-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-footer {
+    flex-direction: column;
   }
 }
