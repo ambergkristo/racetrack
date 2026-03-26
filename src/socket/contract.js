@@ -82,7 +82,10 @@ const raceFlagSchema = z.enum([
 const raceSnapshotSchema = z.object({
   serverTime: z.string().datetime(),
   state: z.enum(Object.values(RACE_STATES)),
+  stateLabel: z.string().min(1),
+  stateDescription: z.string().min(1),
   flag: raceFlagSchema,
+  resultsFinalized: z.boolean(),
   mode: z.enum(Object.values(RACE_MODES)),
   lapEntryAllowed: z.boolean(),
   raceDurationSeconds: z.number().int().positive(),
