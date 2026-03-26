@@ -2650,6 +2650,101 @@ body {
   display: none;
 }
 
+.route-front-desk .staff-status-panel,
+.route-front-desk .frontdesk-panel {
+  grid-column: 1 / -1;
+}
+
+.route-front-desk .staff-status-panel {
+  padding-bottom: 14px;
+}
+
+.route-front-desk .status-marquee {
+  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+  gap: 12px;
+}
+
+.route-front-desk .staff-status-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.route-front-desk .frontdesk-panel {
+  padding: 14px;
+}
+
+.route-front-desk .frontdesk-workflow {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.route-front-desk .frontdesk-workflow.has-secondary {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+}
+
+.route-front-desk .front-desk-primary {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.route-front-desk .frontdesk-overview {
+  grid-column: 1 / -1;
+}
+
+.route-front-desk .front-desk-section {
+  align-content: start;
+}
+
+.route-front-desk .frontdesk-block,
+.route-front-desk .queue-card,
+.route-front-desk .summary-stack {
+  padding: 12px;
+}
+
+.route-front-desk .ops-board {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.9fr);
+  gap: 10px;
+}
+
+.route-front-desk .racer-board {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) auto;
+}
+
+.route-front-desk .field input,
+.route-front-desk .action-btn {
+  min-height: 44px;
+}
+
+.route-front-desk .table-wrap {
+  margin-top: 8px;
+}
+
+.route-front-desk .telemetry-table th,
+.route-front-desk .telemetry-table td {
+  padding: 7px 8px;
+}
+
+.route-front-desk .queue-card-head,
+.route-front-desk .frontdesk-block-head {
+  gap: 10px;
+}
+
+.route-front-desk .queue-title {
+  font-size: 0.96rem;
+}
+
+.route-front-desk .queue-kicker,
+.route-front-desk .section-kicker {
+  margin-bottom: 2px;
+}
+
+.route-front-desk .hint,
+.route-front-desk .panel-copy,
+.route-front-desk .info-row,
+.route-front-desk .staff-chip-row {
+  font-size: 0.82rem;
+}
+
 @media (max-width: 1180px) {
   .staff-shell {
     height: auto;
