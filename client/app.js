@@ -201,7 +201,12 @@
       endsAt: null,
       activeSessionId: null,
       activeSession: null,
+      currentSessionId: null,
+      currentSession: null,
+      nextSessionId: null,
       nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
       lockedSession: null,
       finalResults: null,
       sessions: [],
@@ -365,14 +370,35 @@
       ? snapshot.sessions.map(normalizeSession)
       : [];
     const activeSessionId = snapshot.activeSessionId ? String(snapshot.activeSessionId) : null;
+    const currentSessionId = snapshot.currentSessionId
+      ? String(snapshot.currentSessionId)
+      : activeSessionId;
     const activeSession =
       isObject(snapshot.activeSession) && snapshot.activeSession !== null
         ? normalizeSession(snapshot.activeSession)
         : sessions.find((session) => session.id === activeSessionId) || null;
+    const currentSession =
+      isObject(snapshot.currentSession) && snapshot.currentSession !== null
+        ? normalizeSession(snapshot.currentSession)
+        : sessions.find((session) => session.id === currentSessionId) || activeSession;
+    const nextSessionId = snapshot.nextSessionId ? String(snapshot.nextSessionId) : null;
     const nextSession =
       isObject(snapshot.nextSession) && snapshot.nextSession !== null
         ? normalizeSession(snapshot.nextSession)
-        : sessions.find((session) => session.id !== activeSessionId) || null;
+        : sessions.find(
+            (session) =>
+              session.id === nextSessionId ||
+              (session.id !== currentSessionId && session.id !== activeSessionId)
+          ) || null;
+    const queuedSessions = Array.isArray(snapshot.queuedSessions)
+      ? snapshot.queuedSessions.map(normalizeSession)
+      : sessions.filter(
+          (session) =>
+            session.id !== currentSessionId && session.id !== activeSessionId
+        );
+    const queuedSessionIds = Array.isArray(snapshot.queuedSessionIds)
+      ? snapshot.queuedSessionIds.map((sessionId) => String(sessionId))
+      : queuedSessions.map((session) => session.id);
     const lockedSession =
       isObject(snapshot.lockedSession) && snapshot.lockedSession !== null
         ? normalizeSession(snapshot.lockedSession)
@@ -405,7 +431,12 @@
       endsAt: snapshot.endsAt ?? null,
       activeSessionId,
       activeSession,
+      currentSessionId,
+      currentSession,
+      nextSessionId,
       nextSession,
+      queuedSessionIds,
+      queuedSessions,
       lockedSession,
       finalResults,
       sessions,
@@ -416,7 +447,7 @@
   }
 
   function getActiveSession() {
-    return state.raceSnapshot.activeSession;
+    return state.raceSnapshot.currentSession || state.raceSnapshot.activeSession;
   }
 
   function getDisplaySession() {
@@ -424,13 +455,61 @@
   }
 
   function getQueuedSessions() {
-    if (state.raceSnapshot.nextSession) {
-      return [state.raceSnapshot.nextSession];
+    if (state.raceSnapshot.queuedSessions.length > 0) {
+      return state.raceSnapshot.queuedSessions;
     }
 
     return state.raceSnapshot.sessions.filter(
-      (session) => session.id !== state.raceSnapshot.activeSessionId
+      (session) =>
+        session.id !== state.raceSnapshot.currentSessionId &&
+        session.id !== state.raceSnapshot.activeSessionId
     );
+  }
+
+  function queueLaneCard(label, session, tone = "queued") {
+    if (!session) {
+      return `
+        <div class="queue-card queue-card-${tone}">
+          <p class="queue-kicker">${escapeHtml(label)}</p>
+          <strong class="queue-title">No session</strong>
+          <span class="hint">No heat is assigned to this slot yet.</span>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="queue-card queue-card-${tone}">
+        <div class="queue-card-head">
+          <div>
+            <p class="queue-kicker">${escapeHtml(label)}</p>
+            <strong class="queue-title">${escapeHtml(session.name)}</strong>
+          </div>
+          <span class="chip tiny-chip">${session.racers.length} racers</span>
+        </div>
+        <div class="stack-list compact-list queue-meta">
+          <div class="info-row"><span>Session ID</span><strong>${escapeHtml(session.id)}</strong></div>
+          <div class="info-row"><span>Roster</span><strong>${session.racers.length}</strong></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function queuedSessionLane() {
+    const queuedSessions = getQueuedSessions().slice(1);
+
+    if (queuedSessions.length === 0) {
+      return `
+        <div class="queue-card">
+          <p class="queue-kicker">Queued later</p>
+          <strong class="queue-title">Queue clear</strong>
+          <span class="hint">No additional sessions are waiting behind the next slot.</span>
+        </div>
+      `;
+    }
+
+    return queuedSessions
+      .map((session) => queueLaneCard("Queued later", session))
+      .join("");
   }
 
   function publicRouteQuestion(pathname = route) {
@@ -1309,7 +1388,7 @@
 
     return state.raceSnapshot.sessions
       .map((session) => {
-        const active = session.id === state.raceSnapshot.activeSessionId;
+        const active = session.id === state.raceSnapshot.currentSessionId;
         const accessReason = staffAccessReason();
         const stageReason = firstReason(
           accessReason,
@@ -1331,7 +1410,7 @@
         return `
           <tr>
             <td>${escapeHtml(session.name)}</td>
-            <td>${active ? '<span class="chip tiny-chip">ACTIVE</span>' : '<span class="chip tiny-chip">QUEUED</span>'}</td>
+            <td>${active ? '<span class="chip tiny-chip">CURRENT</span>' : '<span class="chip tiny-chip">QUEUED</span>'}</td>
             <td>${session.racers.length}</td>
             <td>
               <div class="row-actions">
@@ -1457,7 +1536,17 @@
   function frontDeskPanel() {
     const formState = getFrontDeskFormState();
     const activeSession = formState.activeSession;
-    const queueCount = getQueuedSessions().length;
+    const queuedSessions = getQueuedSessions();
+    const nextSession = state.raceSnapshot.nextSession || queuedSessions[0] || null;
+    const queueCount = queuedSessions.length;
+    const workflowBanner = manualAssignmentEnabled()
+      ? `
+          <div class="inline-alert warning manual-assignment-banner">
+            <strong>Manual assignment active</strong>
+            <span>FF ON. Queue truth remains canonical while car numbers are adjusted.</span>
+          </div>
+        `
+      : "";
 
     return [
       panel(
@@ -1465,6 +1554,29 @@
         `
           <div class="front-desk-shell">
             <div class="front-desk-primary">
+              <div class="front-desk-section">
+                <p class="section-kicker">Current / next / queued</p>
+                <div class="frontdesk-workflow">
+                  <div class="queue-lane">
+                    ${queueLaneCard("Current", activeSession, "current")}
+                    ${queueLaneCard("Next Up", nextSession, "next")}
+                  </div>
+                  <div class="queue-lane-section">
+                    ${panel(
+                      "Front Desk Workflow",
+                      `
+                        <p class="panel-copy">Current / next / queued workflow stays tied to backend truth instead of local ordering guesses.</p>
+                        ${workflowBanner}
+                        <div class="queue-roster">
+                          ${queuedSessionLane()}
+                        </div>
+                      `,
+                      "warning",
+                      "front-desk-embedded-panel"
+                    )}
+                  </div>
+                </div>
+              </div>
               <div class="front-desk-section">
                 <p class="section-kicker">Stage the next heat</p>
                 <div class="ops-board">

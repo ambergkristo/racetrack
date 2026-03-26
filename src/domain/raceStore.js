@@ -28,6 +28,22 @@ function normalizeOptionalString(value) {
   return trimmed === "" ? null : trimmed;
 }
 
+function buildQueueView(sessions, activeSessionId) {
+  const currentSession = activeSessionId
+    ? sessions.find((session) => session.id === activeSessionId) || null
+    : null;
+  const queuedSessions = sessions.filter((session) => session.id !== activeSessionId);
+
+  return {
+    currentSessionId: currentSession ? currentSession.id : null,
+    currentSession: currentSession ? clone(currentSession) : null,
+    nextSessionId: queuedSessions[0]?.id ?? null,
+    nextSession: queuedSessions[0] ? clone(queuedSessions[0]) : null,
+    queuedSessionIds: queuedSessions.map((session) => session.id),
+    queuedSessions: clone(queuedSessions),
+  };
+}
+
 function createInitialState(raceDurationSeconds) {
   return {
     raceState: RACE_STATES.IDLE,
@@ -109,10 +125,14 @@ function createRaceStore({
   }
 
   function assignActiveSession(sessionId) {
+    state.sessions = [
+      getSession(sessionId),
+      ...state.sessions.filter((session) => session.id !== sessionId),
+    ];
     state.activeSessionId = sessionId;
     resetLockedPresentation();
 
-    if (state.raceState === RACE_STATES.IDLE) {
+      if (state.raceState === RACE_STATES.IDLE) {
       transitionTo(RACE_STATES.STAGING, "SESSION_SELECTION_BLOCKED");
     } else if (state.raceState === RACE_STATES.LOCKED) {
       transitionTo(RACE_STATES.STAGING, "SESSION_SELECTION_BLOCKED");
@@ -130,7 +150,7 @@ function createRaceStore({
 
     ensure(
       state.raceState !== RACE_STATES.RUNNING && state.raceState !== RACE_STATES.FINISHED,
-      "SESSION_EDIT_BLOCKED",
+      "SESSION_EDIT_FORBIDDEN",
       "Active session cannot be edited while the race is running or finished.",
       409
     );
@@ -167,6 +187,14 @@ function createRaceStore({
 
   function deleteSession(sessionId) {
     const session = getSession(sessionId);
+    if (state.activeSessionId === sessionId) {
+      ensure(
+        state.raceState !== RACE_STATES.RUNNING && state.raceState !== RACE_STATES.FINISHED,
+        "SESSION_DELETE_FORBIDDEN",
+        "Active session cannot be deleted while the race is running or finished.",
+        409
+      );
+    }
     assertEditableSession(sessionId);
 
     state.sessions = state.sessions.filter((item) => item.id !== session.id);
@@ -460,6 +488,7 @@ function createRaceStore({
     const activeSession = state.activeSessionId
       ? state.sessions.find((session) => session.id === state.activeSessionId)
       : null;
+    const queueView = buildQueueView(state.sessions, state.activeSessionId);
 
     return {
       state: state.raceState,
@@ -471,6 +500,12 @@ function createRaceStore({
       endsAt: state.timerEndsAt,
       activeSessionId: state.activeSessionId,
       activeSession: activeSession ? clone(activeSession) : null,
+      currentSessionId: queueView.currentSessionId,
+      currentSession: queueView.currentSession,
+      nextSessionId: queueView.nextSessionId,
+      nextSession: queueView.nextSession,
+      queuedSessionIds: queueView.queuedSessionIds,
+      queuedSessions: queueView.queuedSessions,
       lockedSession: state.lockedSession ? clone(state.lockedSession) : null,
       sessions: clone(state.sessions),
       leaderboard: buildLeaderboard(),

@@ -154,7 +154,12 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     );
     assert.equal(idleSnapshotPayload.flag, "SAFE");
     assert.equal(idleSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(idleSnapshotPayload.currentSessionId, null);
+    assert.equal(idleSnapshotPayload.currentSession, null);
+    assert.equal(idleSnapshotPayload.nextSessionId, null);
     assert.equal(idleSnapshotPayload.nextSession, null);
+    assert.deepEqual(idleSnapshotPayload.queuedSessionIds, []);
+    assert.deepEqual(idleSnapshotPayload.queuedSessions, []);
     assert.equal(idleSnapshotPayload.lockedSession, null);
     assert.equal(idleSnapshotPayload.finalResults, null);
     assert.equal(idleLeaderboardPayload.flag, "SAFE");
@@ -215,7 +220,15 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(runningSnapshotPayload.flag, "SAFE");
     assert.equal(runningSnapshotPayload.lapEntryAllowed, true);
     assert.equal(runningSnapshotPayload.activeSessionId, sessionId);
+    assert.equal(runningSnapshotPayload.currentSessionId, sessionId);
+    assert.equal(runningSnapshotPayload.currentSession?.id, sessionId);
+    assert.equal(runningSnapshotPayload.nextSessionId, nextSessionId);
     assert.equal(runningSnapshotPayload.nextSession?.id, nextSessionId);
+    assert.deepEqual(runningSnapshotPayload.queuedSessionIds, [nextSessionId]);
+    assert.deepEqual(
+      runningSnapshotPayload.queuedSessions.map((session) => session.id),
+      [nextSessionId]
+    );
     assert.equal(runningSnapshotPayload.lockedSession, null);
     assert.equal(runningSnapshotPayload.finalResults, null);
 
@@ -273,7 +286,15 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(finishedSnapshotPayload.flag, "CHECKERED");
     assert.equal(finishedSnapshotPayload.lapEntryAllowed, true);
     assert.equal(finishedSnapshotPayload.activeSessionId, sessionId);
+    assert.equal(finishedSnapshotPayload.currentSessionId, sessionId);
+    assert.equal(finishedSnapshotPayload.currentSession?.id, sessionId);
+    assert.equal(finishedSnapshotPayload.nextSessionId, nextSessionId);
     assert.equal(finishedSnapshotPayload.nextSession?.id, nextSessionId);
+    assert.deepEqual(finishedSnapshotPayload.queuedSessionIds, [nextSessionId]);
+    assert.deepEqual(
+      finishedSnapshotPayload.queuedSessions.map((session) => session.id),
+      [nextSessionId]
+    );
     assert.equal(finishedSnapshotPayload.lockedSession, null);
     assert.equal(finishedSnapshotPayload.finalResults?.length, 1);
 
@@ -298,7 +319,15 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(lockedSnapshotPayload.lapEntryAllowed, false);
     assert.equal(lockedSnapshotPayload.activeSessionId, null);
     assert.equal(lockedSnapshotPayload.activeSession, null);
+    assert.equal(lockedSnapshotPayload.currentSessionId, null);
+    assert.equal(lockedSnapshotPayload.currentSession, null);
+    assert.equal(lockedSnapshotPayload.nextSessionId, nextSessionId);
     assert.equal(lockedSnapshotPayload.nextSession?.id, nextSessionId);
+    assert.deepEqual(lockedSnapshotPayload.queuedSessionIds, [nextSessionId]);
+    assert.deepEqual(
+      lockedSnapshotPayload.queuedSessions.map((session) => session.id),
+      [nextSessionId]
+    );
     assert.equal(lockedSnapshotPayload.lockedSession?.id, sessionId);
     assert.equal(lockedSnapshotPayload.finalResults?.length, 1);
 
