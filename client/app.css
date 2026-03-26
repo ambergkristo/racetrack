@@ -1958,7 +1958,361 @@ body {
   backdrop-filter: blur(4px);
 }
 
+.public-shell {
+  width: min(1680px, 100%);
+  min-height: 100dvh;
+  height: 100dvh;
+  padding: 16px 18px 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.public-shell.is-fullscreen {
+  padding: 12px;
+}
+
+.public-shell .telemetry-header {
+  margin-bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.public-shell .telemetry-copy {
+  gap: 6px;
+}
+
+.public-shell .eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+}
+
+.public-shell .telemetry-copy h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.4vw, 2.35rem);
+}
+
+.public-shell .subtitle {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.public-shell .route-caption {
+  display: none;
+}
+
+.public-shell .telemetry-meta {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 10px;
+  align-items: start;
+  justify-content: end;
+}
+
+.public-shell .connection-status {
+  min-height: 0;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  box-shadow: none;
+}
+
+.public-shell .connection-status strong {
+  font-size: 0.82rem;
+}
+
+.public-shell .connection-status span {
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.public-shell .connection-status em {
+  display: none;
+}
+
+.public-shell .fullscreen-btn {
+  min-height: 0;
+  min-width: 176px;
+  padding: 10px 12px;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  align-content: center;
+}
+
+.public-shell .fullscreen-btn strong {
+  font-size: 0.72rem;
+}
+
+.public-route-grid {
+  min-height: 0;
+  align-items: stretch;
+  align-content: stretch;
+}
+
+.public-route-grid > .panel {
+  grid-column: 1 / -1;
+  min-height: 0;
+  padding: 16px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.public-route-grid .panel-heading {
+  margin-bottom: 10px;
+}
+
+.public-route-grid .panel-heading h2 {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+}
+
+.public-display-panel {
+  display: grid;
+  min-height: 0;
+}
+
+.public-shell .public-glance-shell {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.public-shell .public-glance-copy {
+  gap: 6px;
+}
+
+.public-shell .section-kicker {
+  font-size: 0.66rem;
+}
+
+.public-shell .public-question {
+  font-size: clamp(1.14rem, 1.9vw, 1.68rem);
+  letter-spacing: 0.05em;
+}
+
+.public-shell .public-state-detail {
+  font-size: 0.9rem;
+  line-height: 1.24;
+}
+
+.public-shell .glance-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  align-self: start;
+}
+
+.public-shell .kpi-pill {
+  min-height: 58px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.public-shell .kpi-pill span {
+  font-size: 0.66rem;
+}
+
+.public-shell .kpi-pill strong {
+  margin-top: 2px;
+  font-size: 0.94rem;
+}
+
+.public-shell .tower-hero {
+  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(110px, 0.48fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.public-shell .tower-hero-copy {
+  gap: 6px;
+}
+
+.public-shell .tower-hero-title {
+  font-size: clamp(1.2rem, 2vw, 1.86rem);
+}
+
+.public-shell .tower-hero-detail {
+  font-size: 0.86rem;
+}
+
+.public-shell .tower-stat {
+  padding: 12px;
+  gap: 6px;
+}
+
+.public-shell .tower-stat strong {
+  font-size: 1rem;
+}
+
+.public-shell .leaderboard-panel .table-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.public-shell .leaderboard-panel .telemetry-table {
+  min-width: 0;
+}
+
+.public-shell .leaderboard-panel .telemetry-table th,
+.public-shell .leaderboard-panel .telemetry-table td {
+  padding: 8px 10px;
+}
+
+.public-shell .leaderboard-panel .position-badge,
+.public-shell .leaderboard-panel .car-badge {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+}
+
+.public-shell .leaderboard-panel .driver-cell {
+  gap: 2px;
+}
+
+.public-shell .leaderboard-panel .driver-cell strong,
+.public-shell .leaderboard-panel .timing-cell {
+  font-size: 0.92rem;
+}
+
+.public-shell .leaderboard-panel .driver-cell span {
+  font-size: 0.76rem;
+}
+
+.public-shell .leaderboard-footer {
+  margin-top: 10px;
+  font-size: 0.8rem;
+}
+
+.public-shell .next-race-panel .inline-alert {
+  margin-top: 0;
+  min-height: 0;
+  padding: 10px 12px;
+}
+
+.public-shell .session-board-grid {
+  gap: 12px;
+}
+
+.public-shell .session-board {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+}
+
+.public-shell .session-board > strong {
+  font-size: 1.12rem;
+}
+
+.public-shell .session-board > span {
+  font-size: 0.88rem;
+  line-height: 1.24;
+}
+
+.public-shell .roster-pill-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.public-shell .roster-pill {
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.public-shell .roster-pill-car {
+  font-size: 0.66rem;
+}
+
+.public-shell .roster-pill strong {
+  font-size: 0.88rem;
+}
+
+.public-shell .countdown-focus-shell {
+  gap: 12px;
+}
+
+.public-shell .countdown-shell {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 12px;
+  padding: 14px;
+}
+
+.public-shell .countdown-board {
+  min-height: 0;
+  padding: 12px;
+  gap: 10px;
+}
+
+.public-shell .countdown-session-name {
+  font-size: clamp(1.18rem, 1.9vw, 1.8rem);
+}
+
+.public-shell .countdown-digits {
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.9;
+}
+
+.public-shell .countdown-side {
+  gap: 10px;
+  padding: 14px;
+}
+
+.public-shell .countdown-side .stack-list {
+  margin-top: 2px;
+}
+
+.public-shell .countdown-side .info-row {
+  gap: 10px;
+}
+
+.public-shell .flag-shell-minimal .flag-board {
+  min-height: min(58vh, 560px);
+  padding: 18px;
+  gap: 10px;
+}
+
+.public-shell .flag-shell-minimal .flag-code {
+  font-size: clamp(5.6rem, 15vw, 11.5rem);
+  line-height: 0.82;
+}
+
+.public-shell .flag-shell-minimal .flag-board strong {
+  font-size: clamp(1.55rem, 3.4vw, 2.7rem);
+}
+
+.public-shell .flag-display-meta {
+  margin-top: 4px;
+  gap: 8px 14px;
+  font-size: 0.78rem;
+}
+
 @media (max-width: 1180px) {
+  .public-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .public-shell .telemetry-header {
+    grid-template-columns: 1fr;
+  }
+
+  .public-shell .telemetry-meta {
+    grid-auto-flow: row;
+    justify-content: stretch;
+  }
+
+  .public-shell .public-glance-shell,
+  .public-shell .glance-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .public-shell .roster-pill-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .overview-shell,
   .public-glance-shell,
   .public-state-shell,
@@ -1984,6 +2338,21 @@ body {
 }
 
 @media (max-width: 720px) {
+  .public-shell,
+  .public-shell.is-fullscreen {
+    height: auto;
+    padding: 12px;
+  }
+
+  .public-shell .telemetry-meta {
+    grid-auto-flow: row;
+  }
+
+  .public-shell .fullscreen-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
   .app-shell,
   .app-shell.is-fullscreen {
     padding: 14px;

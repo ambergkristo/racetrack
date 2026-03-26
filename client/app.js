@@ -1054,10 +1054,10 @@
 
   function appShell(content) {
     return `
-      <div class="app-shell route-${route.replace(/\//g, "") || "home"} ${routeConfig.staff ? "staff-shell" : ""} ${document.fullscreenElement ? "is-fullscreen" : ""}">
+      <div class="app-shell route-${route.replace(/\//g, "") || "home"} ${routeConfig.staff ? "staff-shell" : ""} ${routeConfig.public ? "public-shell" : ""} ${document.fullscreenElement ? "is-fullscreen" : ""}">
         <div class="backdrop-grid"></div>
         ${telemetryHeader()}
-        <main class="route-grid ${routeConfig.staff ? "staff-route-grid" : ""}">
+        <main class="route-grid ${routeConfig.staff ? "staff-route-grid" : ""} ${routeConfig.public ? "public-route-grid" : ""}">
           ${content}
         </main>
         ${keyGateModal()}
@@ -2333,7 +2333,7 @@
     const activeSession = getDisplaySession();
     const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
-    const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 8);
+    const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 6);
     const leaderTitle = leader ? `#${leader.position} ${leader.name}` : "Waiting for first lap";
     const leaderCurrentLap = leader ? formatLap(leader.currentLapTimeMs) : "--";
     return [
@@ -2368,14 +2368,14 @@
               <strong>${escapeHtml(leader ? String(leader.lapCount) : "--")}</strong>
             </div>
           </div>
-          ${leaderboardTable(state.raceSnapshot.leaderboard, { limit: 8 })}
+          ${leaderboardTable(state.raceSnapshot.leaderboard, { limit: 6 })}
           <div class="leaderboard-footer">
             <span>${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
             <span>${escapeHtml(shownRows === state.raceSnapshot.leaderboard.length ? `Showing ${shownRows} live rows` : `Showing top ${shownRows} of ${state.raceSnapshot.leaderboard.length}`)}</span>
           </div>
         `,
         flagMeta.tone,
-        `panel-wide${finishedClass()}`
+        `panel-wide public-display-panel leaderboard-panel${finishedClass()}`
       ),
     ].join("");
   }
@@ -2412,6 +2412,7 @@
               ${rosterStrip(activeSession, {
                 emptyTitle: "No racers on track",
                 emptyDetail: "Front desk has not staged an active session yet.",
+                limit: 4,
               })}
             </div>
             <div class="session-board tone-safe next-session-board">
@@ -2421,12 +2422,13 @@
               ${rosterStrip(queued, {
                 emptyTitle: "Queue is empty",
                 emptyDetail: "Add and queue the next session from front desk.",
+                limit: 4,
               })}
             </div>
           </div>
         `,
         "warning",
-        `panel-wide${finishedClass()}`
+        `panel-wide public-display-panel next-race-panel${finishedClass()}`
       ),
     ].join("");
   }
@@ -2458,7 +2460,7 @@
                 ${rosterStrip(activeSession, {
                   emptyTitle: "No roster on screen",
                   emptyDetail: "Stage a session to show the active lineup.",
-                  limit: 4,
+                  limit: 3,
                 })}
                 <div class="stack-list">
                   <div class="info-row"><span>State</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
@@ -2469,7 +2471,7 @@
           </div>
         `,
         flagMeta.tone,
-        `panel-wide${finishedClass()}`
+        `panel-wide public-display-panel countdown-panel${finishedClass()}`
       ),
     ].join("");
   }
@@ -2493,7 +2495,7 @@
           </div>
         `,
         flagMeta.tone,
-        "panel-wide"
+        "panel-wide public-display-panel flag-panel"
       ),
     ].join("");
   }
