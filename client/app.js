@@ -123,6 +123,9 @@
   let noticeTimer = null;
   let state = {
     bootstrap: null,
+    featureFlags: {
+      FF_MANUAL_CAR_ASSIGNMENT: false,
+    },
     connection: "idle",
     error: "",
     serverHello: null,
@@ -161,6 +164,12 @@
       queuedSessions: [],
       sessions: [],
       leaderboard: [],
+    };
+  }
+
+  function normalizeFeatureFlags(flags) {
+    return {
+      FF_MANUAL_CAR_ASSIGNMENT: Boolean(flags?.FF_MANUAL_CAR_ASSIGNMENT),
     };
   }
 
@@ -460,7 +469,10 @@
     try {
       const res = await fetch("/api/bootstrap");
       const data = await res.json();
-      const nextState = { bootstrap: data };
+      const nextState = {
+        bootstrap: data,
+        featureFlags: normalizeFeatureFlags(data.featureFlags),
+      };
       if (data.raceSnapshot) {
         nextState.raceSnapshot = normalizeSnapshot(data.raceSnapshot);
       }
@@ -609,6 +621,10 @@
     );
   }
 
+  function manualAssignmentEnabled() {
+    return Boolean(state.featureFlags.FF_MANUAL_CAR_ASSIGNMENT);
+  }
+
   function runtimePanel() {
     const bootstrap = state.bootstrap
       ? JSON.stringify(state.bootstrap, null, 2)
@@ -751,6 +767,87 @@
       .join("");
   }
 
+  function sessionActionState(session) {
+    const isCurrent = session.id === state.raceSnapshot.currentSessionId;
+    const raceLive =
+      state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED";
+
+    return {
+      isCurrent,
+      canSelect: !isCurrent && !raceLive && !state.pending,
+      canEdit: !(isCurrent && raceLive) && !state.pending,
+      canDelete: !(isCurrent && raceLive) && !state.pending,
+    };
+  }
+
+  function queueStatusLabel(kind) {
+    if (kind === "current") {
+      return "Current";
+    }
+
+    if (kind === "next") {
+      return "Next Up";
+    }
+
+    return "Queued";
+  }
+
+  function queueSessionCard(session, kind = "queued") {
+    const actionState = sessionActionState(session);
+    const raceLabel =
+      kind === "current"
+        ? STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state
+        : "Queued";
+    const rosterMarkup =
+      session.racers.length > 0
+        ? session.racers
+            .map(
+              (racer) => `
+                <div class="queue-racer-row">
+                  <span>${escapeHtml(racer.name)}</span>
+                  <strong>${escapeHtml(racer.carNumber || "--")}</strong>
+                </div>
+              `
+            )
+            .join("")
+        : '<p class="hint">No racers staged yet.</p>';
+
+    return `
+      <article class="queue-card queue-card-${kind}">
+        <div class="queue-card-head">
+          <div>
+            <p class="queue-kicker">${escapeHtml(queueStatusLabel(kind))}</p>
+            <strong class="queue-title">${escapeHtml(session.name)}</strong>
+          </div>
+          <span class="chip tiny-chip">${session.racers.length} racers</span>
+        </div>
+        <div class="queue-meta">
+          <div class="info-row"><span>Session state</span><strong>${escapeHtml(raceLabel)}</strong></div>
+        </div>
+        <div class="queue-roster">
+          ${rosterMarkup}
+        </div>
+        <div class="controls queue-actions">
+          <button class="action-btn action-warning" data-action="select-session" data-session-id="${escapeHtml(session.id)}" type="button" ${actionState.canSelect ? "" : "disabled"}>Make Current</button>
+          <button class="action-btn action-ghost" data-action="edit-session" data-session-id="${escapeHtml(session.id)}" type="button" ${actionState.canEdit ? "" : "disabled"}>Edit</button>
+          <button class="action-btn action-danger" data-action="delete-session" data-session-id="${escapeHtml(session.id)}" type="button" ${actionState.canDelete ? "" : "disabled"}>Delete</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function queuedSessionList() {
+    const queued = getQueuedSessions().filter(
+      (session) => session.id !== state.raceSnapshot.nextSessionId
+    );
+
+    if (queued.length === 0) {
+      return '<div class="empty-state">No additional queued sessions.</div>';
+    }
+
+    return queued.map((session) => queueSessionCard(session, "queued")).join("");
+  }
+
   function racerRows(activeSession) {
     if (!activeSession) {
       return '<tr><td colspan="4" class="hint">Stage a session to manage racers.</td></tr>';
@@ -784,60 +881,142 @@
 
   function frontDeskPanel() {
     const activeSession = getActiveSession();
+    const currentSession = state.raceSnapshot.currentSession || activeSession;
+    const nextSession = state.raceSnapshot.nextSession;
     const updateMode = state.sessionForm.id !== null;
     const racerUpdateMode = state.racerForm.id !== null;
     const activeEditable =
-      activeSession &&
+      currentSession &&
       state.raceSnapshot.state !== "RUNNING" &&
       state.raceSnapshot.state !== "FINISHED";
 
     return panel(
-      "Front Desk Ops",
+      "Front Desk Workflow",
       `
-        <div class="staff-form-grid">
-          <label class="field">
-            <span>Session name</span>
-            <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
-          </label>
-          <div class="controls">
-            <button class="action-btn" id="save-session-btn" type="button" ${state.pending ? "disabled" : ""}>${updateMode ? "Save Session" : "Create Session"}</button>
-            ${updateMode ? '<button class="action-btn action-ghost" id="cancel-session-edit-btn" type="button">Cancel</button>' : ""}
+        <div class="frontdesk-workflow">
+          <div class="frontdesk-primary">
+            <div class="frontdesk-overview">
+              ${
+                currentSession
+                  ? queueSessionCard(currentSession, "current")
+                  : `
+                    <article class="queue-card queue-card-current">
+                      <div class="queue-card-head">
+                        <div>
+                          <p class="queue-kicker">Current</p>
+                          <strong class="queue-title">No current session</strong>
+                        </div>
+                      </div>
+                      <p class="hint">Create a session to start building the queue.</p>
+                    </article>
+                  `
+              }
+              ${
+                nextSession
+                  ? queueSessionCard(nextSession, "next")
+                  : `
+                    <article class="queue-card queue-card-next">
+                      <div class="queue-card-head">
+                        <div>
+                          <p class="queue-kicker">Next Up</p>
+                          <strong class="queue-title">No next session</strong>
+                        </div>
+                      </div>
+                      <p class="hint">Create another heat to keep the next slot visible.</p>
+                    </article>
+                  `
+              }
+            </div>
+
+            <section class="frontdesk-block">
+              <div class="frontdesk-block-head">
+                <div>
+                  <p class="queue-kicker">Queue block</p>
+                  <strong class="queue-title">Current / next / queued</strong>
+                </div>
+              </div>
+              <div class="queue-lane">
+                <div class="queue-lane-section">
+                  <p class="queue-kicker">Queued later</p>
+                  ${queuedSessionList()}
+                </div>
+              </div>
+            </section>
           </div>
-        </div>
-        <div class="table-wrap">
-          <table class="telemetry-table compact">
-            <thead>
-              <tr><th>Session</th><th>Status</th><th>Racers</th><th>Actions</th></tr>
-            </thead>
-            <tbody>${sessionRows()}</tbody>
-          </table>
-        </div>
-        <div class="divider"></div>
-        <div class="staff-form-grid">
-          <label class="field">
-            <span>Racer name</span>
-            <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${activeEditable ? "" : "disabled"} />
-          </label>
-          <label class="field">
-            <span>Car number</span>
-            <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${activeEditable ? "" : "disabled"} />
-          </label>
-          <div class="controls">
-            <button class="action-btn" id="save-racer-btn" type="button" ${activeEditable && !state.pending ? "" : "disabled"}>${racerUpdateMode ? "Save Racer" : "Add Racer"}</button>
-            ${racerUpdateMode ? '<button class="action-btn action-ghost" id="cancel-racer-edit-btn" type="button">Cancel</button>' : ""}
+
+          <div class="frontdesk-secondary">
+            <section class="frontdesk-block">
+              <div class="frontdesk-block-head">
+                <div>
+                  <p class="queue-kicker">Session flow</p>
+                  <strong class="queue-title">${updateMode ? "Edit session" : "Create a queued session"}</strong>
+                </div>
+              </div>
+              <div class="staff-form-grid">
+                <label class="field">
+                  <span>Session name</span>
+                  <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
+                </label>
+                <div class="controls">
+                  <button class="action-btn" id="save-session-btn" type="button" ${state.pending ? "disabled" : ""}>${updateMode ? "Save Session" : "Create Session"}</button>
+                  ${updateMode ? '<button class="action-btn action-ghost" id="cancel-session-edit-btn" type="button">Cancel</button>' : ""}
+                </div>
+              </div>
+            </section>
+
+            <section class="frontdesk-block">
+              <div class="frontdesk-block-head">
+                <div>
+                  <p class="queue-kicker">Racer workflow</p>
+                  <strong class="queue-title">${currentSession ? currentSession.name : "No current session"}</strong>
+                </div>
+              </div>
+              <div class="staff-form-grid">
+                <label class="field">
+                  <span>Racer name</span>
+                  <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${activeEditable ? "" : "disabled"} />
+                </label>
+                <label class="field">
+                  <span>Assigned car</span>
+                  <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${activeEditable ? "" : "disabled"} />
+                </label>
+                <div class="controls">
+                  <button class="action-btn" id="save-racer-btn" type="button" ${activeEditable && !state.pending ? "" : "disabled"}>${racerUpdateMode ? "Save Racer" : "Add Racer"}</button>
+                  ${racerUpdateMode ? '<button class="action-btn action-ghost" id="cancel-racer-edit-btn" type="button">Cancel</button>' : ""}
+                </div>
+              </div>
+              <p class="hint">${currentSession ? "Edit, delete, and Make Current stay separated so queue actions do not get mixed with racer actions." : "Create or select a current session before managing racers."}</p>
+              <div class="table-wrap">
+                <table class="telemetry-table compact">
+                  <thead>
+                    <tr><th>Racer</th><th>Assigned Car</th><th>Laps</th><th>Actions</th></tr>
+                  </thead>
+                  <tbody>${racerRows(currentSession)}</tbody>
+                </table>
+              </div>
+            </section>
+
+            ${
+              manualAssignmentEnabled()
+                ? `
+                  <section class="frontdesk-block manual-assignment-banner">
+                    <div class="frontdesk-block-head">
+                      <div>
+                        <p class="queue-kicker">Flagged workflow</p>
+                        <strong class="queue-title">Manual assignment active</strong>
+                      </div>
+                      <span class="chip tiny-chip">FF ON</span>
+                    </div>
+                    <p class="hint">Manual assignment is available on this build and must stay separate from queue ordering truth.</p>
+                  </section>
+                `
+                : ""
+            }
           </div>
-        </div>
-        <p class="hint">${activeSession ? "Racer edits apply to the active staged session." : "Create or stage a session before adding racers."}</p>
-        <div class="table-wrap">
-          <table class="telemetry-table compact">
-            <thead>
-              <tr><th>Racer</th><th>Car</th><th>Laps</th><th>Actions</th></tr>
-            </thead>
-            <tbody>${racerRows(activeSession)}</tbody>
-          </table>
         </div>
       `,
-      "safe"
+      "safe",
+      "panel-wide"
     );
   }
 
@@ -1440,7 +1619,9 @@
       });
     }
 
-    document.querySelectorAll("[data-action='stage-session']").forEach((node) => {
+    document
+      .querySelectorAll("[data-action='stage-session'], [data-action='select-session']")
+      .forEach((node) => {
       node.addEventListener("click", () => {
         runAction(
           () =>
@@ -1448,10 +1629,10 @@
               method: "POST",
               body: { sessionId: node.dataset.sessionId },
             }),
-          "Session staged."
+          "Current session updated."
         );
       });
-    });
+      });
 
     document.querySelectorAll("[data-action='edit-session']").forEach((node) => {
       node.addEventListener("click", () => {

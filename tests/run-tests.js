@@ -1,4 +1,5 @@
 require("./session-racer-crud.integration.test");
+require("./front-desk-workflow.ui.test");
 require("./race-store.test");
 require("./race-state-machine.test");
 require("./race-flow.integration.test");
