@@ -112,6 +112,24 @@
     },
   };
 
+  const FLAG_META = {
+    IDLE: STATE_META.IDLE,
+    STAGING: STATE_META.STAGING,
+    SAFE: MODE_META.SAFE,
+    HAZARD_SLOW: MODE_META.HAZARD_SLOW,
+    HAZARD_STOP: MODE_META.HAZARD_STOP,
+    CHECKERED: {
+      label: "Checkered",
+      tone: "warning",
+      detail: STATE_META.FINISHED.detail,
+    },
+    LOCKED: {
+      label: "Locked",
+      tone: "danger",
+      detail: STATE_META.LOCKED.detail,
+    },
+  };
+
   const RACE_CONTROL_MODES = ["SAFE", "HAZARD_SLOW", "HAZARD_STOP"];
 
   const appEl = document.getElementById("app");
@@ -151,8 +169,13 @@
       raceDurationSeconds: 60,
       remainingSeconds: 60,
       endsAt: null,
+      flag: "IDLE",
+      lapEntryAllowed: false,
       activeSessionId: null,
       activeSession: null,
+      nextSession: null,
+      lockedSession: null,
+      finalResults: null,
       sessions: [],
       leaderboard: [],
     };
@@ -281,6 +304,26 @@
     };
   }
 
+  function deriveFlagCode(snapshot) {
+    if (snapshot.state === "RUNNING") {
+      return snapshot.mode || "SAFE";
+    }
+
+    if (snapshot.state === "FINISHED") {
+      return "CHECKERED";
+    }
+
+    if (snapshot.state === "LOCKED") {
+      return "LOCKED";
+    }
+
+    if (snapshot.state === "STAGING") {
+      return "STAGING";
+    }
+
+    return "IDLE";
+  }
+
   function normalizeSnapshot(snapshot) {
     if (!isObject(snapshot)) {
       return state.raceSnapshot;
@@ -294,11 +337,31 @@
       isObject(snapshot.activeSession) && snapshot.activeSession !== null
         ? normalizeSession(snapshot.activeSession)
         : sessions.find((session) => session.id === activeSessionId) || null;
+    const nextSession =
+      isObject(snapshot.nextSession) && snapshot.nextSession !== null
+        ? normalizeSession(snapshot.nextSession)
+        : sessions.find((session) => session.id !== activeSessionId) || null;
+    const lockedSession =
+      isObject(snapshot.lockedSession) && snapshot.lockedSession !== null
+        ? normalizeSession(snapshot.lockedSession)
+        : null;
+    const finalResults = Array.isArray(snapshot.finalResults)
+      ? sortLeaderboard(snapshot.finalResults.map(normalizeLeaderboardEntry))
+      : null;
+    const stateCode = snapshot.state || "IDLE";
 
     return {
       serverTime: snapshot.serverTime ?? null,
-      state: snapshot.state || "IDLE",
+      state: stateCode,
+      flag:
+        typeof snapshot.flag === "string" && snapshot.flag.trim() !== ""
+          ? snapshot.flag
+          : deriveFlagCode({ state: stateCode, mode: snapshot.mode || "SAFE" }),
       mode: snapshot.mode || "SAFE",
+      lapEntryAllowed:
+        typeof snapshot.lapEntryAllowed === "boolean"
+          ? snapshot.lapEntryAllowed
+          : stateCode === "RUNNING" || stateCode === "FINISHED",
       raceDurationSeconds:
         parseNumber(snapshot.raceDurationSeconds) ?? state.raceSnapshot.raceDurationSeconds,
       remainingSeconds:
@@ -306,6 +369,9 @@
       endsAt: snapshot.endsAt ?? null,
       activeSessionId,
       activeSession,
+      nextSession,
+      lockedSession,
+      finalResults,
       sessions,
       leaderboard: Array.isArray(snapshot.leaderboard)
         ? sortLeaderboard(snapshot.leaderboard.map(normalizeLeaderboardEntry))
@@ -324,31 +390,7 @@
   }
 
   function getFlagMeta(snapshot = state.raceSnapshot) {
-    if (snapshot.state === "RUNNING") {
-      return MODE_META[snapshot.mode] || MODE_META.SAFE;
-    }
-
-    if (snapshot.state === "FINISHED") {
-      return {
-        label: "Checkered",
-        tone: "warning",
-        detail: STATE_META.FINISHED.detail,
-      };
-    }
-
-    if (snapshot.state === "LOCKED") {
-      return {
-        label: "Locked",
-        tone: "danger",
-        detail: STATE_META.LOCKED.detail,
-      };
-    }
-
-    return {
-      label: STATE_META[snapshot.state]?.label || "Idle",
-      tone: STATE_META[snapshot.state]?.tone || "safe",
-      detail: STATE_META[snapshot.state]?.detail || "",
-    };
+    return FLAG_META[snapshot.flag] || FLAG_META[deriveFlagCode(snapshot)] || FLAG_META.IDLE;
   }
 
   function applyCanonicalSnapshot(snapshot) {
@@ -882,7 +924,7 @@
   function lapTrackerPanel() {
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
-    const lapAllowed = snapshot.state === "RUNNING" || snapshot.state === "FINISHED";
+    const lapAllowed = snapshot.lapEntryAllowed;
     const racers = activeSession ? activeSession.racers : [];
 
     const buttons = racers.length
@@ -992,7 +1034,7 @@
 
   function nextRacePanels() {
     const activeSession = getActiveSession();
-    const queued = getQueuedSessions()[0] || null;
+    const queued = state.raceSnapshot.nextSession || getQueuedSessions()[0] || null;
 
     return [
       panel(

@@ -1,5 +1,6 @@
 const { z } = require("zod");
 const { RACE_MODES, RACE_STATES } = require("../domain/raceStateMachine");
+const { RACE_FLAGS } = require("../ui/raceTruth");
 
 const SOCKET_EVENTS = Object.freeze({
   CLIENT_HELLO: "client:hello",
@@ -68,15 +69,30 @@ const leaderboardEntrySchema = z.object({
   bestLapTimeMs: z.number().int().positive().nullable(),
 });
 
+const raceFlagSchema = z.enum([
+  RACE_FLAGS.IDLE,
+  RACE_FLAGS.STAGING,
+  RACE_FLAGS.SAFE,
+  RACE_FLAGS.HAZARD_SLOW,
+  RACE_FLAGS.HAZARD_STOP,
+  RACE_FLAGS.CHECKERED,
+  RACE_FLAGS.LOCKED,
+]);
+
 const raceSnapshotSchema = z.object({
   serverTime: z.string().datetime(),
   state: z.enum(Object.values(RACE_STATES)),
+  flag: raceFlagSchema,
   mode: z.enum(Object.values(RACE_MODES)),
+  lapEntryAllowed: z.boolean(),
   raceDurationSeconds: z.number().int().positive(),
   remainingSeconds: z.number().int().nonnegative(),
   endsAt: z.string().datetime().nullable(),
   activeSessionId: z.string().min(1).nullable(),
   activeSession: sessionSnapshotSchema.nullable(),
+  nextSession: sessionSnapshotSchema.nullable(),
+  lockedSession: sessionSnapshotSchema.nullable(),
+  finalResults: z.array(leaderboardEntrySchema).nullable(),
   sessions: z.array(sessionSnapshotSchema),
   leaderboard: z.array(leaderboardEntrySchema),
 });
