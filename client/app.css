@@ -2901,6 +2901,325 @@ body {
   font-size: 0.8rem;
 }
 
+.route-front-desk {
+  --frontdesk-row-height: 32px;
+  --frontdesk-table-head-height: 34px;
+  --frontdesk-visible-racers: 8;
+}
+
+.route-front-desk.staff-shell {
+  padding: 10px 14px 10px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.route-front-desk .telemetry-header {
+  gap: 10px;
+}
+
+.route-front-desk .telemetry-copy h1 {
+  margin-bottom: 2px;
+  font-size: clamp(1.4rem, 2.6vw, 2.35rem);
+}
+
+.route-front-desk .subtitle {
+  font-size: 0.84rem;
+  line-height: 1.18;
+  max-width: 56ch;
+}
+
+.route-front-desk .telemetry-meta {
+  gap: 8px;
+  min-width: min(248px, 100%);
+}
+
+.route-front-desk .connection-status {
+  padding: 8px 10px;
+}
+
+.route-front-desk .staff-route-grid {
+  grid-template-columns: 1fr;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.route-front-desk .frontdesk-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 10px 12px;
+  overflow: hidden;
+}
+
+.route-front-desk .panel-heading {
+  margin-bottom: 8px;
+}
+
+.route-front-desk .frontdesk-workflow {
+  flex: 1;
+  min-height: 0;
+}
+
+.route-front-desk .frontdesk-workflow.has-secondary {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
+}
+
+.route-front-desk .frontdesk-shell-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  grid-template-areas:
+    "racer workflow"
+    "queue control";
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+}
+
+.route-front-desk .frontdesk-racer-card {
+  grid-area: racer;
+}
+
+.route-front-desk .frontdesk-workflow-card {
+  grid-area: workflow;
+}
+
+.route-front-desk .frontdesk-queue-card {
+  grid-area: queue;
+}
+
+.route-front-desk .frontdesk-control-card {
+  grid-area: control;
+}
+
+.route-front-desk .frontdesk-desktop-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(16, 18, 26, 0.92);
+}
+
+.route-front-desk .frontdesk-desktop-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.route-front-desk .frontdesk-desktop-body {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.route-front-desk .frontdesk-racer-body {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.route-front-desk .frontdesk-workflow-body {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.route-front-desk .frontdesk-queue-body {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.route-front-desk .frontdesk-card-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.route-front-desk .frontdesk-workflow-label {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.route-front-desk .frontdesk-summary-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "current next"
+    "queue queue";
+  gap: 8px;
+  min-height: 0;
+}
+
+.route-front-desk .frontdesk-summary-current {
+  grid-area: current;
+}
+
+.route-front-desk .frontdesk-summary-next {
+  grid-area: next;
+}
+
+.route-front-desk .frontdesk-summary-queue {
+  grid-area: queue;
+}
+
+.route-front-desk .frontdesk-summary-card,
+.route-front-desk .frontdesk-inline-card {
+  padding: 10px;
+  gap: 6px;
+}
+
+.route-front-desk .frontdesk-summary-detail {
+  font-size: 0.76rem;
+  line-height: 1.18;
+}
+
+.route-front-desk .frontdesk-summary-metrics {
+  gap: 6px;
+}
+
+.route-front-desk .frontdesk-summary-metric {
+  padding: 6px 8px;
+}
+
+.route-front-desk .frontdesk-roster-preview .queue-racer-row {
+  padding: 3px 0;
+}
+
+.route-front-desk .frontdesk-racer-form {
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 0.48fr) auto;
+  gap: 8px;
+}
+
+.route-front-desk .frontdesk-racer-form .controls {
+  align-self: end;
+}
+
+.route-front-desk .frontdesk-racer-table {
+  min-height: 0;
+  display: flex;
+}
+
+.route-front-desk .frontdesk-racer-table .table-wrap {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  overflow: auto;
+  max-height: calc((var(--frontdesk-row-height) * var(--frontdesk-visible-racers)) + var(--frontdesk-table-head-height));
+}
+
+.route-front-desk .frontdesk-racer-table .telemetry-table {
+  min-width: 0;
+}
+
+.route-front-desk .frontdesk-racer-table .telemetry-table tbody tr {
+  height: var(--frontdesk-row-height);
+}
+
+.route-front-desk .frontdesk-queue-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(200px, 0.98fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.route-front-desk .frontdesk-scroll-card {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.route-front-desk .frontdesk-scroll-area {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  display: grid;
+  align-content: start;
+}
+
+.route-front-desk .queued-session-list {
+  gap: 6px;
+}
+
+.route-front-desk .queued-session-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.route-front-desk .queued-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.route-front-desk .frontdesk-guard-strip .guard-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.route-front-desk .frontdesk-control-body {
+  overflow: hidden;
+}
+
+.route-front-desk .frontdesk-control-body .status-marquee {
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  gap: 8px;
+}
+
+.route-front-desk .frontdesk-control-body .staff-chip-row {
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  gap: 6px;
+}
+
+.route-front-desk .frontdesk-control-body .chip {
+  font-size: 0.72rem;
+}
+
+.route-front-desk .frontdesk-control-body .kpi-pill {
+  min-height: 54px;
+  padding: 6px 8px;
+}
+
+.route-front-desk .frontdesk-control-body .status-marquee-title {
+  font-size: clamp(1.08rem, 1.6vw, 1.5rem);
+}
+
+.route-front-desk .frontdesk-control-body .status-marquee-detail {
+  font-size: 0.82rem;
+}
+
+.route-front-desk .field input,
+.route-front-desk .action-btn {
+  min-height: 40px;
+}
+
+.route-front-desk .row-actions .action-btn,
+.route-front-desk .queued-session-actions .action-btn {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.route-front-desk .telemetry-table th,
+.route-front-desk .telemetry-table td {
+  padding: 6px 8px;
+}
+
+.route-front-desk .hint,
+.route-front-desk .panel-copy,
+.route-front-desk .info-row,
+.route-front-desk .staff-chip-row {
+  font-size: 0.76rem;
+}
+
+.route-front-desk .queue-title {
+  font-size: 0.9rem;
+}
+
 @media (max-width: 1180px) {
   .staff-shell {
     height: auto;
@@ -2919,6 +3238,24 @@ body {
   .staff-shell .lap-tracker-shell,
   .public-shell .public-glance-shell,
   .public-shell .glance-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .route-front-desk .frontdesk-shell-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "workflow"
+      "racer"
+      "queue"
+      "control";
+    grid-template-rows: auto;
+    height: auto;
+  }
+
+  .route-front-desk .frontdesk-racer-form,
+  .route-front-desk .frontdesk-queue-setup,
+  .route-front-desk .frontdesk-summary-strip,
+  .route-front-desk .frontdesk-control-body .status-marquee {
     grid-template-columns: 1fr;
   }
 

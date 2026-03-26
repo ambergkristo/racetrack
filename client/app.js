@@ -1230,15 +1230,13 @@
     );
   }
 
-  function staffStatusPanel() {
+  function controlStatePanelBody() {
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
     const flagMeta = getFlagMeta(snapshot);
     const syncLabel = state.awaitingLiveResync ? "waiting" : "live";
     const gateLabel = state.staffAuthDisabled ? "Bypassed" : state.gateStatus;
-    return panel(
-      "Control State",
-      `
+    return `
         <div class="status-marquee tone-${flagMeta.tone}">
           <div class="status-marquee-copy">
             <p class="section-kicker">Live authority</p>
@@ -1264,7 +1262,13 @@
           <span class="chip">Sync ${escapeHtml(syncLabel)}</span>
           <span class="chip">Last sync ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
         </div>
-      `,
+      `;
+  }
+
+  function staffStatusPanel() {
+    return panel(
+      "Control State",
+      controlStatePanelBody(),
       "safe",
       "staff-status-panel"
     );
@@ -1500,9 +1504,18 @@
     `;
   }
 
-  function frontDeskSummaryCard({ kicker, title, detail, tone = "safe", metaLabel = "", content = "", metrics = [] }) {
+  function frontDeskSummaryCard({
+    kicker,
+    title,
+    detail,
+    tone = "safe",
+    metaLabel = "",
+    extraClass = "",
+    content = "",
+    metrics = [],
+  }) {
     return `
-      <article class="frontdesk-summary-card tone-${escapeHtml(tone)}">
+      <article class="frontdesk-summary-card tone-${escapeHtml(tone)} ${extraClass}">
         <div class="frontdesk-summary-head">
           <div>
             <p class="queue-kicker">${escapeHtml(kicker)}</p>
@@ -1528,7 +1541,7 @@
     `;
   }
 
-  function frontDeskRosterPreview(session, limit = 4) {
+  function frontDeskRosterPreview(session, limit = 3) {
     if (!session || session.racers.length === 0) {
       return '<p class="compact-empty-note">No racers staged yet.</p>';
     }
@@ -1892,6 +1905,233 @@
         "staff-main-panel frontdesk-panel"
       ),
     ].join("");
+  }
+
+  function frontDeskHotfixPanel() {
+    const formState = getFrontDeskFormState();
+    const currentSession = state.raceSnapshot.currentSession || formState.activeSession;
+    const nextSession = state.raceSnapshot.nextSession;
+    const queuedSessions = getQueuedSessions();
+    const queuedLater = queuedSessions.filter((session) => session.id !== state.raceSnapshot.nextSessionId);
+    const queueCount = queuedSessions.length;
+    const currentSummary = currentSession
+      ? frontDeskSummaryCard({
+          kicker: "Current",
+          title: currentSession.name,
+          detail: "Active operator focus for roster and handoff control.",
+          tone: "safe",
+          metaLabel: STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state,
+          extraClass: "frontdesk-summary-current",
+          content: frontDeskRosterPreview(currentSession, 3),
+          metrics: [
+            { label: "Racers", value: String(currentSession.racers.length) },
+            { label: "State", value: STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state },
+          ],
+        })
+      : frontDeskSummaryCard({
+          kicker: "Current",
+          title: "No current session",
+          detail: "Create a session first. The current slot becomes the operator anchor immediately after staging.",
+          tone: "warning",
+          metaLabel: "Waiting",
+          extraClass: "frontdesk-summary-current",
+          metrics: [
+            { label: "Current", value: "None" },
+            { label: "Next", value: nextSession ? nextSession.name : "None" },
+          ],
+        });
+    const nextSummary = nextSession
+      ? frontDeskSummaryCard({
+          kicker: "Next Up",
+          title: nextSession.name,
+          detail: "Keep the next handoff visible so the right lineup is ready without hunting through the queue.",
+          tone: "warning",
+          metaLabel: "Queued next",
+          extraClass: "frontdesk-summary-next",
+          content: frontDeskRosterPreview(nextSession, 3),
+          metrics: [
+            { label: "Racers", value: String(nextSession.racers.length) },
+            { label: "Queue", value: `${queueCount}` },
+          ],
+        })
+      : frontDeskSummaryCard({
+          kicker: "Next Up",
+          title: "No next session",
+          detail: "Create a second session to make the next handoff visible before the active heat changes.",
+          tone: "warning",
+          metaLabel: "Open slot",
+          extraClass: "frontdesk-summary-next",
+          metrics: [
+            { label: "Queued", value: `${queueCount}` },
+            { label: "Action", value: "Create" },
+          ],
+        });
+    const queueSummary = frontDeskSummaryCard({
+      kicker: "Queued later",
+      title: queuedLater.length ? `${queuedLater.length} later session${queuedLater.length === 1 ? "" : "s"}` : "No later queue",
+      detail: queuedLater.length
+        ? queuedLater.slice(0, 2).map((session) => session.name).join(" | ")
+        : "No later queued sessions yet. Add another heat only when the desk needs a visible backlog.",
+      tone: queuedLater.length ? "warning" : "safe",
+      metaLabel: `${queueCount} queued`,
+      extraClass: "frontdesk-summary-queue",
+      metrics: [
+        { label: "Current", value: currentSession ? currentSession.name : "None" },
+        { label: "Next", value: nextSession ? nextSession.name : "None" },
+      ],
+    });
+    const racerManagementBody = `
+      <div class="frontdesk-card-copy">
+        <strong class="queue-title">${formState.racerUpdateMode ? "Edit racer" : "Add racer to current"}</strong>
+        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer list, assigned car, and current session status stay visible together.")}</p>
+      </div>
+      <div class="ops-board racer-board frontdesk-racer-form">
+        <label class="field">
+          <span>Racer name</span>
+          <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
+        </label>
+        <label class="field">
+          <span>Car number</span>
+          <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
+        </label>
+        <div class="controls">
+          ${buttonMarkup({
+            id: "save-racer-btn",
+            label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
+            disabled: Boolean(formState.saveRacerReason),
+          })}
+          ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+        </div>
+      </div>
+      <div class="frontdesk-racer-table">
+        ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
+      </div>
+    `;
+    const queueControlBody = `
+      <div class="frontdesk-card-copy">
+        <strong class="queue-title">${formState.updateMode ? "Edit session" : "Create and queue sessions"}</strong>
+        <p class="hint">Queue creation stays fixed while later sessions use their own internal overflow area.</p>
+      </div>
+      <div class="frontdesk-queue-setup">
+        <div class="form-stack">
+          <label class="field">
+            <span>Session name</span>
+            <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
+          </label>
+          <div class="controls">
+            ${buttonMarkup({
+              id: "save-session-btn",
+              label: formState.updateMode ? "Save Session" : "Create Session",
+              disabled: Boolean(formState.saveSessionReason),
+            })}
+            ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+          </div>
+        </div>
+        <div class="summary-stack frontdesk-truth-card">
+          <p class="section-kicker">Workflow truth</p>
+          <strong class="frontdesk-truth-value">${escapeHtml(currentSession ? currentSession.name : "No current session")}</strong>
+          <div class="stack-list compact-list">
+            <div class="info-row"><span>Current</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
+            <div class="info-row"><span>Next</span><strong>${escapeHtml(nextSession ? nextSession.name : "None")}</strong></div>
+            <div class="info-row"><span>Queue size</span><strong>${queueCount}</strong></div>
+          </div>
+        </div>
+      </div>
+      <div class="frontdesk-scroll-card">
+        <div class="frontdesk-inline-head">
+          <p class="queue-kicker">Queued later</p>
+          <span class="chip tiny-chip">${queuedLater.length}</span>
+        </div>
+        <div class="frontdesk-scroll-area">
+          ${queuedSessionCompactList(queuedLater)}
+        </div>
+      </div>
+      <div id="front-desk-guards" class="frontdesk-guard-strip">
+        ${formState.frontDeskReasons}
+      </div>
+    `;
+
+    return panel(
+      "Front Desk Console",
+      `
+        <div class="frontdesk-workflow ${manualAssignmentEnabled() ? "has-secondary" : "is-single-column"}">
+          <div class="frontdesk-shell-grid">
+            <section class="frontdesk-desktop-card frontdesk-racer-card">
+              <div class="frontdesk-desktop-head">
+                <div>
+                  <p class="section-kicker">Top left</p>
+                  <strong class="queue-title">Racer Management</strong>
+                </div>
+              </div>
+              <div class="frontdesk-desktop-body frontdesk-racer-body">
+                ${racerManagementBody}
+              </div>
+            </section>
+            <section class="frontdesk-desktop-card frontdesk-workflow-card">
+              <div class="frontdesk-desktop-head">
+                <div>
+                  <p class="section-kicker">Top right</p>
+                  <strong class="queue-title">Front Desk Workflow</strong>
+                </div>
+                <span class="chip tiny-chip">${queueCount} queued</span>
+              </div>
+              <div class="frontdesk-desktop-body frontdesk-workflow-body">
+                <p class="frontdesk-workflow-label">Current / next / queued at a glance</p>
+                <div class="frontdesk-summary-strip">
+                  ${currentSummary}
+                  ${nextSummary}
+                  ${queueSummary}
+                </div>
+              </div>
+            </section>
+            <section class="frontdesk-desktop-card frontdesk-queue-card">
+              <div class="frontdesk-desktop-head">
+                <div>
+                  <p class="section-kicker">Bottom left</p>
+                  <strong class="queue-title">Queue Control</strong>
+                </div>
+                <span class="chip tiny-chip">${queueCount} queued</span>
+              </div>
+              <div class="frontdesk-desktop-body frontdesk-queue-body">
+                ${queueControlBody}
+              </div>
+            </section>
+            <section class="frontdesk-desktop-card frontdesk-control-card">
+              <div class="frontdesk-desktop-head">
+                <div>
+                  <p class="section-kicker">Bottom right</p>
+                  <strong class="queue-title">Control State</strong>
+                </div>
+              </div>
+              <div class="frontdesk-desktop-body frontdesk-control-body">
+                ${controlStatePanelBody()}
+              </div>
+            </section>
+          </div>
+          ${
+            manualAssignmentEnabled()
+              ? `
+                <div class="front-desk-secondary">
+                  <section class="frontdesk-desktop-card manual-assignment-banner">
+                    <div class="frontdesk-block-head">
+                      <div>
+                        <p class="section-kicker">Upgrade flag active</p>
+                        <strong class="queue-title">Manual assignment active</strong>
+                      </div>
+                      <span class="chip tiny-chip">FF ON</span>
+                    </div>
+                    <p class="hint">Manual assignment stays separate from queue ordering truth.</p>
+                  </section>
+                  ${manualAssignmentPanel(true)}
+                </div>
+              `
+              : ""
+          }
+        </div>
+      `,
+      "warning",
+      "staff-main-panel frontdesk-panel frontdesk-shell-panel"
+    );
   }
 
   function manualAssignmentRoster(activeSession, selectedRacer) {
@@ -2671,7 +2911,7 @@
     }
 
     if (route === "/front-desk") {
-      return [staffStatusPanel(), frontDeskPanel(), debugMode ? runtimePanel() : ""].join("");
+      return [frontDeskHotfixPanel(), debugMode ? runtimePanel() : ""].join("");
     }
 
     if (route === "/race-control") {
