@@ -29,11 +29,8 @@ function resolveFlag(snapshot) {
       return RACE_FLAGS.CHECKERED;
     case RACE_STATES.LOCKED:
       return RACE_FLAGS.LOCKED;
-    case RACE_STATES.STAGING:
-      return RACE_FLAGS.STAGING;
-    case RACE_STATES.IDLE:
     default:
-      return RACE_FLAGS.IDLE;
+      return snapshot.mode;
   }
 }
 

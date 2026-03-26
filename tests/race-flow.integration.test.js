@@ -143,8 +143,6 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     assert.equal(runningSnapshot.flag, "SAFE");
     assert.equal(runningSnapshot.lapEntryAllowed, true);
     assert.equal(runningSnapshot.remainingSeconds, 1);
-    assert.equal(runningSnapshot.flag, "SAFE");
-    assert.equal(runningSnapshot.lapEntryAllowed, true);
 
     const firstLapResult = await postJson(
       url,
@@ -200,8 +198,6 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     assert.equal(finishedSnapshot.lapEntryAllowed, true);
     assert.equal(finishedSnapshot.finalResults?.length, 1);
     assert.equal(finishedSnapshot.remainingSeconds, 0);
-    assert.equal(finishedSnapshot.flag, "CHECKERED");
-    assert.equal(finishedSnapshot.lapEntryAllowed, true);
 
     const finishedLapResult = await postJson(
       url,

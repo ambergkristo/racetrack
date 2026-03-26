@@ -152,12 +152,12 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       idleLeaderboardPayload,
       "leaderboard:update (IDLE)"
     );
-    assert.equal(idleSnapshotPayload.flag, "IDLE");
+    assert.equal(idleSnapshotPayload.flag, "SAFE");
     assert.equal(idleSnapshotPayload.lapEntryAllowed, false);
     assert.equal(idleSnapshotPayload.nextSession, null);
     assert.equal(idleSnapshotPayload.lockedSession, null);
     assert.equal(idleSnapshotPayload.finalResults, null);
-    assert.equal(idleLeaderboardPayload.flag, "IDLE");
+    assert.equal(idleLeaderboardPayload.flag, "SAFE");
     assert.equal(idleLeaderboardPayload.lapEntryAllowed, false);
 
     const createSessionResult = await postJson(

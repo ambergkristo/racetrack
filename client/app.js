@@ -85,8 +85,16 @@
   };
 
   const FLAG_META = {
-    IDLE: STATE_META.IDLE,
-    STAGING: STATE_META.STAGING,
+    IDLE: {
+      label: "Idle",
+      tone: "safe",
+      detail: "No session is staged yet.",
+    },
+    STAGING: {
+      label: "Staging",
+      tone: "warning",
+      detail: "The active session is staged and ready to start.",
+    },
     SAFE: MODE_META.SAFE,
     HAZARD_SLOW: MODE_META.HAZARD_SLOW,
     HAZARD_STOP: MODE_META.HAZARD_STOP,
