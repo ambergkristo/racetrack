@@ -1619,7 +1619,7 @@
       panel(
         "Front Desk Workflow",
         `
-          <div class="frontdesk-workflow">
+          <div class="frontdesk-workflow ${manualAssignmentEnabled() ? "has-secondary" : "is-single-column"}">
             <div class="front-desk-primary">
               <div class="frontdesk-overview">
                 ${
@@ -1735,10 +1735,10 @@
                 </div>
               </div>
             </div>
-            <div class="front-desk-secondary">
-              ${
-                manualAssignmentEnabled()
-                  ? `
+            ${
+              manualAssignmentEnabled()
+                ? `
+                  <div class="front-desk-secondary">
                     <section class="frontdesk-block manual-assignment-banner">
                       <div class="frontdesk-block-head">
                         <div>
@@ -1749,11 +1749,11 @@
                       </div>
                       <p class="hint">Manual assignment stays separate from queue ordering truth.</p>
                     </section>
-                  `
-                  : ""
-              }
-              ${manualAssignmentEnabled() ? manualAssignmentPanel(true) : ""}
-            </div>
+                    ${manualAssignmentPanel(true)}
+                  </div>
+                `
+                : ""
+            }
           </div>
         `,
         "warning",
