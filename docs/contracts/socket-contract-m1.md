@@ -47,10 +47,14 @@ Payload shape:
 ### `race:snapshot`
 Authoritative canonical state payload:
 - `serverTime`
-- `state` (`IDLE|RUNNING|FINISHED|LOCKED`)
-- `mode` (`SAFE|SLOW|STOP|FINISHED`)
+- `state` (`IDLE|STAGING|RUNNING|FINISHED|LOCKED`)
+- `flag` (`IDLE|STAGING|SAFE|HAZARD_SLOW|HAZARD_STOP|CHECKERED|LOCKED`) for direct UI rendering
+- `mode` (`SAFE|HAZARD_SLOW|HAZARD_STOP`)
+- `lapEntryAllowed` boolean derived from lifecycle truth
 - `raceDurationSeconds`, `remainingSeconds`, `endsAt`
-- active session pointers and full session/racer snapshots
+- `activeSessionId`, `activeSession`, `nextSession`, `lockedSession`
+- `finalResults` is `null` until results are meaningful, then an array for `FINISHED` and `LOCKED`
+- full session/racer snapshots and computed leaderboard entries remain canonical
 - computed leaderboard entries
 
 ### `race:tick`

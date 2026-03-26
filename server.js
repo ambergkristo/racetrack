@@ -12,6 +12,10 @@ const { createPersistenceAdapter } = require("./src/persistence/raceStatePersist
 const { RACE_MODES, RACE_STATES } = require("./src/domain/raceStateMachine");
 const { createLogger } = require("./src/observability/logger");
 const {
+  buildRaceSnapshotViewModel,
+  normalizeLockedSnapshotContext,
+} = require("./src/ui/raceTruth");
+const {
   SOCKET_EVENTS,
   socketAuthSchema,
   clientHelloSchema,
@@ -323,7 +327,11 @@ function createApp(options = {}) {
       enabled: env.featureFlags.FF_PERSISTENCE,
       filePath: options.persistenceFilePath || env.persistenceFilePath,
     });
-  const restoredState = persistenceAdapter.load();
+  const restoredPersistence = persistenceAdapter.load();
+  const restoredState = restoredPersistence?.state || null;
+  let lockedSnapshotContext = normalizeLockedSnapshotContext(
+    restoredPersistence?.lockedSnapshotContext
+  );
   const raceStore = createRaceStore({
     raceDurationSeconds,
     now: options.now,
@@ -335,7 +343,7 @@ function createApp(options = {}) {
   function buildRaceSnapshotPayload() {
     return raceSnapshotSchema.parse({
       serverTime: new Date().toISOString(),
-      ...raceStore.getSnapshot(),
+      ...buildRaceSnapshotViewModel(raceStore.getSnapshot(), lockedSnapshotContext),
     });
   }
 
@@ -394,7 +402,16 @@ function createApp(options = {}) {
   }
 
   function persistCanonicalState() {
-    persistenceAdapter.save(raceStore.exportState());
+    const exportedState = raceStore.exportState();
+    if (exportedState.raceState !== RACE_STATES.LOCKED) {
+      lockedSnapshotContext = normalizeLockedSnapshotContext();
+    }
+
+    persistenceAdapter.save({
+      state: exportedState,
+      lockedSnapshotContext:
+        exportedState.raceState === RACE_STATES.LOCKED ? lockedSnapshotContext : null,
+    });
   }
 
   async function executeMutation(req, res, operation) {
@@ -736,7 +753,12 @@ function createApp(options = {}) {
   app.post("/api/race/lock", raceControlAuth, (req, res) =>
     executeMutation(req, res, async () => {
       timerService.stop();
+      const preLockSnapshot = raceStore.getSnapshot();
       const session = raceStore.lockRace();
+      lockedSnapshotContext = normalizeLockedSnapshotContext({
+        lockedSession: session,
+        finalResults: preLockSnapshot.leaderboard,
+      });
       broadcastCanonicalState("race_locked");
       persistCanonicalState();
       return {
