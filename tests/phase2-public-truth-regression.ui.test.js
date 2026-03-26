@@ -215,7 +215,10 @@ test("staff and public routes reflect the same CHECKERED truth without collapsin
   assert.equal(raceControlHtml.includes("Finished"), true);
   assert.equal(raceControlHtml.includes("End + Lock"), true);
   assert.equal(leaderBoardHtml.includes("Finished"), true);
-  assert.equal(leaderBoardHtml.includes("Finish has been called. Crossings still count until lock."), true);
+  assert.equal(
+    leaderBoardHtml.includes("Finish has been called. Post-finish laps are still accepted until lock."),
+    true
+  );
   assert.equal(leaderBoardHtml.includes("Alex"), true);
   assert.equal(nextRaceHtml.includes("Heat 1"), true);
   assert.equal(nextRaceHtml.includes("Heat 2"), true);
