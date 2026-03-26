@@ -1,6 +1,7 @@
 require("./session-racer-crud.integration.test");
 require("./feature-flags.integration.test");
 require("./front-desk-feature-flag.ui.test");
+require("./front-desk-workflow.ui.test");
 require("./staff-route-ux.ui.test");
 require("./phase2-public-truth-regression.ui.test");
 require("./backend-hardening.integration.test");

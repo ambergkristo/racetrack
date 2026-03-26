@@ -139,11 +139,11 @@ async function renderRoute(pathname, { featureFlags, snapshot } = {}) {
 test("front-desk renders the one-screen workbench layout", async () => {
   const html = await renderRoute("/front-desk");
 
-  assert.equal(html.includes("Front Desk Workbench"), true);
-  assert.equal(html.includes("front-desk-shell"), true);
-  assert.equal(html.includes("Check in the roster"), true);
-  assert.equal(html.includes("Session Queue"), true);
-  assert.equal(html.includes("Racer Garage"), false);
+  assert.equal(html.includes("Front Desk Workflow"), true);
+  assert.equal(html.includes("frontdesk-workflow"), true);
+  assert.equal(html.includes("Current / next / queued"), true);
+  assert.equal(html.includes("Racer management"), true);
+  assert.equal(html.includes("Session Queue"), false);
 });
 
 test("race-control renders a single primary control console", async () => {

@@ -201,7 +201,12 @@
       endsAt: null,
       activeSessionId: null,
       activeSession: null,
+      currentSessionId: null,
+      currentSession: null,
+      nextSessionId: null,
       nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
       lockedSession: null,
       finalResults: null,
       sessions: [],
@@ -369,10 +374,26 @@
       isObject(snapshot.activeSession) && snapshot.activeSession !== null
         ? normalizeSession(snapshot.activeSession)
         : sessions.find((session) => session.id === activeSessionId) || null;
+    const currentSessionId = snapshot.currentSessionId ? String(snapshot.currentSessionId) : null;
+    const currentSession =
+      isObject(snapshot.currentSession) && snapshot.currentSession !== null
+        ? normalizeSession(snapshot.currentSession)
+        : currentSessionId
+          ? sessions.find((session) => session.id === currentSessionId) || null
+          : activeSession;
+    const nextSessionId = snapshot.nextSessionId ? String(snapshot.nextSessionId) : null;
     const nextSession =
       isObject(snapshot.nextSession) && snapshot.nextSession !== null
         ? normalizeSession(snapshot.nextSession)
-        : sessions.find((session) => session.id !== activeSessionId) || null;
+        : nextSessionId
+          ? sessions.find((session) => session.id === nextSessionId) || null
+          : sessions.find((session) => session.id !== (currentSessionId || activeSessionId)) || null;
+    const queuedSessions = Array.isArray(snapshot.queuedSessions)
+      ? snapshot.queuedSessions.map(normalizeSession)
+      : sessions.filter((session) => session.id !== (currentSessionId || activeSessionId));
+    const queuedSessionIds = Array.isArray(snapshot.queuedSessionIds)
+      ? snapshot.queuedSessionIds.map((sessionId) => String(sessionId))
+      : queuedSessions.map((session) => session.id);
     const lockedSession =
       isObject(snapshot.lockedSession) && snapshot.lockedSession !== null
         ? normalizeSession(snapshot.lockedSession)
@@ -405,7 +426,12 @@
       endsAt: snapshot.endsAt ?? null,
       activeSessionId,
       activeSession,
+      currentSessionId,
+      currentSession,
+      nextSessionId,
       nextSession,
+      queuedSessionIds,
+      queuedSessions,
       lockedSession,
       finalResults,
       sessions,
@@ -424,12 +450,12 @@
   }
 
   function getQueuedSessions() {
-    if (state.raceSnapshot.nextSession) {
-      return [state.raceSnapshot.nextSession];
+    if (state.raceSnapshot.queuedSessions.length > 0) {
+      return state.raceSnapshot.queuedSessions;
     }
 
     return state.raceSnapshot.sessions.filter(
-      (session) => session.id !== state.raceSnapshot.activeSessionId
+      (session) => session.id !== (state.raceSnapshot.currentSessionId || state.raceSnapshot.activeSessionId)
     );
   }
 
@@ -1364,6 +1390,125 @@
       .join("");
   }
 
+  function sessionActionState(session) {
+    const isCurrent = session.id === state.raceSnapshot.currentSessionId;
+    const raceLive =
+      state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED";
+    const accessReason = staffAccessReason();
+
+    return {
+      isCurrent,
+      selectReason: firstReason(
+        accessReason,
+        state.pending ? "Wait for the current request to finish." : "",
+        isCurrent ? "This session is already current." : "",
+        raceLive ? "Current session changes lock while the race is RUNNING or FINISHED." : ""
+      ),
+      editReason: firstReason(
+        accessReason,
+        state.pending ? "Wait for the current request to finish." : "",
+        isCurrent && raceLive
+          ? "Current session edits lock once the race is RUNNING or FINISHED."
+          : ""
+      ),
+      deleteReason: firstReason(
+        accessReason,
+        state.pending ? "Wait for the current request to finish." : "",
+        isCurrent && raceLive
+          ? "Current session deletes lock once the race is RUNNING or FINISHED."
+          : ""
+      ),
+    };
+  }
+
+  function queueSessionCard(session, kind = "queued") {
+    const actionState = sessionActionState(session);
+    const statusLabel =
+      kind === "current"
+        ? STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state
+        : kind === "next"
+          ? "Queued next"
+          : "Queued";
+    const rosterMarkup =
+      session.racers.length > 0
+        ? `
+            <div class="queue-roster">
+              ${session.racers
+                .map(
+                  (racer) => `
+                    <div class="queue-racer-row">
+                      <span>${escapeHtml(racer.name)}</span>
+                      <strong>${escapeHtml(racer.carNumber || "--")}</strong>
+                    </div>
+                  `
+                )
+                .join("")}
+            </div>
+          `
+        : '<p class="hint">No racers staged yet.</p>';
+
+    return `
+      <article class="queue-card queue-card-${kind}">
+        <div class="queue-card-head">
+          <div>
+            <p class="queue-kicker">${escapeHtml(
+              kind === "current" ? "Current" : kind === "next" ? "Next Up" : "Queued later"
+            )}</p>
+            <strong class="queue-title">${escapeHtml(session.name)}</strong>
+          </div>
+          <span class="chip tiny-chip">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="stack-list compact-list queue-meta">
+          <div class="info-row"><span>Racers</span><strong>${session.racers.length}</strong></div>
+          <div class="info-row"><span>Session status</span><strong>${escapeHtml(statusLabel)}</strong></div>
+        </div>
+        ${rosterMarkup}
+        <div class="controls queue-actions">
+          ${buttonMarkup({
+            label: kind === "current" ? "Current" : "Make Current",
+            variant: actionState.isCurrent ? "warning" : "ghost",
+            size: "mini",
+            disabled: Boolean(actionState.selectReason),
+            attrs: `data-action="stage-session" data-session-id="${escapeHtml(session.id)}"`,
+          })}
+          ${buttonMarkup({
+            label: "Edit",
+            variant: "ghost",
+            size: "mini",
+            disabled: Boolean(actionState.editReason),
+            attrs: `data-action="edit-session" data-session-id="${escapeHtml(session.id)}"`,
+          })}
+          ${buttonMarkup({
+            label: "Delete",
+            variant: "danger",
+            size: "mini",
+            disabled: Boolean(actionState.deleteReason),
+            attrs: `data-action="delete-session" data-session-id="${escapeHtml(session.id)}"`,
+          })}
+        </div>
+      </article>
+    `;
+  }
+
+  function queuedSessionList() {
+    const queuedSessions = getQueuedSessions().filter(
+      (session) => session.id !== state.raceSnapshot.nextSessionId
+    );
+
+    if (queuedSessions.length === 0) {
+      return emptyState(
+        "No later queued sessions",
+        "Create another session to keep the queue visible beyond the next slot."
+      );
+    }
+
+    return `
+      <div class="queue-lane">
+        ${queuedSessions.map((session) => queueSessionCard(session, "queued")).join("")}
+      </div>
+    `;
+  }
+
   function racerRows(activeSession) {
     if (!activeSession) {
       return '<tr><td colspan="4" class="hint">Stage a session to manage racers.</td></tr>';
@@ -1456,40 +1601,60 @@
 
   function frontDeskPanel() {
     const formState = getFrontDeskFormState();
-    const activeSession = formState.activeSession;
+    const currentSession = state.raceSnapshot.currentSession || formState.activeSession;
+    const nextSession = state.raceSnapshot.nextSession;
     const queueCount = getQueuedSessions().length;
 
     return [
       panel(
-        "Front Desk Workbench",
+        "Front Desk Workflow",
         `
-          <div class="front-desk-shell">
+          <div class="frontdesk-workflow">
             <div class="front-desk-primary">
+              <div class="frontdesk-overview">
+                ${
+                  currentSession
+                    ? queueSessionCard(currentSession, "current")
+                    : `
+                      <article class="queue-card queue-card-current">
+                        <div class="queue-card-head">
+                          <div>
+                            <p class="queue-kicker">Current</p>
+                            <strong class="queue-title">No current session</strong>
+                          </div>
+                        </div>
+                        <p class="hint">Create a session to start the queue.</p>
+                      </article>
+                    `
+                }
+                ${
+                  nextSession
+                    ? queueSessionCard(nextSession, "next")
+                    : `
+                      <article class="queue-card queue-card-next">
+                        <div class="queue-card-head">
+                          <div>
+                            <p class="queue-kicker">Next Up</p>
+                            <strong class="queue-title">No next session</strong>
+                          </div>
+                        </div>
+                        <p class="hint">Create another heat to keep the next slot visible.</p>
+                      </article>
+                    `
+                }
+              </div>
               <div class="front-desk-section">
-                <p class="section-kicker">Stage the next heat</p>
-                <div class="ops-board">
-                  <div class="form-stack">
-                    <label class="field">
-                      <span>Session name</span>
-                      <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
-                    </label>
-                    <div class="controls">
-                      ${buttonMarkup({
-                        id: "save-session-btn",
-                        label: formState.updateMode ? "Save Session" : "Create Session",
-                        disabled: Boolean(formState.saveSessionReason),
-                      })}
-                      ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+                <div class="frontdesk-block">
+                  <div class="frontdesk-block-head">
+                    <div>
+                      <p class="section-kicker">Queue block</p>
+                      <strong class="queue-title">Current / next / queued</strong>
                     </div>
+                    <span class="chip tiny-chip">${queueCount} queued</span>
                   </div>
-                  <div class="summary-stack">
-                    <p class="section-kicker">Active session</p>
-                    <strong class="summary-value">${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
-                    <div class="stack-list compact-list">
-                      <div class="info-row"><span>Race state</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
-                      <div class="info-row"><span>Racers</span><strong>${activeSession ? activeSession.racers.length : 0}</strong></div>
-                      <div class="info-row"><span>Queued</span><strong>${queueCount}</strong></div>
-                    </div>
+                  <div class="queue-lane-section">
+                    <p class="queue-kicker">Queued later</p>
+                    ${queuedSessionList()}
                   </div>
                 </div>
                 <div id="front-desk-guards">
@@ -1497,36 +1662,87 @@
                 </div>
               </div>
               <div class="front-desk-section">
-                <p class="section-kicker">Check in the roster</p>
-                <div class="ops-board racer-board">
-                  <label class="field">
-                    <span>Racer name</span>
-                    <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
-                  </label>
-                  <label class="field">
-                    <span>Car number</span>
-                    <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
-                  </label>
-                  <div class="controls">
-                    ${buttonMarkup({
-                      id: "save-racer-btn",
-                      label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
-                      disabled: Boolean(formState.saveRacerReason),
-                    })}
-                    ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+                <div class="frontdesk-block">
+                  <div class="frontdesk-block-head">
+                    <div>
+                      <p class="section-kicker">Session flow</p>
+                      <strong class="queue-title">${formState.updateMode ? "Edit session" : "Create a queued session"}</strong>
+                    </div>
+                  </div>
+                  <div class="ops-board">
+                    <div class="form-stack">
+                      <label class="field">
+                        <span>Session name</span>
+                        <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
+                      </label>
+                      <div class="controls">
+                        ${buttonMarkup({
+                          id: "save-session-btn",
+                          label: formState.updateMode ? "Save Session" : "Create Session",
+                          disabled: Boolean(formState.saveSessionReason),
+                        })}
+                        ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+                      </div>
+                    </div>
+                    <div class="summary-stack">
+                      <p class="section-kicker">Workflow truth</p>
+                      <strong class="summary-value">${escapeHtml(currentSession ? currentSession.name : "No current session")}</strong>
+                      <div class="stack-list compact-list">
+                        <div class="info-row"><span>Current</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
+                        <div class="info-row"><span>Next</span><strong>${escapeHtml(nextSession ? nextSession.name : "None")}</strong></div>
+                        <div class="info-row"><span>Queue size</span><strong>${queueCount}</strong></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits apply to the active staged session.")}</p>
-                ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
+                <div class="frontdesk-block">
+                  <div class="frontdesk-block-head">
+                    <div>
+                      <p class="section-kicker">Racer management</p>
+                      <strong class="queue-title">${formState.racerUpdateMode ? "Edit racer" : "Add racer to current"}</strong>
+                    </div>
+                  </div>
+                  <div class="ops-board racer-board">
+                    <label class="field">
+                      <span>Racer name</span>
+                      <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
+                    </label>
+                    <label class="field">
+                      <span>Car number</span>
+                      <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
+                    </label>
+                    <div class="controls">
+                      ${buttonMarkup({
+                        id: "save-racer-btn",
+                        label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
+                        disabled: Boolean(formState.saveRacerReason),
+                      })}
+                      ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+                    </div>
+                  </div>
+                  <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer list, assigned car, and current session status stay visible together.")}</p>
+                  ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
+                </div>
               </div>
             </div>
             <div class="front-desk-secondary">
+              ${
+                manualAssignmentEnabled()
+                  ? `
+                    <section class="frontdesk-block manual-assignment-banner">
+                      <div class="frontdesk-block-head">
+                        <div>
+                          <p class="section-kicker">Upgrade flag active</p>
+                          <strong class="queue-title">Manual assignment active</strong>
+                        </div>
+                        <span class="chip tiny-chip">FF ON</span>
+                      </div>
+                      <p class="hint">Manual assignment stays separate from queue ordering truth.</p>
+                    </section>
+                  `
+                  : ""
+              }
               ${manualAssignmentEnabled() ? manualAssignmentPanel(true) : ""}
-              ${panel(
-                "Session Queue",
-                dataTable(["Session", "Status", "Racers", "Actions"], [sessionRows()], { compact: true }),
-                "warning"
-              )}
             </div>
           </div>
         `,
