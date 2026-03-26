@@ -1199,7 +1199,7 @@
         </div>
       `,
       flagMeta.tone,
-      "panel-wide"
+      "home-summary-panel"
     );
   }
 
@@ -1266,7 +1266,7 @@
         </div>
       `,
       "safe",
-      "panel-wide"
+      "staff-status-panel"
     );
   }
 
@@ -1433,11 +1433,12 @@
         : kind === "next"
           ? "Queued next"
           : "Queued";
+    const visibleRacers = session.racers.slice(0, kind === "queued" ? 3 : 4);
     const rosterMarkup =
       session.racers.length > 0
         ? `
             <div class="queue-roster">
-              ${session.racers
+              ${visibleRacers
                 .map(
                   (racer) => `
                     <div class="queue-racer-row">
@@ -1448,6 +1449,11 @@
                 )
                 .join("")}
             </div>
+            ${
+              session.racers.length > visibleRacers.length
+                ? `<p class="queue-overflow-note">+${session.racers.length - visibleRacers.length} more racers staged</p>`
+                : ""
+            }
           `
         : '<p class="hint">No racers staged yet.</p>';
 
@@ -1751,7 +1757,7 @@
           </div>
         `,
         "warning",
-        "panel-wide"
+        "staff-main-panel frontdesk-panel"
       ),
     ].join("");
   }
@@ -2164,9 +2170,9 @@
           </div>
         `,
         "warning",
-        "panel-wide"
+        "staff-main-panel race-control-panel"
       ),
-      panel("Live Order", leaderboardTable(snapshot.leaderboard), "safe", "panel-wide"),
+      panel("Live Order", leaderboardTable(snapshot.leaderboard, { limit: 6 }), "safe", "staff-support-panel race-order-panel"),
     ].join("");
   }
 
@@ -2237,7 +2243,7 @@
           ${overlay}
         `,
         "danger",
-        "panel-wide"
+        "staff-main-panel lap-tracker-panel"
       ),
     ].join("");
   }
@@ -2503,18 +2509,35 @@
   function homePanels() {
     return [
       summaryPanel(),
-      routeDeck("Hub", "The root route stays a lightweight launch surface for the full telemetry shell.", "warning", ["/"], "single-card-grid"),
-      routeDeck(
-        "Staff Routes",
-        "Operational screens for setup, lifecycle control, and authoritative lap entry.",
-        "safe",
-        ["/front-desk", "/race-control", "/lap-line-tracker"]
-      ),
-      routeDeck(
-        "Public Displays",
-        "Fullscreen-friendly presentation routes for live boards, timing, and state display.",
+      panel(
+        "Route Launch Board",
+        `
+          <div class="home-launch-shell">
+            <div class="home-launch-copy">
+              <p class="section-kicker">Launch surfaces</p>
+              <strong class="summary-value">Open the right route without leaving the overview screen.</strong>
+              <p class="panel-copy">Staff routes stay operational. Public routes stay presentation-first. The hub remains compact on one screen.</p>
+            </div>
+            <div class="home-route-section">
+              <div class="panel-heading">
+                <h2>Staff Routes</h2>
+              </div>
+              <div class="route-card-grid compact-route-grid">
+                ${["/front-desk", "/race-control", "/lap-line-tracker"].map((pathname) => routeCard(pathname)).join("")}
+              </div>
+            </div>
+            <div class="home-route-section">
+              <div class="panel-heading">
+                <h2>Public Displays</h2>
+              </div>
+              <div class="route-card-grid compact-route-grid">
+                ${["/leader-board", "/next-race", "/race-countdown", "/race-flags"].map((pathname) => routeCard(pathname)).join("")}
+              </div>
+            </div>
+          </div>
+        `,
         "warning",
-        ["/leader-board", "/next-race", "/race-countdown", "/race-flags"]
+        "home-launch-panel"
       ),
     ].join("");
   }

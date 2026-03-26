@@ -146,6 +146,16 @@ test("front-desk renders the one-screen workbench layout", async () => {
   assert.equal(html.includes("Session Queue"), false);
 });
 
+test("home route condenses launches into a single compact route board", async () => {
+  const html = await renderRoute("/");
+
+  assert.equal(html.includes("Route Launch Board"), true);
+  assert.equal(html.includes("compact-route-grid"), true);
+  assert.equal(html.includes("Staff Routes"), true);
+  assert.equal(html.includes("Public Displays"), true);
+  assert.equal(html.includes("Launch surfaces"), true);
+});
+
 test("race-control renders a single primary control console", async () => {
   const html = await renderRoute("/race-control");
 

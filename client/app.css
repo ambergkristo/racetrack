@@ -2289,7 +2289,379 @@ body {
   font-size: 0.78rem;
 }
 
+.staff-shell {
+  width: min(1720px, 100%);
+  min-height: 100dvh;
+  height: 100dvh;
+  padding: 16px 18px 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.staff-shell.is-fullscreen {
+  padding: 12px;
+}
+
+.staff-shell .telemetry-header {
+  margin-bottom: 0;
+  gap: 14px;
+  align-items: start;
+}
+
+.staff-shell .telemetry-copy {
+  gap: 8px;
+}
+
+.staff-shell .eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+}
+
+.staff-shell .telemetry-copy h1 {
+  margin: 0 0 4px;
+  font-size: clamp(1.55rem, 2.8vw, 2.7rem);
+}
+
+.staff-shell .subtitle {
+  font-size: 0.95rem;
+  line-height: 1.28;
+}
+
+.staff-shell .route-caption {
+  display: none;
+}
+
+.staff-shell .telemetry-meta {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: min(264px, 100%);
+}
+
+.staff-shell .connection-status {
+  min-height: 0;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  box-shadow: none;
+}
+
+.staff-shell .connection-status strong {
+  font-size: 0.84rem;
+}
+
+.staff-shell .connection-status span {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.staff-shell .connection-status em {
+  display: none;
+}
+
+.staff-route-grid {
+  min-height: 0;
+  gap: 12px;
+  align-content: start;
+}
+
+.staff-route-grid > .panel {
+  min-height: 0;
+  padding: 16px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.staff-route-grid .panel-heading {
+  margin-bottom: 10px;
+}
+
+.staff-route-grid .panel-heading h2 {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+}
+
+.staff-status-panel,
+.home-summary-panel {
+  grid-column: span 4;
+}
+
+.staff-main-panel,
+.home-launch-panel {
+  grid-column: span 8;
+}
+
+.staff-support-panel {
+  grid-column: span 4;
+}
+
+.staff-shell .status-marquee,
+.staff-shell .command-stage,
+.staff-shell .lap-stage,
+.staff-shell .frontdesk-block,
+.staff-shell .summary-stack,
+.staff-shell .race-control-sidecar,
+.staff-shell .lap-tracker-sidecar,
+.staff-shell .queue-card,
+.staff-shell .front-desk-embedded-panel {
+  padding: 14px;
+  border-radius: 16px;
+  gap: 10px;
+}
+
+.staff-shell .status-marquee-title,
+.staff-shell .command-stage-title,
+.staff-shell .summary-value {
+  font-size: clamp(1.16rem, 1.8vw, 1.72rem);
+}
+
+.staff-shell .section-kicker {
+  font-size: 0.66rem;
+}
+
+.staff-shell .telemetry-tag {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+}
+
+.staff-shell .staff-status-metrics,
+.staff-shell .kpi-grid,
+.staff-shell .mode-grid {
+  gap: 10px;
+}
+
+.staff-shell .kpi-pill {
+  min-height: 62px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.staff-shell .kpi-pill span {
+  font-size: 0.66rem;
+}
+
+.staff-shell .kpi-pill strong {
+  margin-top: 2px;
+  font-size: 0.94rem;
+}
+
+.staff-shell .staff-chip-row {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.staff-shell .inline-alert,
+.staff-shell .guard-item,
+.staff-shell .empty-state,
+.staff-shell .session-overlay {
+  margin-top: 10px;
+  min-height: 0;
+  padding: 10px 12px;
+}
+
+.staff-shell .field {
+  gap: 6px;
+}
+
+.staff-shell .field input {
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 14px;
+}
+
+.staff-shell .action-btn {
+  min-height: 50px;
+  border-radius: 14px;
+}
+
+.staff-shell .frontdesk-workflow {
+  grid-template-columns: minmax(0, 1.24fr) minmax(260px, 0.76fr);
+  gap: 12px;
+}
+
+.staff-shell .frontdesk-overview,
+.staff-shell .queue-lane {
+  gap: 10px;
+}
+
+.staff-shell .queue-title {
+  font-size: 1rem;
+}
+
+.staff-shell .queue-kicker {
+  margin: 0 0 4px;
+  font-size: 0.66rem;
+}
+
+.staff-shell .queue-meta,
+.staff-shell .queue-roster,
+.staff-shell .queue-actions {
+  margin-top: 8px;
+}
+
+.staff-shell .queue-racer-row {
+  padding: 6px 0;
+}
+
+.queue-overflow-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.staff-shell .ops-board {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.staff-shell .racer-board {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) auto;
+  gap: 10px;
+}
+
+.staff-shell .table-wrap {
+  margin-top: 10px;
+}
+
+.staff-shell .telemetry-table {
+  min-width: 0;
+}
+
+.staff-shell .telemetry-table th,
+.staff-shell .telemetry-table td {
+  padding: 8px 10px;
+}
+
+.staff-shell .race-control-actions {
+  gap: 10px;
+}
+
+.staff-shell .race-command {
+  padding: 12px;
+  border-radius: 14px;
+  gap: 8px;
+}
+
+.staff-shell .command-hint {
+  font-size: 0.82rem;
+  line-height: 1.24;
+}
+
+.staff-shell .checkered-callout,
+.staff-shell .locked-callout,
+.staff-shell .mode-standby {
+  margin-top: 8px;
+  padding: 10px 12px;
+  gap: 4px;
+  border-radius: 14px;
+}
+
+.staff-shell .mode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.staff-shell .lap-tracker-shell {
+  grid-template-columns: minmax(0, 1.05fr) minmax(220px, 0.8fr);
+  gap: 12px;
+}
+
+.staff-shell .car-grid {
+  margin-top: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.staff-shell .huge-touch-btn {
+  min-height: 96px;
+  padding: 10px;
+  gap: 4px;
+  border-radius: 14px;
+}
+
+.staff-shell .huge-touch-btn strong {
+  font-size: 1rem;
+}
+
+.staff-shell .huge-touch-btn span,
+.staff-shell .huge-touch-btn em {
+  font-size: 0.76rem;
+}
+
+.route-home .route-card-grid {
+  margin-top: 0;
+}
+
+.home-launch-shell,
+.home-route-section {
+  display: grid;
+  gap: 10px;
+}
+
+.home-launch-shell {
+  align-content: start;
+}
+
+.home-route-section {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(15, 16, 22, 0.92);
+}
+
+.compact-route-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.route-home .route-card {
+  min-height: 0;
+  padding: 12px;
+  gap: 8px;
+  border-radius: 16px;
+}
+
+.route-home .route-card-title {
+  font-size: 0.98rem;
+}
+
+.route-home .route-card-note {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.route-home .route-card-body {
+  display: none;
+}
+
 @media (max-width: 1180px) {
+  .staff-shell {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .staff-status-panel,
+  .home-summary-panel,
+  .staff-main-panel,
+  .home-launch-panel,
+  .staff-support-panel {
+    grid-column: 1 / -1;
+  }
+
+  .staff-shell .frontdesk-workflow,
+  .staff-shell .lap-tracker-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-route-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .public-shell {
     height: auto;
     min-height: 100dvh;
@@ -2338,6 +2710,26 @@ body {
 }
 
 @media (max-width: 720px) {
+  .staff-shell,
+  .staff-shell.is-fullscreen {
+    height: auto;
+    padding: 12px;
+  }
+
+  .staff-shell .telemetry-header {
+    grid-template-columns: 1fr;
+  }
+
+  .staff-shell .telemetry-meta {
+    min-width: 0;
+  }
+
+  .staff-shell .ops-board,
+  .staff-shell .racer-board,
+  .compact-route-grid {
+    grid-template-columns: 1fr;
+  }
+
   .public-shell,
   .public-shell.is-fullscreen {
     height: auto;
