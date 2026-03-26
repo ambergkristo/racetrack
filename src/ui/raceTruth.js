@@ -10,6 +10,24 @@ const RACE_FLAGS = Object.freeze({
   LOCKED: "LOCKED",
 });
 
+const STATE_LABELS = Object.freeze({
+  [RACE_STATES.IDLE]: "Idle",
+  [RACE_STATES.STAGING]: "Staging",
+  [RACE_STATES.RUNNING]: "Running",
+  [RACE_STATES.FINISHED]: "Finished",
+  [RACE_STATES.LOCKED]: "Locked",
+});
+
+const STATE_DESCRIPTIONS = Object.freeze({
+  [RACE_STATES.IDLE]: "No session is staged yet.",
+  [RACE_STATES.STAGING]: "A session is staged and ready to start.",
+  [RACE_STATES.RUNNING]: "Race is live and lap input is accepted.",
+  [RACE_STATES.FINISHED]:
+    "Finish has been called. Post-finish laps are still accepted until lock.",
+  [RACE_STATES.LOCKED]:
+    "Race is locked. Results are final and lap input is blocked.",
+});
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -88,8 +106,11 @@ function buildRaceSnapshotViewModel(snapshot, lockedSnapshotContext = null) {
 
   return {
     ...snapshot,
+    stateLabel: STATE_LABELS[snapshot.state],
+    stateDescription: STATE_DESCRIPTIONS[snapshot.state],
     flag: resolveFlag(snapshot),
     lapEntryAllowed: canAcceptLapInput(snapshot.state),
+    resultsFinalized: snapshot.state === RACE_STATES.LOCKED,
     currentSessionId: queueView.currentSessionId,
     currentSession: queueView.currentSession,
     nextSessionId: queueView.nextSessionId,

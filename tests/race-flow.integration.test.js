@@ -64,6 +64,27 @@ async function postJson(url, path, body, headers = {}) {
   });
 }
 
+async function getJson(url, path) {
+  return new Promise((resolve, reject) => {
+    const request = http.request(`${url}${path}`, { method: "GET" }, (response) => {
+      let raw = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        raw += chunk;
+      });
+      response.on("end", () => {
+        resolve({
+          response: { status: response.statusCode },
+          json: raw ? JSON.parse(raw) : {},
+        });
+      });
+    });
+
+    request.on("error", reject);
+    request.end();
+  });
+}
+
 test("race flow broadcasts canonical snapshots, timer finish, and lock guards", async () => {
   process.env.FRONT_DESK_KEY = "front-desk-test-key";
   process.env.RACE_CONTROL_KEY = "race-control-test-key";
@@ -194,10 +215,20 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     );
     await tickPromise;
     const finishedSnapshot = await finishedSnapshotPromise;
+    assert.equal(finishedSnapshot.stateLabel, "Finished");
     assert.equal(finishedSnapshot.flag, "CHECKERED");
     assert.equal(finishedSnapshot.lapEntryAllowed, true);
+    assert.equal(finishedSnapshot.resultsFinalized, false);
+    assert.match(finishedSnapshot.stateDescription, /post-finish laps/i);
     assert.equal(finishedSnapshot.finalResults?.length, 1);
     assert.equal(finishedSnapshot.remainingSeconds, 0);
+
+    const finishedApiSnapshot = await getJson(url, "/api/race");
+    assert.equal(finishedApiSnapshot.response.status, 200);
+    assert.equal(finishedApiSnapshot.json.state, "FINISHED");
+    assert.equal(finishedApiSnapshot.json.flag, "CHECKERED");
+    assert.equal(finishedApiSnapshot.json.lapEntryAllowed, true);
+    assert.equal(finishedApiSnapshot.json.resultsFinalized, false);
 
     const finishedLapResult = await postJson(
       url,
@@ -227,14 +258,24 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     );
     assert.equal(lockResult.response.status, 200);
     const lockedSnapshot = await lockSnapshotPromise;
+    assert.equal(lockedSnapshot.stateLabel, "Locked");
     assert.equal(lockedSnapshot.flag, "LOCKED");
-    assert.equal(lockedSnapshot.activeSessionId, null);
     assert.equal(lockedSnapshot.lapEntryAllowed, false);
+    assert.equal(lockedSnapshot.resultsFinalized, true);
+    assert.match(lockedSnapshot.stateDescription, /results are final/i);
+    assert.equal(lockedSnapshot.activeSessionId, null);
     assert.equal(lockedSnapshot.activeSession, null);
     assert.equal(lockedSnapshot.lockedSession?.id, sessionId);
     assert.equal(lockedSnapshot.finalResults?.length, 1);
     assert.equal(lockedSnapshot.leaderboard.length, 1);
     assert.equal(lockedSnapshot.leaderboard[0].lapCount, 3);
+
+    const lockedApiSnapshot = await getJson(url, "/api/race");
+    assert.equal(lockedApiSnapshot.response.status, 200);
+    assert.equal(lockedApiSnapshot.json.state, "LOCKED");
+    assert.equal(lockedApiSnapshot.json.flag, "LOCKED");
+    assert.equal(lockedApiSnapshot.json.lapEntryAllowed, false);
+    assert.equal(lockedApiSnapshot.json.resultsFinalized, true);
 
     const blockedLapResult = await postJson(
       url,

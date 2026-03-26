@@ -152,8 +152,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       idleLeaderboardPayload,
       "leaderboard:update (IDLE)"
     );
+    assert.equal(idleSnapshotPayload.stateLabel, "Idle");
     assert.equal(idleSnapshotPayload.flag, "SAFE");
     assert.equal(idleSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(idleSnapshotPayload.resultsFinalized, false);
     assert.equal(idleSnapshotPayload.currentSessionId, null);
     assert.equal(idleSnapshotPayload.nextSessionId, null);
     assert.deepEqual(idleSnapshotPayload.queuedSessionIds, []);
@@ -215,8 +217,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(startResult.response.status, 200);
     const runningSnapshotPayload = await runningSnapshotPromise;
     assertSchema(raceSnapshotSchema, runningSnapshotPayload, "race:snapshot (RUNNING)");
+    assert.equal(runningSnapshotPayload.stateLabel, "Running");
     assert.equal(runningSnapshotPayload.flag, "SAFE");
     assert.equal(runningSnapshotPayload.lapEntryAllowed, true);
+    assert.equal(runningSnapshotPayload.resultsFinalized, false);
     assert.equal(runningSnapshotPayload.activeSessionId, sessionId);
     assert.equal(runningSnapshotPayload.currentSessionId, sessionId);
     assert.equal(runningSnapshotPayload.nextSessionId, nextSessionId);
@@ -276,8 +280,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(finishResult.response.status, 200);
     const finishedSnapshotPayload = await finishedSnapshotPromise;
     assertSchema(raceSnapshotSchema, finishedSnapshotPayload, "race:snapshot (FINISHED)");
+    assert.equal(finishedSnapshotPayload.stateLabel, "Finished");
     assert.equal(finishedSnapshotPayload.flag, "CHECKERED");
     assert.equal(finishedSnapshotPayload.lapEntryAllowed, true);
+    assert.equal(finishedSnapshotPayload.resultsFinalized, false);
     assert.equal(finishedSnapshotPayload.activeSessionId, sessionId);
     assert.equal(finishedSnapshotPayload.currentSessionId, sessionId);
     assert.equal(finishedSnapshotPayload.nextSessionId, nextSessionId);
@@ -303,8 +309,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(lockResult.response.status, 200);
     const lockedSnapshotPayload = await lockedSnapshotPromise;
     assertSchema(raceSnapshotSchema, lockedSnapshotPayload, "race:snapshot (LOCKED)");
+    assert.equal(lockedSnapshotPayload.stateLabel, "Locked");
     assert.equal(lockedSnapshotPayload.flag, "LOCKED");
     assert.equal(lockedSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(lockedSnapshotPayload.resultsFinalized, true);
     assert.equal(lockedSnapshotPayload.activeSessionId, null);
     assert.equal(lockedSnapshotPayload.activeSession, null);
     assert.equal(lockedSnapshotPayload.currentSessionId, null);

@@ -51,11 +51,21 @@ Authoritative canonical state payload:
 - `flag` (`IDLE|STAGING|SAFE|HAZARD_SLOW|HAZARD_STOP|CHECKERED|LOCKED`) for direct UI rendering
 - `mode` (`SAFE|HAZARD_SLOW|HAZARD_STOP`)
 - `lapEntryAllowed` boolean derived from lifecycle truth
+- `stateLabel` and `stateDescription` provide canonical UI wording
+- `flag` distinguishes display meaning directly (`SAFE|HAZARD_SLOW|HAZARD_STOP|CHECKERED|LOCKED|IDLE|STAGING`)
+- `lapEntryAllowed` is `true` only while lap input is accepted
+- `resultsFinalized` is `true` only after `LOCKED`
+- `mode` (`SAFE|HAZARD_SLOW|HAZARD_STOP`)
 - `raceDurationSeconds`, `remainingSeconds`, `endsAt`
 - `activeSessionId`, `activeSession`, `nextSession`, `lockedSession`
+- `currentSessionId`, `currentSession`, `nextSessionId`, `nextSession`, `queuedSessionIds`, `queuedSessions`
 - `finalResults` is `null` until results are meaningful, then an array for `FINISHED` and `LOCKED`
 - full session/racer snapshots and computed leaderboard entries remain canonical
 - computed leaderboard entries
+
+State clarity rules:
+- `FINISHED` means finish was called, checkered applies, and post-finish laps still count until lock.
+- `LOCKED` means the race is finalized, results are final, and lap input is blocked.
 
 ### `race:tick`
 Timer payload:
