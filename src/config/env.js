@@ -13,6 +13,10 @@ const STAFF_ROUTE_TO_KEY = {
   "/lap-line-tracker": "LAP_LINE_TRACKER_KEY",
 };
 
+function parseBooleanFlag(value) {
+  return typeof value === "string" && value.trim().toLowerCase() === "true";
+}
+
 function loadDotenv() {
   const dotenvPath = process.env.DOTENV_PATH || path.join(process.cwd(), ".env");
   dotenv.config({ path: dotenvPath, quiet: true });
@@ -59,6 +63,9 @@ function loadEnvConfig() {
     staffRouteToKey: STAFF_ROUTE_TO_KEY,
     raceDurationSeconds: parseRaceDurationSeconds(),
     authFailureDelayMs: parseAuthFailureDelayMs(),
+    featureFlags: {
+      FF_MANUAL_CAR_ASSIGNMENT: parseBooleanFlag(process.env.FF_MANUAL_CAR_ASSIGNMENT),
+    },
   };
 }
 

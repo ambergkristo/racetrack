@@ -280,6 +280,7 @@ function createApp(options = {}) {
   app.get("/api/bootstrap", (_req, res) => {
     res.status(200).json({
       raceDurationSeconds,
+      featureFlags: env.featureFlags,
       serverTime: new Date().toISOString(),
       raceSnapshot: buildRaceSnapshotPayload(),
     });
@@ -294,6 +295,12 @@ function createApp(options = {}) {
     res.status(200).json({
       serverTime: new Date().toISOString(),
       activeSessionId: snapshot.activeSessionId,
+      currentSessionId: snapshot.currentSessionId,
+      currentSession: snapshot.currentSession,
+      nextSessionId: snapshot.nextSessionId,
+      nextSession: snapshot.nextSession,
+      queuedSessionIds: snapshot.queuedSessionIds,
+      queuedSessions: snapshot.queuedSessions,
       sessions: snapshot.sessions,
     });
   });

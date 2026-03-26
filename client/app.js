@@ -153,6 +153,12 @@
       endsAt: null,
       activeSessionId: null,
       activeSession: null,
+      currentSessionId: null,
+      currentSession: null,
+      nextSessionId: null,
+      nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
       sessions: [],
       leaderboard: [],
     };
@@ -294,6 +300,26 @@
       isObject(snapshot.activeSession) && snapshot.activeSession !== null
         ? normalizeSession(snapshot.activeSession)
         : sessions.find((session) => session.id === activeSessionId) || null;
+    const currentSessionId = snapshot.currentSessionId ? String(snapshot.currentSessionId) : null;
+    const currentSession =
+      isObject(snapshot.currentSession) && snapshot.currentSession !== null
+        ? normalizeSession(snapshot.currentSession)
+        : currentSessionId
+          ? sessions.find((session) => session.id === currentSessionId) || null
+          : activeSession;
+    const nextSessionId = snapshot.nextSessionId ? String(snapshot.nextSessionId) : null;
+    const nextSession =
+      isObject(snapshot.nextSession) && snapshot.nextSession !== null
+        ? normalizeSession(snapshot.nextSession)
+        : nextSessionId
+          ? sessions.find((session) => session.id === nextSessionId) || null
+          : sessions.find((session) => session.id !== currentSessionId) || null;
+    const queuedSessions = Array.isArray(snapshot.queuedSessions)
+      ? snapshot.queuedSessions.map(normalizeSession)
+      : sessions.filter((session) => session.id !== currentSessionId);
+    const queuedSessionIds = Array.isArray(snapshot.queuedSessionIds)
+      ? snapshot.queuedSessionIds.map((sessionId) => String(sessionId))
+      : queuedSessions.map((session) => session.id);
 
     return {
       serverTime: snapshot.serverTime ?? null,
@@ -306,6 +332,12 @@
       endsAt: snapshot.endsAt ?? null,
       activeSessionId,
       activeSession,
+      currentSessionId,
+      currentSession,
+      nextSessionId,
+      nextSession,
+      queuedSessionIds,
+      queuedSessions,
       sessions,
       leaderboard: Array.isArray(snapshot.leaderboard)
         ? sortLeaderboard(snapshot.leaderboard.map(normalizeLeaderboardEntry))
@@ -314,13 +346,15 @@
   }
 
   function getActiveSession() {
-    return state.raceSnapshot.activeSession;
+    return state.raceSnapshot.currentSession || state.raceSnapshot.activeSession;
   }
 
   function getQueuedSessions() {
-    return state.raceSnapshot.sessions.filter(
-      (session) => session.id !== state.raceSnapshot.activeSessionId
-    );
+    return state.raceSnapshot.queuedSessions.length > 0
+      ? state.raceSnapshot.queuedSessions
+      : state.raceSnapshot.sessions.filter(
+          (session) => session.id !== state.raceSnapshot.currentSessionId
+        );
   }
 
   function getFlagMeta(snapshot = state.raceSnapshot) {
@@ -992,7 +1026,7 @@
 
   function nextRacePanels() {
     const activeSession = getActiveSession();
-    const queued = getQueuedSessions()[0] || null;
+    const queued = state.raceSnapshot.nextSession || getQueuedSessions()[0] || null;
 
     return [
       panel(

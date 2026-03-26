@@ -152,6 +152,9 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       idleLeaderboardPayload,
       "leaderboard:update (IDLE)"
     );
+    assert.equal(idleSnapshotPayload.currentSessionId, null);
+    assert.equal(idleSnapshotPayload.nextSessionId, null);
+    assert.deepEqual(idleSnapshotPayload.queuedSessionIds, []);
 
     const createSessionResult = await postJson(
       url,
@@ -164,6 +167,17 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     );
     assert.equal(createSessionResult.response.status, 201);
     const sessionId = createSessionResult.json.session.id;
+    const createNextSessionResult = await postJson(
+      url,
+      "/api/sessions",
+      { name: "Heat 2" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(createNextSessionResult.response.status, 201);
+    const nextSessionId = createNextSessionResult.json.session.id;
 
     const addRacerResult = await postJson(
       url,
@@ -194,6 +208,9 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(startResult.response.status, 200);
     const runningSnapshotPayload = await runningSnapshotPromise;
     assertSchema(raceSnapshotSchema, runningSnapshotPayload, "race:snapshot (RUNNING)");
+    assert.equal(runningSnapshotPayload.currentSessionId, sessionId);
+    assert.equal(runningSnapshotPayload.nextSessionId, nextSessionId);
+    assert.deepEqual(runningSnapshotPayload.queuedSessionIds, [nextSessionId]);
 
     const lapLeaderboardPromise = waitForEvent(
       socket,
@@ -242,6 +259,8 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(finishResult.response.status, 200);
     const finishedSnapshotPayload = await finishedSnapshotPromise;
     assertSchema(raceSnapshotSchema, finishedSnapshotPayload, "race:snapshot (FINISHED)");
+    assert.equal(finishedSnapshotPayload.currentSessionId, sessionId);
+    assert.equal(finishedSnapshotPayload.nextSessionId, nextSessionId);
 
     const lockedSnapshotPromise = waitForEvent(
       socket,
@@ -260,6 +279,9 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(lockResult.response.status, 200);
     const lockedSnapshotPayload = await lockedSnapshotPromise;
     assertSchema(raceSnapshotSchema, lockedSnapshotPayload, "race:snapshot (LOCKED)");
+    assert.equal(lockedSnapshotPayload.currentSessionId, null);
+    assert.equal(lockedSnapshotPayload.nextSessionId, nextSessionId);
+    assert.deepEqual(lockedSnapshotPayload.queuedSessionIds, [nextSessionId]);
 
     assert.equal(unexpectedServerError, null, "server:error was emitted in happy path");
   } finally {

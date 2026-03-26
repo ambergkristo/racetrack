@@ -77,6 +77,12 @@ const raceSnapshotSchema = z.object({
   endsAt: z.string().datetime().nullable(),
   activeSessionId: z.string().min(1).nullable(),
   activeSession: sessionSnapshotSchema.nullable(),
+  currentSessionId: z.string().min(1).nullable(),
+  currentSession: sessionSnapshotSchema.nullable(),
+  nextSessionId: z.string().min(1).nullable(),
+  nextSession: sessionSnapshotSchema.nullable(),
+  queuedSessionIds: z.array(z.string().min(1)),
+  queuedSessions: z.array(sessionSnapshotSchema),
   sessions: z.array(sessionSnapshotSchema),
   leaderboard: z.array(leaderboardEntrySchema),
 });
