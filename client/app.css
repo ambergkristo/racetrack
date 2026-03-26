@@ -2902,8 +2902,8 @@ body {
 }
 
 .route-front-desk {
-  --frontdesk-row-height: 32px;
-  --frontdesk-table-head-height: 34px;
+  --frontdesk-row-height: 30px;
+  --frontdesk-table-head-height: 32px;
   --frontdesk-visible-racers: 8;
 }
 
@@ -2971,7 +2971,7 @@ body {
   grid-template-areas:
     "racer workflow"
     "queue control";
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1.08fr) minmax(0, 0.92fr);
   gap: 10px;
   min-height: 0;
   height: 100%;
@@ -3030,6 +3030,7 @@ body {
 
 .route-front-desk .frontdesk-queue-body {
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: start;
 }
 
 .route-front-desk .frontdesk-card-copy {
@@ -3089,7 +3090,7 @@ body {
 
 .route-front-desk .frontdesk-racer-form {
   grid-template-columns: minmax(0, 1fr) minmax(112px, 0.48fr) auto;
-  gap: 8px;
+  gap: 6px;
 }
 
 .route-front-desk .frontdesk-racer-form .controls {
@@ -3120,7 +3121,7 @@ body {
 .route-front-desk .frontdesk-queue-setup {
   display: grid;
   grid-template-columns: minmax(0, 1.02fr) minmax(200px, 0.98fr);
-  gap: 8px;
+  gap: 6px;
   align-items: start;
 }
 
@@ -3137,6 +3138,7 @@ body {
   padding-right: 2px;
   display: grid;
   align-content: start;
+  max-height: 100%;
 }
 
 .route-front-desk .queued-session-list {
@@ -3200,8 +3202,8 @@ body {
 
 .route-front-desk .row-actions .action-btn,
 .route-front-desk .queued-session-actions .action-btn {
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 0 8px;
 }
 
 .route-front-desk .telemetry-table th,
@@ -3218,6 +3220,381 @@ body {
 
 .route-front-desk .queue-title {
   font-size: 0.9rem;
+}
+
+.route-home.staff-shell {
+  padding: 10px 14px 10px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.route-home .telemetry-header {
+  gap: 10px;
+}
+
+.route-home .home-summary-panel {
+  padding: 10px 12px;
+  overflow: hidden;
+}
+
+.route-home .overview-shell {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.route-home .overview-copy {
+  min-width: 0;
+  gap: 6px;
+  align-content: start;
+}
+
+.route-home .overview-title {
+  font-size: clamp(1.28rem, 1.9vw, 1.78rem);
+  line-height: 1.02;
+}
+
+.route-home .home-summary-panel .panel-copy {
+  max-width: 48ch;
+  font-size: 0.8rem;
+  line-height: 1.24;
+}
+
+.route-home .home-summary-panel .kpi-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-self: stretch;
+}
+
+.route-home .home-summary-panel .kpi-pill {
+  min-height: 58px;
+}
+
+.route-race-control {
+  --racecontrol-row-height: 36px;
+  --racecontrol-table-head-height: 34px;
+  --racecontrol-visible-racers: 8;
+}
+
+.route-race-control.staff-shell {
+  padding: 10px 14px 10px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.route-race-control .telemetry-header {
+  gap: 10px;
+}
+
+.route-race-control .telemetry-copy h1 {
+  margin-bottom: 2px;
+  font-size: clamp(1.4rem, 2.5vw, 2.28rem);
+}
+
+.route-race-control .subtitle {
+  font-size: 0.84rem;
+  line-height: 1.18;
+  max-width: 56ch;
+}
+
+.route-race-control .telemetry-meta {
+  gap: 8px;
+  min-width: min(248px, 100%);
+}
+
+.route-race-control .connection-status {
+  padding: 8px 10px;
+}
+
+.route-race-control .staff-route-grid {
+  grid-template-columns: 1fr;
+  grid-auto-rows: minmax(0, auto);
+}
+
+.route-race-control .staff-status-panel,
+.route-race-control .race-control-panel {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.route-race-control .staff-status-panel {
+  padding: 10px 12px;
+}
+
+.route-race-control .race-control-panel {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 12px;
+}
+
+.route-race-control .panel-heading {
+  margin-bottom: 8px;
+}
+
+.route-race-control .race-control-console {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.route-race-control .race-control-top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.22fr) minmax(280px, 0.78fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.route-race-control .command-stage {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 10px;
+  padding: 12px;
+}
+
+.route-race-control .command-stage-copy {
+  gap: 6px;
+}
+
+.route-race-control .command-stage-title {
+  font-size: clamp(1.18rem, 1.8vw, 1.7rem);
+}
+
+.route-race-control .command-stage-detail,
+.route-race-control .command-hint {
+  font-size: 0.78rem;
+  line-height: 1.18;
+}
+
+.route-race-control .race-control-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.route-race-control .race-command {
+  padding: 10px;
+  gap: 6px;
+}
+
+.route-race-control .race-command .action-btn {
+  min-height: 42px;
+  padding: 0 10px;
+}
+
+.route-race-control .race-command-lock .action-btn {
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.route-race-control .checkered-callout,
+.route-race-control .locked-callout,
+.route-race-control .mode-standby {
+  padding: 8px 10px;
+}
+
+.route-race-control .race-control-sidecar {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(16, 18, 26, 0.92);
+  align-content: start;
+}
+
+.route-race-control .race-control-sidecar .summary-value {
+  font-size: clamp(1.06rem, 1.7vw, 1.5rem);
+}
+
+.route-race-control .mode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.route-race-control .race-control-live-order-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(16, 18, 26, 0.92);
+}
+
+.route-race-control .race-control-live-order-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.route-race-control .race-order-scroll {
+  min-height: 0;
+  overflow: auto;
+  max-height: calc((var(--racecontrol-row-height) * var(--racecontrol-visible-racers)) + var(--racecontrol-table-head-height));
+}
+
+.route-race-control .race-order-scroll .telemetry-table tbody tr {
+  height: var(--racecontrol-row-height);
+}
+
+.route-race-control .telemetry-table th,
+.route-race-control .telemetry-table td {
+  padding: 6px 8px;
+}
+
+.route-race-control .position-badge,
+.route-race-control .car-badge {
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+
+.route-race-control .driver-cell {
+  gap: 2px;
+}
+
+.route-race-control .driver-cell strong,
+.route-race-control .timing-cell {
+  font-size: 0.88rem;
+}
+
+.route-race-control .driver-cell span {
+  font-size: 0.72rem;
+}
+
+.route-leader-board {
+  --leaderboard-row-height: 34px;
+  --leaderboard-table-head-height: 34px;
+  --leaderboard-visible-racers: 8;
+}
+
+.route-leader-board.public-shell {
+  padding: 10px 14px 10px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.route-leader-board .telemetry-header {
+  gap: 10px;
+}
+
+.route-leader-board .telemetry-copy h1 {
+  margin-bottom: 2px;
+  font-size: clamp(1.36rem, 2.2vw, 2.2rem);
+}
+
+.route-leader-board .subtitle {
+  font-size: 0.84rem;
+  line-height: 1.18;
+  max-width: 56ch;
+}
+
+.route-leader-board .connection-status,
+.route-leader-board .fullscreen-btn {
+  padding: 8px 10px;
+}
+
+.route-leader-board .public-route-grid > .panel {
+  padding: 12px 14px;
+}
+
+.route-leader-board .public-glance-shell {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.route-leader-board .public-glance-copy {
+  gap: 6px;
+}
+
+.route-leader-board .public-question {
+  font-size: clamp(1.08rem, 1.7vw, 1.54rem);
+}
+
+.route-leader-board .public-state-detail {
+  font-size: 0.84rem;
+  line-height: 1.18;
+}
+
+.route-leader-board .glance-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.route-leader-board .kpi-pill {
+  min-height: 52px;
+  padding: 6px 8px;
+}
+
+.route-leader-board .tower-hero {
+  grid-template-columns: minmax(0, 1.24fr) repeat(2, minmax(100px, 0.38fr));
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.route-leader-board .tower-hero-copy {
+  gap: 4px;
+}
+
+.route-leader-board .tower-hero-title {
+  font-size: clamp(1.12rem, 1.8vw, 1.62rem);
+}
+
+.route-leader-board .tower-hero-detail {
+  font-size: 0.8rem;
+}
+
+.route-leader-board .tower-stat {
+  padding: 8px 10px;
+  gap: 4px;
+}
+
+.route-leader-board .tower-stat strong {
+  font-size: 0.92rem;
+}
+
+.route-leader-board .leaderboard-scroll {
+  min-height: 0;
+  overflow: auto;
+  max-height: calc((var(--leaderboard-row-height) * var(--leaderboard-visible-racers)) + var(--leaderboard-table-head-height));
+}
+
+.route-leader-board .leaderboard-scroll .telemetry-table tbody tr {
+  height: var(--leaderboard-row-height);
+}
+
+.route-leader-board .leaderboard-panel .telemetry-table th,
+.route-leader-board .leaderboard-panel .telemetry-table td {
+  padding: 6px 8px;
+}
+
+.route-leader-board .leaderboard-panel .position-badge,
+.route-leader-board .leaderboard-panel .car-badge {
+  min-width: 30px;
+  min-height: 30px;
+  font-size: 0.78rem;
+}
+
+.route-leader-board .leaderboard-panel .driver-cell strong,
+.route-leader-board .leaderboard-panel .timing-cell {
+  font-size: 0.84rem;
+}
+
+.route-leader-board .leaderboard-panel .driver-cell span {
+  font-size: 0.7rem;
+}
+
+.route-leader-board .leaderboard-footer {
+  margin-top: 8px;
+  font-size: 0.76rem;
 }
 
 @media (max-width: 1180px) {
@@ -3255,7 +3632,9 @@ body {
   .route-front-desk .frontdesk-racer-form,
   .route-front-desk .frontdesk-queue-setup,
   .route-front-desk .frontdesk-summary-strip,
-  .route-front-desk .frontdesk-control-body .status-marquee {
+  .route-front-desk .frontdesk-control-body .status-marquee,
+  .route-race-control .race-control-top-grid,
+  .route-home .overview-shell {
     grid-template-columns: 1fr;
   }
 

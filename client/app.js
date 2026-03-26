@@ -1162,10 +1162,10 @@
     return '<div class="divider" role="presentation"></div>';
   }
 
-  function dataTable(headers, rows, { compact = false } = {}) {
+  function dataTable(headers, rows, { compact = false, wrapClass = "", tableClass = "" } = {}) {
     return `
-      <div class="table-wrap">
-        <table class="telemetry-table ${compact ? "compact" : ""}">
+      <div class="table-wrap ${wrapClass}">
+        <table class="telemetry-table ${compact ? "compact" : ""} ${tableClass}">
           <thead>
             <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
           </thead>
@@ -2351,7 +2351,7 @@
     }
   }
 
-  function leaderboardTable(entries, { limit = entries.length } = {}) {
+  function leaderboardTable(entries, { limit = entries.length, wrapClass = "", tableClass = "" } = {}) {
     if (isInitialPublicLoad()) {
       return loadingSkeleton(5);
     }
@@ -2385,7 +2385,8 @@
             <td class="timing-cell">${entry.lapCount}</td>
           </tr>
         `
-      )
+      ),
+      { wrapClass, tableClass }
     );
   }
 
@@ -2456,11 +2457,11 @@
       });
     }).join("");
 
-    return [
-      panel(
-        "Race Control Console",
-        `
-          <div class="race-control-shell">
+    return panel(
+      "Race Control Console",
+      `
+        <div class="race-control-console">
+          <div class="race-control-top-grid">
             <div class="command-stage tone-${flagMeta.tone} ${checkeredActive ? "checkered-stage" : ""} ${lockedActive ? "locked-stage" : ""}">
               <div class="command-stage-copy">
                 <p class="section-kicker">Current authority</p>
@@ -2520,12 +2521,21 @@
               }
             </div>
           </div>
-        `,
-        "warning",
-        "staff-main-panel race-control-panel"
-      ),
-      panel("Live Order", leaderboardTable(snapshot.leaderboard, { limit: 6 }), "safe", "staff-support-panel race-order-panel"),
-    ].join("");
+          <div class="race-control-live-order-card">
+            <div class="race-control-live-order-head">
+              <div>
+                <p class="section-kicker">Live order</p>
+                <strong class="queue-title">Track order stays visible while controls stay compact.</strong>
+              </div>
+              <span class="chip tiny-chip">${snapshot.leaderboard.length} racers</span>
+            </div>
+            ${leaderboardTable(snapshot.leaderboard, { wrapClass: "race-order-scroll" })}
+          </div>
+        </div>
+      `,
+      "warning",
+      "staff-main-panel race-control-panel"
+    );
   }
 
   function lapTrackerPanel() {
@@ -2691,7 +2701,8 @@
     const activeSession = getDisplaySession();
     const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
-    const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 6);
+    const countdownLabel = formatTime(state.raceSnapshot.remainingSeconds);
+    const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 8);
     return [
       panel(
         "Timing Tower",
@@ -2705,7 +2716,7 @@
             <div class="glance-metric-grid">
               ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
               ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
-              ${kpiPill("Leader", leader ? leader.name : "Pending", leader ? "safe" : "warning")}
+              ${kpiPill("Countdown", countdownLabel, "danger")}
               ${kpiPill("Best Lap", leader ? formatLap(leader.bestLapTimeMs) : "--", "safe")}
             </div>
           </div>
@@ -2720,14 +2731,18 @@
               <strong>${escapeHtml(leader ? formatLap(leader.bestLapTimeMs) : "--")}</strong>
             </div>
             <div class="tower-stat">
-              <span>State</span>
-              <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
+              <span>Current lap</span>
+              <strong>${escapeHtml(leader ? formatLap(leader.currentLapTimeMs) : "--")}</strong>
+            </div>
+            <div class="tower-stat">
+              <span>Rows visible</span>
+              <strong>${shownRows}</strong>
             </div>
           </div>
-          ${leaderboardTable(state.raceSnapshot.leaderboard, { limit: 6 })}
+          ${leaderboardTable(state.raceSnapshot.leaderboard, { wrapClass: "leaderboard-scroll" })}
           <div class="leaderboard-footer">
             <span>${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
-            <span>${escapeHtml(shownRows === state.raceSnapshot.leaderboard.length ? `Showing ${shownRows} live rows` : `Showing top ${shownRows} of ${state.raceSnapshot.leaderboard.length}`)}</span>
+            <span>${escapeHtml(state.raceSnapshot.leaderboard.length > shownRows ? `8 rows visible before scroll` : `Showing ${shownRows} live rows`)}</span>
           </div>
         `,
         flagMeta.tone,
