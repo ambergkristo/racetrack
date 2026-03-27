@@ -3001,7 +3001,7 @@ body {
   justify-content: space-between;
   gap: 10px;
   align-items: flex-start;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .route-front-desk .frontdesk-desktop-body {
@@ -3018,22 +3018,22 @@ body {
 .route-front-desk .frontdesk-setup-body {
   min-height: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-content: start;
   overflow: auto;
-  padding-right: 2px;
+  padding-right: 0;
 }
 
 .route-front-desk .frontdesk-card-copy {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .route-front-desk .frontdesk-inline-section {
   min-height: 0;
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px 10px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
@@ -3083,6 +3083,10 @@ body {
   align-content: start;
 }
 
+.route-front-desk .frontdesk-schedule-section {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .route-front-desk .frontdesk-queue-setup {
   display: grid;
   grid-template-columns: minmax(0, 1.02fr) minmax(200px, 0.98fr);
@@ -3108,27 +3112,28 @@ body {
 .route-front-desk .frontdesk-scroll-area {
   min-height: 0;
   overflow: auto;
-  padding-right: 2px;
+  padding-right: 0;
   display: grid;
   align-content: start;
   max-height: 100%;
 }
 
 .route-front-desk .queued-session-list {
-  gap: 6px;
+  gap: 5px;
 }
 
 .route-front-desk .queued-session-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+  padding: 6px 8px;
 }
 
 .route-front-desk .queued-session-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   justify-content: flex-end;
 }
 
@@ -3142,30 +3147,28 @@ body {
 }
 
 .route-front-desk .frontdesk-control-body .status-marquee {
-  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
-  gap: 8px;
-}
-
-.route-front-desk .frontdesk-control-body .staff-chip-row {
-  grid-template-columns: repeat(2, minmax(0, max-content));
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.72fr);
   gap: 6px;
 }
 
-.route-front-desk .frontdesk-control-body .chip {
-  font-size: 0.72rem;
-}
-
 .route-front-desk .frontdesk-control-body .kpi-pill {
-  min-height: 54px;
+  min-height: 48px;
   padding: 6px 8px;
 }
 
 .route-front-desk .frontdesk-control-body .status-marquee-title {
-  font-size: clamp(1.08rem, 1.6vw, 1.5rem);
+  font-size: clamp(1rem, 1.4vw, 1.36rem);
 }
 
 .route-front-desk .frontdesk-control-body .status-marquee-detail {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+}
+
+.route-front-desk .frontdesk-control-body .telemetry-tags,
+.route-front-desk .frontdesk-control-body .staff-chip-row,
+.route-front-desk .frontdesk-control-body .connection-status,
+.route-front-desk .frontdesk-control-body .inline-alert-stack {
+  display: none;
 }
 
 .route-front-desk .field input,

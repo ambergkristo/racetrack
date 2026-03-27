@@ -1265,6 +1265,24 @@
       `;
   }
 
+  function frontDeskControlStateBody() {
+    const snapshot = state.raceSnapshot;
+    const flagMeta = getFlagMeta(snapshot);
+    return `
+        <div class="status-marquee tone-${flagMeta.tone}">
+          <div class="status-marquee-copy">
+            <p class="section-kicker">Live state</p>
+            <strong class="status-marquee-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
+            <span class="status-marquee-detail">${escapeHtml(flagMeta.detail)}</span>
+          </div>
+          <div class="staff-status-metrics">
+            ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
+            ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
+          </div>
+        </div>
+      `;
+  }
+
   function staffStatusPanel() {
     return panel(
       "Control State",
@@ -1913,10 +1931,13 @@
     const upcomingSessions = getQueuedSessions();
     const sessionCount = upcomingSessions.length;
     const registeredCount = currentSession ? currentSession.racers.length : 0;
+    const currentSessionLabel = currentSession ? currentSession.name : "No session ready";
+    const currentSessionDetail = currentSession
+      ? "Create the session, confirm the roster, and keep the start line ready."
+      : "Create a session first, then add racers on the right.";
     const racerManagementBody = `
       <div class="frontdesk-card-copy">
-        <strong class="queue-title">Racer Management</strong>
-        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer list, assigned car, and current session status stay visible together.")}</p>
+        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Keep the current race roster, assigned cars, and racer actions visible together.")}</p>
       </div>
       <div class="ops-board racer-board frontdesk-racer-form">
         <label class="field">
@@ -1965,15 +1986,13 @@
       </section>
       <section class="frontdesk-inline-section frontdesk-fact-section">
         <div class="frontdesk-inline-head">
-          <p class="queue-kicker">Next Race Setup</p>
-          <span class="chip tiny-chip">${sessionCount} saved</span>
+          <p class="queue-kicker">Session Summary</p>
         </div>
         <div class="summary-stack frontdesk-truth-card">
-          <strong class="frontdesk-truth-value">${escapeHtml(currentSession ? currentSession.name : "No current race")}</strong>
+          <strong class="frontdesk-truth-value">${escapeHtml(currentSessionLabel)}</strong>
+          <p class="compact-empty-note">${escapeHtml(currentSessionDetail)}</p>
           <div class="stack-list compact-list">
             <div class="info-row"><span>Registered Racers</span><strong>${registeredCount}</strong></div>
-            <div class="info-row"><span>Current Race</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
-            <div class="info-row"><span>Control State</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
             <div class="info-row"><span>Saved Sessions</span><strong>${sessionCount}</strong></div>
           </div>
         </div>
@@ -1993,7 +2012,7 @@
           <span class="chip tiny-chip">${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</span>
         </div>
         <div class="frontdesk-control-body">
-          ${controlStatePanelBody()}
+          ${frontDeskControlStateBody()}
         </div>
       </section>
       <div id="front-desk-guards" class="frontdesk-guard-strip">
