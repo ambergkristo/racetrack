@@ -2661,21 +2661,25 @@
         `
           <div class="lap-tracker-shell">
             <div class="lap-stage tone-${flagMeta.tone}">
-              <div class="lap-stage-copy">
-                <p class="section-kicker">Authoritative entry</p>
-                <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
-                <span class="command-stage-detail">${escapeHtml(STATE_META[snapshot.state]?.detail || "Lap entry will unlock when the race enters a live phase.")}</span>
-              </div>
-              <div class="telemetry-tags">
-                <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
-                <span class="telemetry-tag tone-${lapAllowed ? "safe" : "danger"}">${escapeHtml(lapAllowed ? "Lap entry open" : "Lap entry blocked")}</span>
+              <div class="lap-entry-shell">
+                <div class="lap-entry-head">
+                  <div class="lap-stage-copy">
+                    <p class="section-kicker">Authoritative entry</p>
+                    <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
+                    <span class="command-stage-detail">${escapeHtml(lapAllowed ? "Tap the racer crossing the line." : "Input unlocks during RUNNING or FINISHED.")}</span>
+                  </div>
+                  <div class="telemetry-tags">
+                    <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
+                    <span class="telemetry-tag tone-${lapAllowed ? "safe" : "danger"}">${escapeHtml(lapAllowed ? "Lap entry open" : "Lap entry blocked")}</span>
+                  </div>
+                </div>
+                <div class="car-grid lap-grid lap-entry-grid">${buttons}</div>
               </div>
             </div>
             <div class="lap-tracker-sidecar">
               ${lapTrackerVisualPanel()}
             </div>
           </div>
-          <div class="car-grid lap-grid">${buttons}</div>
           ${overlay}
         `,
         "danger",

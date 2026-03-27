@@ -3536,26 +3536,40 @@ body {
 }
 
 .route-lap-line-tracker .lap-tracker-shell {
-  grid-template-columns: minmax(0, 0.96fr) minmax(360px, 1.04fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
   gap: 12px;
   align-items: stretch;
 }
 
-.route-lap-line-tracker .lap-stage,
-.route-lap-line-tracker .lap-tracker-sidecar {
-  min-height: var(--lap-track-panel-height);
-}
-
 .route-lap-line-tracker .lap-stage {
+  min-height: 0;
   padding: 14px;
-  align-content: space-between;
+  display: grid;
+  align-content: start;
 }
 
 .route-lap-line-tracker .lap-stage-copy {
+  gap: 3px;
+}
+
+.route-lap-line-tracker .lap-entry-shell {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.route-lap-line-tracker .lap-entry-head {
+  display: grid;
+  gap: 6px;
+}
+
+.route-lap-line-tracker .lap-entry-head .telemetry-tags {
   gap: 6px;
 }
 
 .route-lap-line-tracker .lap-tracker-sidecar {
+  min-height: var(--lap-track-panel-height);
   padding: 12px;
   overflow: hidden;
 }
@@ -3643,19 +3657,23 @@ body {
 }
 
 .route-lap-line-tracker .lap-grid {
-  margin-top: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  margin-top: 0;
   gap: 10px;
 }
 
+.route-lap-line-tracker .lap-entry-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+}
+
 .route-lap-line-tracker .huge-touch-btn {
-  min-height: 102px;
-  padding: 12px 10px;
+  min-height: 92px;
+  padding: 10px 10px;
   gap: 4px;
 }
 
 .route-lap-line-tracker .huge-touch-btn strong {
-  font-size: 1rem;
+  font-size: 0.96rem;
 }
 
 .route-lap-line-tracker .huge-touch-btn span,
