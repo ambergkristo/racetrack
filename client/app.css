@@ -2216,6 +2216,26 @@ body {
   padding: 10px 12px;
 }
 
+.public-shell .next-race-status-strip {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.28fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.public-shell .next-race-status-copy {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.public-shell .next-race-status-title {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: clamp(1.1rem, 1.8vw, 1.55rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .public-shell .session-board-grid {
   gap: 12px;
 }
@@ -2252,6 +2272,85 @@ body {
 
 .public-shell .roster-pill strong {
   font-size: 0.88rem;
+}
+
+.public-shell .next-race-top-three-shell {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(14, 16, 24, 0.94);
+}
+
+.public-shell .next-race-top-three-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.public-shell .next-race-top-three-title {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.public-shell .next-race-top-three-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.public-shell .next-race-top-three-card,
+.public-shell .next-race-top-three-empty,
+.public-shell .next-race-top-three-idle {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.public-shell .next-race-top-three-card.place-1 {
+  border-color: rgba(0, 255, 123, 0.22);
+}
+
+.public-shell .next-race-top-three-card.place-2 {
+  border-color: rgba(255, 212, 0, 0.22);
+}
+
+.public-shell .next-race-top-three-card.place-3 {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.public-shell .next-race-top-place {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.public-shell .next-race-top-three-card strong,
+.public-shell .next-race-top-three-empty strong,
+.public-shell .next-race-top-three-idle strong {
+  font-size: 0.96rem;
+}
+
+.public-shell .next-race-top-time,
+.public-shell .next-race-top-three-empty span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.public-shell .next-race-top-three-idle {
+  padding: 10px 12px;
 }
 
 .public-shell .countdown-focus-shell {

@@ -2985,15 +2985,48 @@
     const activeSession = getDisplaySession();
     const queued = getQueuedSessions()[0] || null;
     const flagMeta = getFlagMeta();
+    const runningRace = state.raceSnapshot.state === "RUNNING";
+    const topThreeEntries = runningRace ? getDisplayLeaderboardEntries().slice(0, 3) : [];
+    const topThreeMarkup = runningRace
+      ? topThreeEntries.length > 0
+        ? `
+          <div class="next-race-top-three-grid">
+            ${topThreeEntries
+              .map((entry, index) => {
+                const timingValue = Number.isFinite(entry?.bestLapTimeMs)
+                  ? formatDurationMs(entry.bestLapTimeMs)
+                  : "Lap pending";
+                return `
+                  <article class="next-race-top-three-card place-${index + 1}">
+                    <span class="next-race-top-place">${escapeHtml(formatOrdinal(index + 1))}</span>
+                    <strong>${escapeHtml(entry.name || `Car ${entry.carNumber || "--"}`)}</strong>
+                    <span class="next-race-top-time">${escapeHtml(timingValue)}</span>
+                  </article>
+                `;
+              })
+              .join("")}
+          </div>
+        `
+        : `
+          <div class="next-race-top-three-empty">
+            <strong>Current race Top 3 is waiting on live laps.</strong>
+            <span>As soon as crossing data arrives, the lead trio appears here automatically.</span>
+          </div>
+        `
+      : `
+        <div class="next-race-top-three-idle">
+          <strong>Current race Top 3 appears once the race is running.</strong>
+        </div>
+      `;
 
     return [
       panel(
         "Race Board",
         `
-          <div class="public-glance-shell">
-            <div class="public-glance-copy">
-              <p class="section-kicker">Primary question</p>
-              <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
+          <div class="next-race-status-strip">
+            <div class="next-race-status-copy">
+              <p class="section-kicker">Race board</p>
+              <strong class="next-race-status-title">${escapeHtml(flagMeta.label)}</strong>
               <span class="public-state-detail">${escapeHtml(flagMeta.detail)}</span>
             </div>
             <div class="glance-metric-grid">
@@ -3025,6 +3058,17 @@
               })}
             </div>
           </div>
+          <section class="next-race-top-three-shell">
+            <div class="next-race-top-three-head">
+              <div>
+                <p class="section-kicker">Current race Top 3</p>
+                <strong class="next-race-top-three-title">${escapeHtml(
+                  runningRace ? "Live names and pace" : "Stand by for live race order"
+                )}</strong>
+              </div>
+            </div>
+            ${topThreeMarkup}
+          </section>
         `,
         "warning",
         `panel-wide public-display-panel next-race-panel${finishedClass()}`
