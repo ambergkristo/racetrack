@@ -2632,39 +2632,29 @@
     const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
     const countdownLabel = formatTime(state.raceSnapshot.remainingSeconds);
+    const leaderBestLap = leader ? formatLap(leader.bestLapTimeMs) : "--";
+    const leaderCurrentLap = leader ? formatLap(leader.currentLapTimeMs) : "--";
     return [
       panel(
         "Timing Tower",
         `
-          <div class="public-glance-shell">
+          <div class="leaderboard-top-strip">
             <div class="glance-metric-grid">
               ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
               ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
               ${kpiPill("Countdown", countdownLabel, "danger")}
-              ${kpiPill("Best Lap", leader ? formatLap(leader.bestLapTimeMs) : "--", "safe")}
+              ${kpiPill("Best Lap", leaderBestLap, "safe")}
             </div>
-            <div class="public-glance-copy">
-              <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
-            </div>
-          </div>
-          <div class="tower-hero${finishedClass()}">
-            <div class="tower-hero-copy">
+            <div class="leaderboard-leader-meta${finishedClass()}">
               <p class="section-kicker">Leader</p>
-              <strong class="tower-hero-title">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
-              <span class="tower-hero-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
-            </div>
-            <div class="tower-stat-row">
-              <div class="tower-stat">
-                <span>Best lap</span>
-                <strong>${escapeHtml(leader ? formatLap(leader.bestLapTimeMs) : "--")}</strong>
-              </div>
-              <div class="tower-stat">
-                <span>Current lap</span>
-                <strong>${escapeHtml(leader ? formatLap(leader.currentLapTimeMs) : "--")}</strong>
-              </div>
+              <strong class="leaderboard-leader-name">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
+              <span class="leaderboard-leader-session">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+              <span class="leaderboard-leader-laps">Best ${escapeHtml(leaderBestLap)} · Live ${escapeHtml(leaderCurrentLap)}</span>
             </div>
           </div>
-          ${leaderboardTable(state.raceSnapshot.leaderboard, { wrapClass: "leaderboard-scroll" })}
+          <div class="leaderboard-table-shell">
+            ${leaderboardTable(state.raceSnapshot.leaderboard, { wrapClass: "leaderboard-scroll" })}
+          </div>
         `,
         flagMeta.tone,
         `panel-wide public-display-panel leaderboard-panel${finishedClass()}`
