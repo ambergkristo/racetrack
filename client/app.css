@@ -2967,11 +2967,10 @@ body {
 
 .route-front-desk .frontdesk-shell-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
   grid-template-areas:
-    "racer workflow"
-    "queue control";
-  grid-template-rows: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    "racer utility";
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
   min-height: 0;
   height: 100%;
@@ -2981,16 +2980,8 @@ body {
   grid-area: racer;
 }
 
-.route-front-desk .frontdesk-workflow-card {
-  grid-area: workflow;
-}
-
-.route-front-desk .frontdesk-queue-card {
-  grid-area: queue;
-}
-
-.route-front-desk .frontdesk-control-card {
-  grid-area: control;
+.route-front-desk .frontdesk-utility-card {
+  grid-area: utility;
 }
 
 .route-front-desk .frontdesk-desktop-card {
@@ -3024,41 +3015,28 @@ body {
   grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.route-front-desk .frontdesk-workflow-body {
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.route-front-desk .frontdesk-queue-body {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  align-content: start;
-}
-
 .route-front-desk .frontdesk-card-copy {
   display: grid;
   gap: 4px;
 }
 
-.route-front-desk .frontdesk-workflow-label {
-  margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+.route-front-desk .frontdesk-utility-body {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  overflow: auto;
+  padding-right: 2px;
 }
 
-.route-front-desk .frontdesk-summary-strip {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas:
-    "current next"
-    "queue queue";
+.route-front-desk .frontdesk-utility-summary {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 8px;
-  min-height: 0;
 }
 
 .route-front-desk .frontdesk-summary-current {
   grid-area: current;
-}
-
-.route-front-desk .frontdesk-summary-next {
-  grid-area: next;
 }
 
 .route-front-desk .frontdesk-summary-queue {
@@ -3082,6 +3060,16 @@ body {
 
 .route-front-desk .frontdesk-summary-metric {
   padding: 6px 8px;
+}
+
+.route-front-desk .frontdesk-inline-section {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .route-front-desk .frontdesk-roster-preview .queue-racer-row {
@@ -3118,6 +3106,11 @@ body {
   height: var(--frontdesk-row-height);
 }
 
+.route-front-desk .frontdesk-queue-section {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: start;
+}
+
 .route-front-desk .frontdesk-queue-setup {
   display: grid;
   grid-template-columns: minmax(0, 1.02fr) minmax(200px, 0.98fr);
@@ -3130,6 +3123,10 @@ body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
+}
+
+.route-front-desk .frontdesk-control-section {
+  overflow: hidden;
 }
 
 .route-front-desk .frontdesk-scroll-area {
@@ -3621,10 +3618,8 @@ body {
   .route-front-desk .frontdesk-shell-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "workflow"
       "racer"
-      "queue"
-      "control";
+      "utility";
     grid-template-rows: auto;
     height: auto;
   }
