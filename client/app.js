@@ -182,6 +182,7 @@
       id: null,
       name: "",
     },
+    frontDeskSessionId: null,
     manualAssignmentForm: {
       racerId: null,
       carNumber: "",
@@ -509,6 +510,35 @@
     return state.raceSnapshot.activeSession;
   }
 
+  function resolveFrontDeskSessionId(snapshot = state.raceSnapshot) {
+    const sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
+    if (sessions.length === 0) {
+      return null;
+    }
+
+    const preferredIds = [
+      state.frontDeskSessionId,
+      state.sessionForm.id,
+      snapshot.nextSessionId,
+      snapshot.activeSessionId,
+    ];
+
+    for (const sessionId of preferredIds) {
+      if (sessionId && sessions.some((session) => session.id === sessionId)) {
+        return sessionId;
+      }
+    }
+
+    return sessions[0].id;
+  }
+
+  function getFrontDeskManagedSession(snapshot = state.raceSnapshot) {
+    const sessionId = resolveFrontDeskSessionId(snapshot);
+    return sessionId
+      ? snapshot.sessions.find((session) => session.id === sessionId) || null
+      : null;
+  }
+
   function getDisplaySession() {
     return state.raceSnapshot.activeSession || state.raceSnapshot.lockedSession;
   }
@@ -641,19 +671,23 @@
 
   function applyCanonicalSnapshot(snapshot) {
     const normalized = normalizeSnapshot(snapshot);
+    const nextFrontDeskSessionId = resolveFrontDeskSessionId(normalized);
     const nextSessionForm = normalized.sessions.some(
       (session) => session.id === state.sessionForm.id
     )
       ? state.sessionForm
       : { id: null, name: "" };
     const activeSession = normalized.activeSession;
+    const managedSession = nextFrontDeskSessionId
+      ? normalized.sessions.find((session) => session.id === nextFrontDeskSessionId) || null
+      : null;
     const nextManualAssignmentForm =
       activeSession &&
       activeSession.racers.some((racer) => racer.id === state.manualAssignmentForm.racerId)
         ? state.manualAssignmentForm
         : { racerId: null, carNumber: "" };
     const nextRacerForm =
-      activeSession && activeSession.racers.some((racer) => racer.id === state.racerForm.id)
+      managedSession && managedSession.racers.some((racer) => racer.id === state.racerForm.id)
         ? state.racerForm
         : { id: null, name: "", carNumber: "" };
     const recoveredPublicFeed =
@@ -668,6 +702,7 @@
       awaitingLiveResync: false,
       raceSnapshot: normalized,
       sessionForm: nextSessionForm,
+      frontDeskSessionId: nextFrontDeskSessionId,
       manualAssignmentForm: nextManualAssignmentForm,
       racerForm: nextRacerForm,
     });
@@ -888,8 +923,8 @@
   function activeSessionEditable(session = getActiveSession()) {
     return Boolean(
       session &&
-        state.raceSnapshot.state !== "RUNNING" &&
-        state.raceSnapshot.state !== "FINISHED"
+        (session.id !== state.raceSnapshot.activeSessionId ||
+          (state.raceSnapshot.state !== "RUNNING" && state.raceSnapshot.state !== "FINISHED"))
     );
   }
 
@@ -1682,13 +1717,15 @@
       return '<p class="compact-empty-note">Create a session to prepare the next race.</p>';
     }
 
+    const selectedSessionId = resolveFrontDeskSessionId();
+
     return `
       <div class="queued-session-list">
         ${sessions
           .map((session) => {
             const actionState = sessionActionState(session);
             return `
-              <article class="queued-session-row">
+              <article class="queued-session-row${session.id === selectedSessionId ? " is-selected" : ""}">
                 <div class="queued-session-copy">
                   <strong>${escapeHtml(session.name)}</strong>
                   <span>${escapeHtml(`${session.racers.length} racers registered`)}</span>
@@ -1745,15 +1782,14 @@
 
   function racerRows(activeSession) {
     if (!activeSession) {
-      return '<tr><td colspan="4" class="hint">Stage a session to manage racers.</td></tr>';
+      return '<tr><td colspan="4" class="hint">Create or choose a saved session to manage racers.</td></tr>';
     }
 
     if (activeSession.racers.length === 0) {
-      return '<tr><td colspan="4" class="hint">No racers in the active session.</td></tr>';
+      return '<tr><td colspan="4" class="hint">No racers in the selected session.</td></tr>';
     }
 
-    const editBlocked =
-      state.raceSnapshot.state === "RUNNING" || state.raceSnapshot.state === "FINISHED";
+    const editBlocked = !activeSessionEditable(activeSession);
     const accessReason = staffAccessReason();
 
     return activeSession.racers
@@ -1794,14 +1830,11 @@
   }
 
   function getFrontDeskFormState() {
-    const activeSession = getActiveSession();
+    const activeSession = getFrontDeskManagedSession();
     const updateMode = state.sessionForm.id !== null;
     const racerUpdateMode = state.racerForm.id !== null;
     const accessReason = staffAccessReason();
-    const activeEditable =
-      activeSession &&
-      state.raceSnapshot.state !== "RUNNING" &&
-      state.raceSnapshot.state !== "FINISHED";
+    const activeEditable = activeSessionEditable(activeSession);
     const saveSessionReason = firstReason(
       accessReason,
       state.pending ? "Wait for the current request to finish." : "",
@@ -1810,8 +1843,8 @@
     const racerEditReason = firstReason(
       accessReason,
       state.pending ? "Wait for the current request to finish." : "",
-      activeSession ? "" : "Create or stage a session before adding racers.",
-      activeEditable ? "" : "Racer edits lock once the race is RUNNING or FINISHED."
+      activeSession ? "" : "Create or choose a saved session before adding racers.",
+      activeEditable ? "" : "Selected session locks once it is RUNNING or FINISHED."
     );
     const saveRacerReason = firstReason(
       racerEditReason,
@@ -1941,11 +1974,11 @@
                     <div class="summary-stack frontdesk-truth-card">
                       <p class="section-kicker">Workflow truth</p>
                       <strong class="frontdesk-truth-value">${escapeHtml(currentSession ? currentSession.name : "No current session")}</strong>
-                      <div class="stack-list compact-list">
-                        <div class="info-row"><span>Current</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
-                        <div class="info-row"><span>Next</span><strong>${escapeHtml(nextSession ? nextSession.name : "None")}</strong></div>
-                        <div class="info-row"><span>Queue size</span><strong>${queueCount}</strong></div>
-                      </div>
+      <div class="stack-list compact-list">
+        <div class="info-row"><span>Current</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
+        <div class="info-row"><span>Next</span><strong>${escapeHtml(nextSession ? nextSession.name : "None")}</strong></div>
+        <div class="info-row"><span>Queue size</span><strong>${queueCount}</strong></div>
+      </div>
                     </div>
                   </div>
                   <div class="frontdesk-inline-card">
@@ -2018,17 +2051,21 @@
 
   function frontDeskHotfixPanel() {
     const formState = getFrontDeskFormState();
-    const currentSession = state.raceSnapshot.currentSession || formState.activeSession;
+    const currentSession = state.raceSnapshot.currentSession || state.raceSnapshot.activeSession;
+    const managedSession = formState.activeSession || state.raceSnapshot.nextSession || currentSession;
     const upcomingSessions = getQueuedSessions();
     const sessionCount = upcomingSessions.length;
-    const registeredCount = currentSession ? currentSession.racers.length : 0;
-    const currentSessionLabel = currentSession ? currentSession.name : "No session ready";
-    const currentSessionDetail = currentSession
-      ? "Create the session, confirm the roster, and keep the start line ready."
+    const registeredCount = managedSession ? managedSession.racers.length : 0;
+    const currentSessionLabel = managedSession ? managedSession.name : "No session ready";
+    const currentSessionDetail = managedSession
+      ? currentSession && managedSession.id === currentSession.id
+        ? "This staged session is live at the desk right now."
+        : "This saved session will be ready as the next race lineup."
       : "Create a session first, then add racers on the right.";
     const racerManagementBody = `
       <div class="frontdesk-card-copy">
-        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Keep the current race roster, assigned cars, and racer actions visible together.")}</p>
+        <strong class="frontdesk-target-session">${escapeHtml(managedSession ? managedSession.name : "Choose a session to manage")}</strong>
+        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits and car numbers save against the selected session.")}</p>
       </div>
       <div class="ops-board racer-board frontdesk-racer-form">
         <label class="field">
@@ -2049,7 +2086,7 @@
         </div>
       </div>
       <div class="frontdesk-racer-table">
-        ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
+        ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(managedSession)], { compact: true })}
       </div>
     `;
     const setupBody = `
@@ -2084,6 +2121,7 @@
           <p class="compact-empty-note">${escapeHtml(currentSessionDetail)}</p>
           <div class="stack-list compact-list">
             <div class="info-row"><span>Registered Racers</span><strong>${registeredCount}</strong></div>
+            <div class="info-row"><span>Current Race</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
             <div class="info-row"><span>Saved Sessions</span><strong>${sessionCount}</strong></div>
           </div>
         </div>
@@ -2138,7 +2176,7 @@
                   <p class="section-kicker">Primary panel</p>
                   <strong class="queue-title">Racer Management</strong>
                 </div>
-                <span class="chip tiny-chip">${registeredCount} racers</span>
+                <span class="chip tiny-chip">${managedSession ? managedSession.name : "No session"}</span>
               </div>
               <div class="frontdesk-desktop-body frontdesk-racer-body">
                 ${racerManagementBody}
@@ -2317,7 +2355,7 @@
 
     if (racerHint) {
       racerHint.textContent =
-        formState.racerEditReason || "Racer edits apply to the active staged session.";
+        formState.racerEditReason || "Racer edits apply to the selected saved session.";
     }
 
     if (manualAssignmentEnabled()) {
@@ -3380,7 +3418,7 @@
   }
 
   function bindFrontDeskEvents() {
-    const activeSession = getActiveSession();
+    const managedSession = getFrontDeskManagedSession();
     const sessionInput = document.getElementById("session-name-input");
     const manualCarInput = document.getElementById("manual-car-number-input");
     const assignCarBtn = document.getElementById("assign-car-btn");
@@ -3467,11 +3505,18 @@
             });
           },
           state.sessionForm.id ? "Session updated." : "Session created.",
-          () => {
+          (payload) => {
+            const savedSessionId = payload?.session?.id ? String(payload.session.id) : state.frontDeskSessionId;
             setState({
               sessionForm: {
                 id: null,
                 name: "",
+              },
+              frontDeskSessionId: savedSessionId || state.frontDeskSessionId,
+              racerForm: {
+                id: null,
+                name: "",
+                carNumber: "",
               },
             });
           }
@@ -3492,8 +3537,8 @@
 
     if (saveRacerBtn) {
       saveRacerBtn.addEventListener("click", () => {
-        if (!activeSession) {
-          setNotice("danger", "Stage a session before adding racers.", 4000);
+        if (!managedSession) {
+          setNotice("danger", "Create or choose a saved session before adding racers.", 4000);
           return;
         }
 
@@ -3513,7 +3558,7 @@
           () => {
             if (state.racerForm.id) {
               return apiRequest(
-                `/api/sessions/${activeSession.id}/racers/${state.racerForm.id}`,
+                `/api/sessions/${managedSession.id}/racers/${state.racerForm.id}`,
                 {
                   method: "PATCH",
                   body,
@@ -3521,7 +3566,7 @@
               );
             }
 
-            return apiRequest(`/api/sessions/${activeSession.id}/racers`, {
+            return apiRequest(`/api/sessions/${managedSession.id}/racers`, {
               method: "POST",
               body,
             });
@@ -3635,6 +3680,7 @@
         }
 
         setState({
+          frontDeskSessionId: session.id,
           sessionForm: {
             id: session.id,
             name: session.name,
@@ -3657,7 +3703,7 @@
 
     document.querySelectorAll("[data-action='edit-racer']").forEach((node) => {
       node.addEventListener("click", () => {
-        const racer = activeSession?.racers.find((item) => item.id === node.dataset.racerId);
+        const racer = managedSession?.racers.find((item) => item.id === node.dataset.racerId);
         if (!racer) {
           return;
         }
@@ -3674,13 +3720,13 @@
 
     document.querySelectorAll("[data-action='delete-racer']").forEach((node) => {
       node.addEventListener("click", () => {
-        if (!activeSession) {
+        if (!managedSession) {
           return;
         }
 
         runAction(
           () =>
-            apiRequest(`/api/sessions/${activeSession.id}/racers/${node.dataset.racerId}`, {
+            apiRequest(`/api/sessions/${managedSession.id}/racers/${node.dataset.racerId}`, {
               method: "DELETE",
             }),
           "Racer removed."

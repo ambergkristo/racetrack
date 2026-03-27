@@ -3042,6 +3042,13 @@ body {
   gap: 3px;
 }
 
+.route-front-desk .frontdesk-target-session {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .route-front-desk .frontdesk-inline-section {
   min-height: 0;
   display: grid;
@@ -3141,6 +3148,12 @@ body {
   gap: 6px;
   align-items: center;
   padding: 6px 8px;
+}
+
+.route-front-desk .queued-session-row.is-selected {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 212, 0, 0.26);
+  background: rgba(255, 212, 0, 0.06);
 }
 
 .route-front-desk .queued-session-actions {
