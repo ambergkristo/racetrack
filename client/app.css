@@ -2967,21 +2967,21 @@ body {
 
 .route-front-desk .frontdesk-shell-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
+  grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
   grid-template-areas:
-    "racer utility";
+    "setup racer";
   grid-template-rows: minmax(0, 1fr);
   gap: 10px;
   min-height: 0;
   height: 100%;
 }
 
-.route-front-desk .frontdesk-racer-card {
-  grid-area: racer;
+.route-front-desk .frontdesk-setup-card {
+  grid-area: setup;
 }
 
-.route-front-desk .frontdesk-utility-card {
-  grid-area: utility;
+.route-front-desk .frontdesk-racer-card {
+  grid-area: racer;
 }
 
 .route-front-desk .frontdesk-desktop-card {
@@ -3015,12 +3015,7 @@ body {
   grid-template-rows: auto auto minmax(0, 1fr);
 }
 
-.route-front-desk .frontdesk-card-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.route-front-desk .frontdesk-utility-body {
+.route-front-desk .frontdesk-setup-body {
   min-height: 0;
   display: grid;
   gap: 8px;
@@ -3029,37 +3024,9 @@ body {
   padding-right: 2px;
 }
 
-.route-front-desk .frontdesk-utility-summary {
+.route-front-desk .frontdesk-card-copy {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-.route-front-desk .frontdesk-summary-current {
-  grid-area: current;
-}
-
-.route-front-desk .frontdesk-summary-queue {
-  grid-area: queue;
-}
-
-.route-front-desk .frontdesk-summary-card,
-.route-front-desk .frontdesk-inline-card {
-  padding: 10px;
-  gap: 6px;
-}
-
-.route-front-desk .frontdesk-summary-detail {
-  font-size: 0.76rem;
-  line-height: 1.18;
-}
-
-.route-front-desk .frontdesk-summary-metrics {
-  gap: 6px;
-}
-
-.route-front-desk .frontdesk-summary-metric {
-  padding: 6px 8px;
+  gap: 4px;
 }
 
 .route-front-desk .frontdesk-inline-section {
@@ -3095,7 +3062,8 @@ body {
   min-height: 0;
   margin-top: 0;
   overflow: auto;
-  max-height: calc((var(--frontdesk-row-height) * var(--frontdesk-visible-racers)) + var(--frontdesk-table-head-height));
+  max-height: none;
+  height: 100%;
 }
 
 .route-front-desk .frontdesk-racer-table .telemetry-table {
@@ -3106,8 +3074,12 @@ body {
   height: var(--frontdesk-row-height);
 }
 
-.route-front-desk .frontdesk-queue-section {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+.route-front-desk .frontdesk-create-section {
+  align-content: start;
+}
+
+.route-front-desk .frontdesk-fact-section,
+.route-front-desk .frontdesk-schedule-section {
   align-content: start;
 }
 
@@ -3123,6 +3095,10 @@ body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
+}
+
+.route-front-desk .frontdesk-create-form {
+  grid-template-columns: 1fr;
 }
 
 .route-front-desk .frontdesk-control-section {
@@ -3217,6 +3193,10 @@ body {
 
 .route-front-desk .queue-title {
   font-size: 0.9rem;
+}
+
+.route-front-desk .frontdesk-panel::before {
+  display: none;
 }
 
 .route-home.staff-shell {
@@ -3618,8 +3598,8 @@ body {
   .route-front-desk .frontdesk-shell-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
+      "setup"
       "racer"
-      "utility";
     grid-template-rows: auto;
     height: auto;
   }

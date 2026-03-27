@@ -14,7 +14,7 @@
       staff: true,
       public: false,
       accent: "safe",
-      body: "Stage the next heat, manage the active roster, and keep the queue moving.",
+      body: "Set up the next race, manage the active roster, and keep start-line operations clear.",
     },
     "/race-control": {
       title: "Race Control",
@@ -1570,7 +1570,7 @@
 
   function queuedSessionCompactList(sessions) {
     if (sessions.length === 0) {
-      return '<p class="compact-empty-note">Create another session to keep the queue visible beyond the next slot.</p>';
+      return '<p class="compact-empty-note">Create a session to prepare the next race.</p>';
     }
 
     return `
@@ -1582,7 +1582,7 @@
               <article class="queued-session-row">
                 <div class="queued-session-copy">
                   <strong>${escapeHtml(session.name)}</strong>
-                  <span>${escapeHtml(`${session.racers.length} racers queued`)}</span>
+                  <span>${escapeHtml(`${session.racers.length} racers registered`)}</span>
                 </div>
                 <div class="controls queued-session-actions">
                   ${buttonMarkup({
@@ -1910,51 +1910,12 @@
   function frontDeskHotfixPanel() {
     const formState = getFrontDeskFormState();
     const currentSession = state.raceSnapshot.currentSession || formState.activeSession;
-    const queuedSessions = getQueuedSessions();
-    const queueCount = queuedSessions.length;
-    const currentSummary = currentSession
-      ? frontDeskSummaryCard({
-          kicker: "Current",
-          title: currentSession.name,
-          detail: "Current race stays visible while you manage the roster and operator actions.",
-          tone: "safe",
-          metaLabel: STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state,
-          extraClass: "frontdesk-summary-current",
-          content: frontDeskRosterPreview(currentSession, 3),
-          metrics: [
-            { label: "Racers", value: String(currentSession.racers.length) },
-            { label: "State", value: STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state },
-          ],
-        })
-      : frontDeskSummaryCard({
-          kicker: "Current",
-          title: "No current session",
-          detail: "Create a session first. The current slot becomes the operator anchor immediately after staging.",
-          tone: "warning",
-          metaLabel: "Waiting",
-          extraClass: "frontdesk-summary-current",
-          metrics: [
-            { label: "Current", value: "None" },
-            { label: "Queued", value: `${queueCount}` },
-          ],
-        });
-    const queueSummary = frontDeskSummaryCard({
-      kicker: "Queue",
-      title: queueCount ? `${queueCount} queued session${queueCount === 1 ? "" : "s"}` : "Queue is empty",
-      detail: queueCount
-        ? queuedSessions.slice(0, 2).map((session) => session.name).join(" | ")
-        : "Create sessions here when you need visible backlog for the desk.",
-      tone: queueCount ? "warning" : "safe",
-      metaLabel: `${queueCount} queued`,
-      extraClass: "frontdesk-summary-queue",
-      metrics: [
-        { label: "Current", value: currentSession ? currentSession.name : "None" },
-        { label: "Queued", value: `${queueCount}` },
-      ],
-    });
+    const upcomingSessions = getQueuedSessions();
+    const sessionCount = upcomingSessions.length;
+    const registeredCount = currentSession ? currentSession.racers.length : 0;
     const racerManagementBody = `
       <div class="frontdesk-card-copy">
-        <strong class="queue-title">${formState.racerUpdateMode ? "Edit racer" : "Add racer to current"}</strong>
+        <strong class="queue-title">Racer Management</strong>
         <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer list, assigned car, and current session status stay visible together.")}</p>
       </div>
       <div class="ops-board racer-board frontdesk-racer-form">
@@ -1979,48 +1940,70 @@
         ${dataTable(["Racer", "Car", "Laps", "Actions"], [racerRows(formState.activeSession)], { compact: true })}
       </div>
     `;
-    const queueControlBody = `
-      <div class="frontdesk-card-copy">
-        <strong class="queue-title">${formState.updateMode ? "Edit session" : "Create session and queue"}</strong>
-        <p class="hint">Session creation stays fixed while the queued session list uses its own local overflow area.</p>
-      </div>
-      <div class="frontdesk-queue-setup">
-        <div class="form-stack">
-          <label class="field">
-            <span>Session name</span>
-            <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
-          </label>
-          <div class="controls">
-            ${buttonMarkup({
-              id: "save-session-btn",
-              label: formState.updateMode ? "Save Session" : "Create Session",
-              disabled: Boolean(formState.saveSessionReason),
-            })}
-            ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+    const setupBody = `
+      <section class="frontdesk-inline-section frontdesk-create-section">
+        <div class="frontdesk-card-copy">
+          <strong class="queue-title">${formState.updateMode ? "Edit Session" : "Create Session"}</strong>
+          <p class="hint">Start by setting up the next race, then confirm the current race and control state below.</p>
+        </div>
+        <div class="frontdesk-queue-setup frontdesk-create-form">
+          <div class="form-stack">
+            <label class="field">
+              <span>Session name</span>
+              <input id="session-name-input" type="text" value="${escapeHtml(state.sessionForm.name)}" placeholder="Evening Heat" />
+            </label>
+            <div class="controls">
+              ${buttonMarkup({
+                id: "save-session-btn",
+                label: formState.updateMode ? "Save Session" : "Create Session",
+                disabled: Boolean(formState.saveSessionReason),
+              })}
+              ${formState.updateMode ? buttonMarkup({ id: "cancel-session-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+            </div>
           </div>
+        </div>
+      </section>
+      <section class="frontdesk-inline-section frontdesk-fact-section">
+        <div class="frontdesk-inline-head">
+          <p class="queue-kicker">Next Race Setup</p>
+          <span class="chip tiny-chip">${sessionCount} saved</span>
         </div>
         <div class="summary-stack frontdesk-truth-card">
-          <p class="section-kicker">Current race truth</p>
-          <strong class="frontdesk-truth-value">${escapeHtml(currentSession ? currentSession.name : "No current session")}</strong>
+          <strong class="frontdesk-truth-value">${escapeHtml(currentSession ? currentSession.name : "No current race")}</strong>
           <div class="stack-list compact-list">
-            <div class="info-row"><span>Current</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
-            <div class="info-row"><span>Queue size</span><strong>${queueCount}</strong></div>
-            <div class="info-row"><span>State</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
+            <div class="info-row"><span>Registered Racers</span><strong>${registeredCount}</strong></div>
+            <div class="info-row"><span>Current Race</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
+            <div class="info-row"><span>Control State</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
+            <div class="info-row"><span>Saved Sessions</span><strong>${sessionCount}</strong></div>
           </div>
         </div>
-      </div>
-      <div class="frontdesk-scroll-card">
+      </section>
+      <section class="frontdesk-inline-section frontdesk-schedule-section">
         <div class="frontdesk-inline-head">
-          <p class="queue-kicker">Queued sessions</p>
-          <span class="chip tiny-chip">${queueCount}</span>
+          <p class="queue-kicker">Saved Sessions</p>
+          <span class="chip tiny-chip">${sessionCount}</span>
         </div>
         <div class="frontdesk-scroll-area">
-          ${queuedSessionCompactList(queuedSessions)}
+          ${queuedSessionCompactList(upcomingSessions)}
         </div>
-      </div>
+      </section>
+      <section class="frontdesk-inline-section frontdesk-control-section">
+        <div class="frontdesk-inline-head">
+          <p class="queue-kicker">Control State</p>
+          <span class="chip tiny-chip">${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</span>
+        </div>
+        <div class="frontdesk-control-body">
+          ${controlStatePanelBody()}
+        </div>
+      </section>
       <div id="front-desk-guards" class="frontdesk-guard-strip">
         ${formState.frontDeskReasons}
       </div>
+      ${
+        manualAssignmentEnabled()
+          ? manualAssignmentPanel(true)
+          : ""
+      }
     `;
 
     return panel(
@@ -2028,47 +2011,27 @@
       `
         <div class="frontdesk-workflow is-single-column">
           <div class="frontdesk-shell-grid">
+            <section class="frontdesk-desktop-card frontdesk-setup-card">
+              <div class="frontdesk-desktop-head">
+                <div>
+                  <p class="section-kicker">Setup panel</p>
+                  <strong class="queue-title">Next Race Setup</strong>
+                </div>
+              </div>
+              <div class="frontdesk-desktop-body frontdesk-setup-body">
+                ${setupBody}
+              </div>
+            </section>
             <section class="frontdesk-desktop-card frontdesk-racer-card">
               <div class="frontdesk-desktop-head">
                 <div>
                   <p class="section-kicker">Primary panel</p>
                   <strong class="queue-title">Racer Management</strong>
                 </div>
+                <span class="chip tiny-chip">${registeredCount} racers</span>
               </div>
               <div class="frontdesk-desktop-body frontdesk-racer-body">
                 ${racerManagementBody}
-              </div>
-            </section>
-            <section class="frontdesk-desktop-card frontdesk-utility-card">
-              <div class="frontdesk-desktop-head">
-                <div>
-                  <p class="section-kicker">Utility panel</p>
-                  <strong class="queue-title">Current race, queue, and control state</strong>
-                </div>
-                <span class="chip tiny-chip">${queueCount} queued</span>
-              </div>
-              <div class="frontdesk-desktop-body frontdesk-utility-body">
-                <div class="frontdesk-utility-summary">
-                  ${currentSummary}
-                  ${queueSummary}
-                </div>
-                <section class="frontdesk-inline-section frontdesk-queue-section">
-                  ${queueControlBody}
-                </section>
-                <section class="frontdesk-inline-section frontdesk-control-section">
-                  <div class="frontdesk-inline-head">
-                    <p class="queue-kicker">Control state</p>
-                    <span class="chip tiny-chip">${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</span>
-                  </div>
-                  <div class="frontdesk-control-body">
-                    ${controlStatePanelBody()}
-                  </div>
-                </section>
-                ${
-                  manualAssignmentEnabled()
-                    ? manualAssignmentPanel(true)
-                    : ""
-                }
               </div>
             </section>
           </div>
