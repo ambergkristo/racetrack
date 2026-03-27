@@ -2638,16 +2638,16 @@
         "Timing Tower",
         `
           <div class="public-glance-shell">
-            <div class="public-glance-copy">
-              <p class="section-kicker">Primary question</p>
-              <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
-              <span class="public-state-detail">${escapeHtml(publicStateMeaning())}</span>
-            </div>
             <div class="glance-metric-grid">
               ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
               ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
               ${kpiPill("Countdown", countdownLabel, "danger")}
               ${kpiPill("Best Lap", leader ? formatLap(leader.bestLapTimeMs) : "--", "safe")}
+            </div>
+            <div class="public-glance-copy">
+              <p class="section-kicker">Timing tower</p>
+              <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
+              <span class="public-state-detail">${escapeHtml(publicStateMeaning())}</span>
             </div>
           </div>
           <div class="tower-hero${finishedClass()}">
@@ -2656,23 +2656,21 @@
               <strong class="tower-hero-title">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
               <span class="tower-hero-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
             </div>
-            <div class="tower-stat">
-              <span>Best lap</span>
-              <strong>${escapeHtml(leader ? formatLap(leader.bestLapTimeMs) : "--")}</strong>
-            </div>
-            <div class="tower-stat">
-              <span>Current lap</span>
-              <strong>${escapeHtml(leader ? formatLap(leader.currentLapTimeMs) : "--")}</strong>
-            </div>
-            <div class="tower-stat">
-              <span>Rows visible</span>
-              <strong>${shownRows}</strong>
+            <div class="tower-stat-row">
+              <div class="tower-stat">
+                <span>Best lap</span>
+                <strong>${escapeHtml(leader ? formatLap(leader.bestLapTimeMs) : "--")}</strong>
+              </div>
+              <div class="tower-stat">
+                <span>Current lap</span>
+                <strong>${escapeHtml(leader ? formatLap(leader.currentLapTimeMs) : "--")}</strong>
+              </div>
             </div>
           </div>
           ${leaderboardTable(state.raceSnapshot.leaderboard, { wrapClass: "leaderboard-scroll" })}
           <div class="leaderboard-footer">
             <span>${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
-            <span>${escapeHtml(state.raceSnapshot.leaderboard.length > shownRows ? `8 rows visible before scroll` : `Showing ${shownRows} live rows`)}</span>
+            <span>${escapeHtml(state.raceSnapshot.leaderboard.length > shownRows ? `8 rows visible before scroll` : `${shownRows} live rows visible`)}</span>
           </div>
         `,
         flagMeta.tone,
