@@ -2632,7 +2632,6 @@
     const leader = state.raceSnapshot.leaderboard[0] || null;
     const flagMeta = getFlagMeta();
     const countdownLabel = formatTime(state.raceSnapshot.remainingSeconds);
-    const shownRows = Math.min(state.raceSnapshot.leaderboard.length, 8);
     return [
       panel(
         "Timing Tower",
@@ -2645,14 +2644,12 @@
               ${kpiPill("Best Lap", leader ? formatLap(leader.bestLapTimeMs) : "--", "safe")}
             </div>
             <div class="public-glance-copy">
-              <p class="section-kicker">Timing tower</p>
               <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
-              <span class="public-state-detail">${escapeHtml(publicStateMeaning())}</span>
             </div>
           </div>
           <div class="tower-hero${finishedClass()}">
             <div class="tower-hero-copy">
-              <p class="section-kicker">Leader on track</p>
+              <p class="section-kicker">Leader</p>
               <strong class="tower-hero-title">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
               <span class="tower-hero-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
             </div>
@@ -2668,10 +2665,6 @@
             </div>
           </div>
           ${leaderboardTable(state.raceSnapshot.leaderboard, { wrapClass: "leaderboard-scroll" })}
-          <div class="leaderboard-footer">
-            <span>${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
-            <span>${escapeHtml(state.raceSnapshot.leaderboard.length > shownRows ? `8 rows visible before scroll` : `${shownRows} live rows visible`)}</span>
-          </div>
         `,
         flagMeta.tone,
         `panel-wide public-display-panel leaderboard-panel${finishedClass()}`
