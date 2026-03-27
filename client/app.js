@@ -1284,22 +1284,12 @@
   }
 
   function raceControlConsoleStatusBody() {
-    const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
-    const flagMeta = getFlagMeta(snapshot);
     return `
-        <div class="status-marquee tone-${flagMeta.tone}">
-          <div class="status-marquee-copy">
-            <p class="section-kicker">Live authority</p>
-            <strong class="status-marquee-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
-            <span class="status-marquee-detail">${escapeHtml(flagMeta.detail)}</span>
-          </div>
-          <div class="staff-status-metrics">
-            ${kpiPill("State", STATE_META[snapshot.state]?.label || snapshot.state, flagMeta.tone)}
-            ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
-            ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "danger")}
-            ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
-          </div>
+        <div class="race-control-telemetry-strip">
+          ${kpiPill("Countdown", formatTime(state.raceSnapshot.remainingSeconds), "danger")}
+          ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "danger")}
+          ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
         </div>
       `;
   }
@@ -2393,6 +2383,11 @@
       snapshot.state === "RUNNING" ? "" : "Modes only during running."
     );
     const modeVisible = snapshot.state === "RUNNING";
+    const authorityNote = lockedActive
+      ? "Locked. Results are final and lap input is blocked."
+      : checkeredActive
+        ? "Checkered. Post-finish laps still count until lock."
+        : flagMeta.detail;
 
     const modeButtons = RACE_CONTROL_MODES.map((mode) => {
       const active = snapshot.mode === mode;
@@ -2410,31 +2405,14 @@
       `
         <div class="race-control-console">
           <div class="race-control-top-grid">
-            <div class="command-stage tone-${flagMeta.tone} ${checkeredActive ? "checkered-stage" : ""} ${lockedActive ? "locked-stage" : ""}">
-              <div class="command-stage-copy">
+            <div class="race-control-state-summary tone-${flagMeta.tone} ${checkeredActive ? "checkered-stage" : ""} ${lockedActive ? "locked-stage" : ""}">
+              <div class="race-control-state-copy">
                 <p class="section-kicker">Current authority</p>
-                <strong class="command-stage-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
-                <span class="command-stage-detail">${escapeHtml(activeSession ? activeSession.name : "No session staged")}</span>
-                ${
-                  checkeredActive
-                    ? `
-                      <div class="checkered-callout">
-                        <span class="checkered-flag">Checkered</span>
-                        <strong>Finish is called. Post-finish laps still count until lock.</strong>
-                      </div>
-                    `
-                    : ""
-                }
-                ${
-                  lockedActive
-                    ? `
-                      <div class="locked-callout">
-                        <span class="locked-badge">Locked</span>
-                        <strong>Race is locked. Results are final and lap input is blocked.</strong>
-                      </div>
-                    `
-                    : ""
-                }
+                <div class="race-control-state-line">
+                  <strong class="command-stage-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
+                  <span class="race-control-session-name">${escapeHtml(activeSession ? activeSession.name : "No session staged")}</span>
+                </div>
+                <span class="race-control-state-note">${escapeHtml(authorityNote)}</span>
               </div>
               <div class="race-control-actions">
                 <div class="race-command race-command-start ${startReason ? "is-blocked" : "is-live"}">
@@ -2453,23 +2431,24 @@
             </div>
             <div class="race-control-sidecar">
               ${raceControlConsoleStatusBody()}
-              <div class="race-control-mode-block">
-                <p class="section-kicker">Flag mode</p>
-                <strong class="summary-value">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</strong>
+              <div class="race-control-mode-shell">
+                <div class="race-control-mode-block">
+                  <p class="section-kicker">Flag mode</p>
+                  <strong class="summary-value">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</strong>
+                </div>
+                ${
+                  modeVisible
+                    ? `
+                      <div class="mode-grid">${modeButtons}</div>
+                    `
+                    : `
+                      <div class="mode-standby">
+                        <strong>Mode controls hidden</strong>
+                        <span>${escapeHtml(modeReason)}</span>
+                      </div>
+                    `
+                }
               </div>
-              ${
-                modeVisible
-                  ? `
-                    <p class="hint">Mode controls are live only while the race is running.</p>
-                    <div class="mode-grid">${modeButtons}</div>
-                  `
-                  : `
-                    <div class="mode-standby">
-                      <strong>Mode controls hidden</strong>
-                      <span>${escapeHtml(modeReason)}</span>
-                    </div>
-                  `
-              }
             </div>
           </div>
           <div class="race-control-live-order-card">

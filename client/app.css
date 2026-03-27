@@ -3317,34 +3317,58 @@ body {
 .route-race-control .race-control-console {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px;
+  gap: 6px;
   min-height: 0;
 }
 
 .route-race-control .race-control-top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.28fr) minmax(260px, 0.72fr);
-  gap: 8px;
+  grid-template-columns: minmax(220px, 0.74fr) minmax(0, 1.26fr) minmax(280px, 0.92fr);
+  gap: 6px;
   align-items: stretch;
+  padding: 8px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--soft-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(16, 18, 26, 0.92);
 }
 
-.route-race-control .command-stage {
-  grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
-  gap: 8px;
-  padding: 10px;
+.route-race-control .race-control-state-summary {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
-.route-race-control .command-stage-copy {
-  gap: 5px;
+.route-race-control .race-control-state-copy {
+  display: grid;
+  gap: 3px;
 }
 
 .route-race-control .command-stage-title {
-  font-size: clamp(1.08rem, 1.6vw, 1.48rem);
+  font-size: clamp(0.98rem, 1.35vw, 1.24rem);
+}
+
+.route-race-control .race-control-state-line {
+  display: grid;
+  gap: 2px;
+}
+
+.route-race-control .race-control-session-name,
+.route-race-control .race-control-state-note {
+  font-size: 0.74rem;
+  line-height: 1.16;
+  color: var(--muted);
 }
 
 .route-race-control .command-stage-detail,
 .route-race-control .command-hint {
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   line-height: 1.18;
 }
 
@@ -3352,17 +3376,20 @@ body {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
-  align-content: start;
+  align-content: center;
 }
 
 .route-race-control .race-command {
-  padding: 8px;
-  gap: 5px;
+  min-height: 0;
+  padding: 6px 7px;
+  gap: 4px;
+  border-radius: 14px;
+  align-content: center;
 }
 
 .route-race-control .race-command .action-btn {
-  min-height: 38px;
-  padding: 0 8px;
+  min-height: 34px;
+  padding: 0 6px;
 }
 
 .route-race-control .race-command-lock .action-btn {
@@ -3378,59 +3405,44 @@ body {
 
 .route-race-control .race-control-sidecar {
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto;
   gap: 6px;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid var(--soft-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
-    rgba(16, 18, 26, 0.92);
-  align-content: start;
-}
-
-.route-race-control .race-control-sidecar .status-marquee {
-  grid-template-columns: 1fr;
-  gap: 6px;
+  min-width: 0;
   padding: 0;
-  background: transparent;
   border: 0;
+  background: transparent;
+  align-content: center;
 }
 
-.route-race-control .race-control-sidecar .status-marquee-copy {
-  gap: 3px;
-}
-
-.route-race-control .race-control-sidecar .staff-status-metrics {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.route-race-control .race-control-telemetry-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
-.route-race-control .race-control-sidecar .kpi-pill {
-  min-height: 48px;
+.route-race-control .race-control-telemetry-strip .kpi-pill {
+  min-height: 42px;
   padding: 6px 8px;
 }
 
-.route-race-control .race-control-sidecar .status-marquee-title {
-  font-size: clamp(1rem, 1.45vw, 1.32rem);
-}
-
-.route-race-control .race-control-sidecar .status-marquee-detail {
-  font-size: 0.76rem;
-}
-
+.route-race-control .race-control-mode-shell,
 .route-race-control .race-control-mode-block {
   display: grid;
   gap: 2px;
 }
 
 .route-race-control .race-control-sidecar .summary-value {
-  font-size: clamp(1rem, 1.5vw, 1.34rem);
+  font-size: clamp(0.92rem, 1.3vw, 1.12rem);
 }
 
 .route-race-control .mode-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
+}
+
+.route-race-control .mode-grid .action-btn {
+  min-height: 34px;
+  padding: 0 6px;
 }
 
 .route-race-control .race-control-live-order-card {
@@ -3449,8 +3461,12 @@ body {
 .route-race-control .race-control-live-order-head {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
+}
+
+.route-race-control .race-control-live-order-head .queue-title {
+  font-size: 0.9rem;
 }
 
 .route-race-control .race-order-scroll {
