@@ -63,12 +63,59 @@ function createInitialState(raceDurationSeconds) {
   };
 }
 
+function normalizeRestoredRacer(racer) {
+  return {
+    ...racer,
+    finishPlace: Number.isFinite(racer?.finishPlace) ? racer.finishPlace : null,
+    finishRecordedAtMs: Number.isFinite(racer?.finishRecordedAtMs)
+      ? racer.finishRecordedAtMs
+      : null,
+  };
+}
+
+function normalizeRestoredSession(session) {
+  return {
+    ...session,
+    racers: Array.isArray(session?.racers)
+      ? session.racers.map(normalizeRestoredRacer)
+      : [],
+  };
+}
+
+function normalizeRestoredLeaderboardEntry(entry) {
+  return {
+    ...entry,
+    finishPlace: Number.isFinite(entry?.finishPlace) ? entry.finishPlace : null,
+  };
+}
+
+function normalizeRestoredState(restoredState, raceDurationSeconds) {
+  const baseState = createInitialState(raceDurationSeconds);
+  if (!restoredState) {
+    return baseState;
+  }
+
+  return {
+    ...baseState,
+    ...clone(restoredState),
+    sessions: Array.isArray(restoredState.sessions)
+      ? restoredState.sessions.map(normalizeRestoredSession)
+      : [],
+    lockedSession: restoredState.lockedSession
+      ? normalizeRestoredSession(restoredState.lockedSession)
+      : null,
+    lockedLeaderboard: Array.isArray(restoredState.lockedLeaderboard)
+      ? restoredState.lockedLeaderboard.map(normalizeRestoredLeaderboardEntry)
+      : [],
+  };
+}
+
 function createRaceStore({
   raceDurationSeconds,
   now = () => Date.now(),
   restoredState = null,
 }) {
-  const state = restoredState ? clone(restoredState) : createInitialState(raceDurationSeconds);
+  const state = normalizeRestoredState(restoredState, raceDurationSeconds);
 
   function ensure(condition, code, message, status = 400) {
     if (!condition) {
@@ -269,6 +316,8 @@ function createRaceStore({
       currentLapTimeMs: null,
       bestLapTimeMs: null,
       lastCrossingTimestampMs: null,
+      finishPlace: null,
+      finishRecordedAtMs: null,
       createdAt: new Date(now()).toISOString(),
       updatedAt: new Date(now()).toISOString(),
     };
@@ -326,7 +375,56 @@ function createRaceStore({
       racer.currentLapTimeMs = null;
       racer.bestLapTimeMs = null;
       racer.lastCrossingTimestampMs = null;
+      racer.finishPlace = null;
+      racer.finishRecordedAtMs = null;
       racer.updatedAt = new Date(now()).toISOString();
+    });
+  }
+
+  function getRecordedFinishCount(session) {
+    return session.racers.reduce(
+      (count, racer) => count + (Number.isFinite(racer.finishPlace) ? 1 : 0),
+      0
+    );
+  }
+
+  function sortCompetitiveEntries(left, right) {
+    if (left.bestLapTimeMs === null && right.bestLapTimeMs === null) {
+      return left.name.localeCompare(right.name);
+    }
+
+    if (left.bestLapTimeMs === null) {
+      return 1;
+    }
+
+    if (right.bestLapTimeMs === null) {
+      return -1;
+    }
+
+    if (left.bestLapTimeMs !== right.bestLapTimeMs) {
+      return left.bestLapTimeMs - right.bestLapTimeMs;
+    }
+
+    return right.lapCount - left.lapCount;
+  }
+
+  function sortLeaderboardEntries(entries) {
+    const finishOrderActive = entries.some((entry) => Number.isFinite(entry.finishPlace));
+    return entries.slice().sort((left, right) => {
+      if (finishOrderActive) {
+        const leftFinished = Number.isFinite(left.finishPlace);
+        const rightFinished = Number.isFinite(right.finishPlace);
+
+        if (leftFinished && rightFinished && left.finishPlace !== right.finishPlace) {
+          return left.finishPlace - right.finishPlace;
+        }
+
+        if (leftFinished !== rightFinished) {
+          return leftFinished ? -1 : 1;
+        }
+      }
+
+      return sortCompetitiveEntries(left, right);
     });
   }
 
@@ -422,6 +520,10 @@ function createRaceStore({
     const racer = activeSession.racers.find((item) => item.id === racerId);
     ensure(racer, "RACER_NOT_FOUND", `Racer ${racerId} was not found.`, 404);
 
+    if (state.raceState === RACE_STATES.FINISHED && Number.isFinite(racer.finishPlace)) {
+      return clone(racer);
+    }
+
     racer.lapCount += 1;
     if (racer.lastCrossingTimestampMs !== null) {
       const lapDeltaMs = timestampMs - racer.lastCrossingTimestampMs;
@@ -442,6 +544,10 @@ function createRaceStore({
     if (racer.lastCrossingTimestampMs === null || timestampMs > racer.lastCrossingTimestampMs) {
       racer.lastCrossingTimestampMs = timestampMs;
     }
+    if (state.raceState === RACE_STATES.FINISHED && !Number.isFinite(racer.finishPlace)) {
+      racer.finishPlace = getRecordedFinishCount(activeSession) + 1;
+      racer.finishRecordedAtMs = timestampMs;
+    }
     racer.updatedAt = new Date(now()).toISOString();
     activeSession.updatedAt = new Date(now()).toISOString();
 
@@ -461,36 +567,19 @@ function createRaceStore({
       return [];
     }
 
-    return activeSession.racers
-      .map((racer) => ({
+    return sortLeaderboardEntries(
+      activeSession.racers.map((racer) => ({
         racerId: racer.id,
         name: racer.name,
         carNumber: racer.carNumber,
         lapCount: racer.lapCount,
         currentLapTimeMs: racer.currentLapTimeMs,
         bestLapTimeMs: racer.bestLapTimeMs,
+        finishPlace: Number.isFinite(racer.finishPlace) ? racer.finishPlace : null,
       }))
-      .sort((left, right) => {
-        if (left.bestLapTimeMs === null && right.bestLapTimeMs === null) {
-          return left.name.localeCompare(right.name);
-        }
-
-        if (left.bestLapTimeMs === null) {
-          return 1;
-        }
-
-        if (right.bestLapTimeMs === null) {
-          return -1;
-        }
-
-        if (left.bestLapTimeMs !== right.bestLapTimeMs) {
-          return left.bestLapTimeMs - right.bestLapTimeMs;
-        }
-
-        return right.lapCount - left.lapCount;
-      })
+    )
       .map((entry, index) => ({
-        position: index + 1,
+        position: Number.isFinite(entry.finishPlace) ? entry.finishPlace : index + 1,
         ...entry,
       }));
   }
@@ -517,6 +606,8 @@ function createRaceStore({
       nextSession: queueView.nextSession,
       queuedSessionIds: queueView.queuedSessionIds,
       queuedSessions: queueView.queuedSessions,
+      finishOrderActive:
+        state.raceState === RACE_STATES.FINISHED || state.raceState === RACE_STATES.LOCKED,
       lockedSession: state.lockedSession ? clone(state.lockedSession) : null,
       sessions: clone(state.sessions),
       leaderboard: buildLeaderboard(),

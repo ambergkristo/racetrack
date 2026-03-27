@@ -1733,6 +1733,13 @@ body {
   color: var(--ink);
 }
 
+.position-badge.finish-place-badge {
+  min-width: 52px;
+  padding-inline: 6px;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
 .car-badge {
   color: var(--warning);
 }
@@ -1764,6 +1771,12 @@ body {
   background:
     linear-gradient(90deg, rgba(0, 255, 123, 0.08), rgba(255, 255, 255, 0.02)),
     rgba(255, 255, 255, 0.01) !important;
+}
+
+.finish-row .position-badge {
+  color: var(--ink);
+  background: rgba(255, 212, 0, 0.92);
+  box-shadow: 0 0 0 1px rgba(255, 212, 0, 0.2);
 }
 
 .tower-hero {
@@ -3642,6 +3655,10 @@ body {
   fill: rgba(0, 255, 123, 0.92);
 }
 
+.route-lap-line-tracker .lap-track-marker.is-finished .lap-track-marker-dot {
+  fill: rgba(255, 212, 0, 0.95);
+}
+
 .route-lap-line-tracker .lap-track-marker-car {
   fill: var(--ink);
   font-size: 13px;
@@ -3653,6 +3670,15 @@ body {
 .route-lap-line-tracker .lap-track-marker-name {
   fill: var(--muted);
   font-size: 11px;
+  pointer-events: none;
+}
+
+.route-lap-line-tracker .lap-track-marker-place {
+  fill: rgba(255, 212, 0, 0.96);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
   pointer-events: none;
 }
 
@@ -3807,6 +3833,13 @@ body {
   color: var(--muted);
 }
 
+.route-leader-board .leaderboard-state-detail {
+  font-size: 0.58rem;
+  line-height: 1.05;
+  color: var(--muted);
+  max-width: 280px;
+}
+
 .route-leader-board .leaderboard-table-shell {
   min-height: 0;
   height: 100%;
@@ -3840,6 +3873,19 @@ body {
   min-width: 24px;
   min-height: 24px;
   font-size: 0.68rem;
+}
+
+.route-leader-board .leaderboard-panel .finish-place-badge {
+  min-width: 38px;
+  padding-inline: 4px;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+}
+
+.route-leader-board .leaderboard-panel .finish-row .position-badge {
+  color: var(--ink);
+  background: rgba(255, 212, 0, 0.92);
+  box-shadow: 0 0 0 1px rgba(255, 212, 0, 0.2);
 }
 
 .route-leader-board .leaderboard-panel .driver-cell strong,

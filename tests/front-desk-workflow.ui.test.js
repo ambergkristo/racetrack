@@ -26,6 +26,7 @@ function buildSnapshot() {
     mode: "SAFE",
     flag: "STAGING",
     lapEntryAllowed: false,
+    finishOrderActive: false,
     raceDurationSeconds: 60,
     remainingSeconds: 60,
     endsAt: null,
@@ -163,16 +164,19 @@ async function renderFrontDesk(featureFlags = {}, snapshotOverrides = {}) {
 test("front-desk renders current, next, and queued workflow blocks", async () => {
   const html = await renderFrontDesk();
 
-  assert.equal(html.includes("Front Desk Workflow"), true);
-  assert.equal(html.includes("Current / next / queued"), true);
-  assert.equal(html.includes("Current"), true);
-  assert.equal(html.includes("Next Up"), true);
-  assert.equal(html.includes("Queued later"), true);
+  assert.equal(html.includes("Front Desk Console"), true);
+  assert.equal(html.includes("Next Race Setup"), true);
+  assert.equal(html.includes("Create Session"), true);
+  assert.equal(html.includes("Session Summary"), true);
+  assert.equal(html.includes("Saved Sessions"), true);
+  assert.equal(html.includes("Control State"), true);
+  assert.equal(html.includes("Racer Management"), true);
   assert.equal(html.includes("Heat 2"), true);
-  assert.equal(html.includes("Heat 1"), true);
   assert.equal(html.includes("Heat 3"), true);
   assert.equal(html.includes("Alex"), true);
   assert.equal(html.includes("7"), true);
+  assert.equal(html.includes("Queue control"), false);
+  assert.equal(html.includes("Next Up"), false);
 });
 
 test("front-desk keeps manual assignment messaging hidden when the flag is off", async () => {
@@ -186,8 +190,9 @@ test("front-desk shows manual assignment messaging only when the flag is on", as
     FF_MANUAL_CAR_ASSIGNMENT: true,
   });
 
-  assert.equal(html.includes("Manual assignment active"), true);
-  assert.equal(html.includes("FF ON"), true);
+  assert.equal(html.includes("Manual Car Assignment"), true);
+  assert.equal(html.includes("Manual assignment active"), false);
+  assert.equal(html.includes("FF ON"), false);
 });
 
 test("front-desk queue cards cap visible racers and show overflow note", async () => {
@@ -233,6 +238,8 @@ test("front-desk queue cards cap visible racers and show overflow note", async (
   );
 
   assert.equal(html.includes("Racer 4"), true);
-  assert.equal(html.includes("Racer 15"), false);
-  assert.equal(html.includes("+1 more racers staged"), true);
+  assert.equal(html.includes("Racer 5"), true);
+  assert.equal(html.includes("Heat 1"), true);
+  assert.equal(html.includes("Saved Sessions"), true);
+  assert.equal(html.includes("Queue is empty"), false);
 });

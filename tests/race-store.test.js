@@ -94,6 +94,38 @@ test("race store exposes checkered finish state and freezes the locked session s
   assert.equal(lockedSnapshot.leaderboard[0].lapCount, 1);
 });
 
+test("race store records first post-checkered crossing order and ignores repeat finish taps", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 90,
+    now: () => 1_000,
+  });
+
+  const session = raceStore.createSession({ name: "Heat 3" });
+  const amy = raceStore.addRacer(session.id, { name: "Amy", carNumber: "7" });
+  const ben = raceStore.addRacer(session.id, { name: "Ben", carNumber: "8" });
+
+  raceStore.startRace();
+  raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 10_000 });
+  raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 10_200 });
+  raceStore.finishRace({ reason: "manual" });
+
+  const amyFinish = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 20_000 });
+  const benFinish = raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 20_600 });
+  const amyRepeat = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 21_200 });
+
+  assert.equal(amyFinish.finishPlace, 1);
+  assert.equal(benFinish.finishPlace, 2);
+  assert.equal(amyRepeat.lapCount, 2);
+  assert.equal(amyRepeat.finishPlace, 1);
+
+  const finishedSnapshot = raceStore.getSnapshot();
+  assert.equal(finishedSnapshot.finishOrderActive, true);
+  assert.equal(finishedSnapshot.leaderboard[0].racerId, amy.id);
+  assert.equal(finishedSnapshot.leaderboard[0].finishPlace, 1);
+  assert.equal(finishedSnapshot.leaderboard[1].racerId, ben.id);
+  assert.equal(finishedSnapshot.leaderboard[1].finishPlace, 2);
+});
+
 test("derived state truth keeps FINISHED distinct from LOCKED", () => {
   const raceStore = createRaceStore({
     raceDurationSeconds: 60,

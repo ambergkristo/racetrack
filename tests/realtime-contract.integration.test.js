@@ -162,8 +162,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(idleSnapshotPayload.nextSession, null);
     assert.equal(idleSnapshotPayload.lockedSession, null);
     assert.equal(idleSnapshotPayload.finalResults, null);
+    assert.equal(idleSnapshotPayload.finishOrderActive, false);
     assert.equal(idleLeaderboardPayload.flag, "SAFE");
     assert.equal(idleLeaderboardPayload.lapEntryAllowed, false);
+    assert.equal(idleLeaderboardPayload.finishOrderActive, false);
 
     const createSessionResult = await postJson(
       url,
@@ -228,6 +230,7 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(runningSnapshotPayload.nextSession?.id, nextSessionId);
     assert.equal(runningSnapshotPayload.lockedSession, null);
     assert.equal(runningSnapshotPayload.finalResults, null);
+    assert.equal(runningSnapshotPayload.finishOrderActive, false);
 
     const lapLeaderboardPromise = waitForEvent(
       socket,
@@ -291,6 +294,7 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(finishedSnapshotPayload.nextSession?.id, nextSessionId);
     assert.equal(finishedSnapshotPayload.lockedSession, null);
     assert.equal(finishedSnapshotPayload.finalResults?.length, 1);
+    assert.equal(finishedSnapshotPayload.finishOrderActive, true);
 
     const lockedSnapshotPromise = waitForEvent(
       socket,
@@ -321,6 +325,7 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(lockedSnapshotPayload.nextSession?.id, nextSessionId);
     assert.equal(lockedSnapshotPayload.lockedSession?.id, sessionId);
     assert.equal(lockedSnapshotPayload.finalResults?.length, 1);
+    assert.equal(lockedSnapshotPayload.finishOrderActive, true);
 
     assert.equal(unexpectedServerError, null, "server:error was emitted in happy path");
   } finally {

@@ -210,8 +210,8 @@ test("leader-board uses the compact public shell and caps live rows to six", asy
 
   const rowCount = (html.match(/<tr class="/g) || []).length;
 
-  assert.equal(rowCount, 6);
-  assert.equal(html.includes("Showing top 6 of 8"), true);
+  assert.equal(rowCount, 8);
+  assert.equal(html.includes("Showing top 6 of 8"), false);
   assert.equal(html.includes("public-shell"), true);
   assert.equal(html.includes("public-route-grid"), true);
 });

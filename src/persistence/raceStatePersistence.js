@@ -13,6 +13,8 @@ const persistedRacerSchema = z.object({
   currentLapTimeMs: z.number().int().positive().nullable(),
   bestLapTimeMs: z.number().int().positive().nullable(),
   lastCrossingTimestampMs: z.number().int().nonnegative().nullable(),
+  finishPlace: z.number().int().positive().nullable().optional(),
+  finishRecordedAtMs: z.number().int().nonnegative().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -33,6 +35,7 @@ const persistedLeaderboardEntrySchema = z.object({
   lapCount: z.number().int().nonnegative(),
   currentLapTimeMs: z.number().int().positive().nullable(),
   bestLapTimeMs: z.number().int().positive().nullable(),
+  finishPlace: z.number().int().positive().nullable().optional(),
 });
 
 const persistedRaceStateSchema = z.object({

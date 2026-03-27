@@ -201,6 +201,7 @@
       mode: "SAFE",
       flag: "IDLE",
       lapEntryAllowed: false,
+      finishOrderActive: false,
       raceDurationSeconds: 60,
       remainingSeconds: 60,
       endsAt: null,
@@ -284,6 +285,30 @@
     return `${seconds}s`;
   }
 
+  function formatOrdinal(value) {
+    if (!Number.isFinite(value) || value <= 0) {
+      return "--";
+    }
+
+    const mod100 = value % 100;
+    if (mod100 >= 11 && mod100 <= 13) {
+      return `${value}th`;
+    }
+
+    const mod10 = value % 10;
+    if (mod10 === 1) {
+      return `${value}st`;
+    }
+    if (mod10 === 2) {
+      return `${value}nd`;
+    }
+    if (mod10 === 3) {
+      return `${value}rd`;
+    }
+
+    return `${value}th`;
+  }
+
   function formatTimestamp(timestamp) {
     if (!timestamp) {
       return "Awaiting live sync";
@@ -302,9 +327,23 @@
   }
 
   function sortLeaderboard(entries) {
+    const finishOrderActive = entries.some((entry) => Number.isFinite(entry.finishPlace));
     return entries
       .slice()
       .sort((left, right) => {
+        if (finishOrderActive) {
+          const leftFinished = Number.isFinite(left.finishPlace);
+          const rightFinished = Number.isFinite(right.finishPlace);
+
+          if (leftFinished && rightFinished && left.finishPlace !== right.finishPlace) {
+            return left.finishPlace - right.finishPlace;
+          }
+
+          if (leftFinished !== rightFinished) {
+            return leftFinished ? -1 : 1;
+          }
+        }
+
         if (left.bestLapTimeMs === null && right.bestLapTimeMs === null) {
           return left.name.localeCompare(right.name);
         }
@@ -325,7 +364,7 @@
       })
       .map((entry, index) => ({
         ...entry,
-        position: index + 1,
+        position: Number.isFinite(entry.finishPlace) ? entry.finishPlace : index + 1,
       }));
   }
 
@@ -338,6 +377,8 @@
       currentLapTimeMs: parseNumber(racer.currentLapTimeMs),
       bestLapTimeMs: parseNumber(racer.bestLapTimeMs),
       lastCrossingTimestampMs: parseNumber(racer.lastCrossingTimestampMs),
+      finishPlace: parseNumber(racer.finishPlace),
+      finishRecordedAtMs: parseNumber(racer.finishRecordedAtMs),
       createdAt: racer.createdAt ?? null,
       updatedAt: racer.updatedAt ?? null,
     };
@@ -376,6 +417,7 @@
       lapCount: parseNumber(entry.lapCount) ?? 0,
       currentLapTimeMs: parseNumber(entry.currentLapTimeMs),
       bestLapTimeMs: parseNumber(entry.bestLapTimeMs),
+      finishPlace: parseNumber(entry.finishPlace),
     };
   }
 
@@ -437,6 +479,10 @@
         snapshot.lapEntryAllowed === undefined
           ? state.raceSnapshot.lapEntryAllowed
           : Boolean(snapshot.lapEntryAllowed),
+      finishOrderActive:
+        snapshot.finishOrderActive === undefined
+          ? state.raceSnapshot.finishOrderActive
+          : Boolean(snapshot.finishOrderActive),
       raceDurationSeconds:
         parseNumber(snapshot.raceDurationSeconds) ?? state.raceSnapshot.raceDurationSeconds,
       remainingSeconds:
@@ -475,6 +521,18 @@
     return state.raceSnapshot.sessions.filter(
       (session) => session.id !== (state.raceSnapshot.currentSessionId || state.raceSnapshot.activeSessionId)
     );
+  }
+
+  function getDisplayLeaderboardEntries(snapshot = state.raceSnapshot) {
+    if (
+      snapshot.state === "LOCKED" &&
+      Array.isArray(snapshot.finalResults) &&
+      snapshot.finalResults.length > 0
+    ) {
+      return snapshot.finalResults;
+    }
+
+    return snapshot.leaderboard;
   }
 
   function publicRouteQuestion(pathname = route) {
@@ -634,6 +692,10 @@
           payload.lapEntryAllowed === undefined
             ? state.raceSnapshot.lapEntryAllowed
             : Boolean(payload.lapEntryAllowed),
+        finishOrderActive:
+          payload.finishOrderActive === undefined
+            ? state.raceSnapshot.finishOrderActive
+            : Boolean(payload.finishOrderActive),
         activeSessionId:
           payload.activeSessionId === undefined
             ? state.raceSnapshot.activeSessionId
@@ -2307,7 +2369,15 @@
     }
   }
 
-  function leaderboardTable(entries, { limit = entries.length, wrapClass = "", tableClass = "" } = {}) {
+  function leaderboardTable(
+    entries,
+    {
+      limit = entries.length,
+      wrapClass = "",
+      tableClass = "",
+      finishOrderActive = state.raceSnapshot.finishOrderActive,
+    } = {}
+  ) {
     if (isInitialPublicLoad()) {
       return loadingSkeleton(5);
     }
@@ -2322,18 +2392,31 @@
     const leaderBestLapMs =
       entries.find((entry) => Number.isFinite(entry.bestLapTimeMs))?.bestLapTimeMs ?? null;
     const visibleEntries = entries.slice(0, limit);
+    const columns = finishOrderActive
+      ? ["Place", "Car", "Racer", "Best Lap", "Live Lap", "Laps"]
+      : ["Pos", "Car", "Racer", "Best Lap", "Live Lap", "Laps"];
 
     return dataTable(
-      ["Pos", "Car", "Racer", "Best Lap", "Live Lap", "Laps"],
+      columns,
       visibleEntries.map(
         (entry) => `
-          <tr class="${entry.position === 1 ? "leader-row" : ""}">
-            <td><span class="position-badge">${entry.position}</span></td>
+          <tr class="${entry.position === 1 ? "leader-row" : ""}${Number.isFinite(entry.finishPlace) ? " finish-row" : ""}">
+            <td><span class="position-badge${finishOrderActive ? " finish-place-badge" : ""}">${escapeHtml(
+              finishOrderActive && Number.isFinite(entry.finishPlace)
+                ? formatOrdinal(entry.finishPlace)
+                : String(entry.position)
+            )}</span></td>
             <td><span class="car-badge">${escapeHtml(entry.carNumber || "--")}</span></td>
             <td>
               <div class="driver-cell">
                 <strong>${escapeHtml(entry.name)}</strong>
-                <span>${escapeHtml(formatDeltaToLeader(entry, leaderBestLapMs))}</span>
+                <span>${escapeHtml(
+                  finishOrderActive
+                    ? Number.isFinite(entry.finishPlace)
+                      ? `${formatOrdinal(entry.finishPlace)} place over the line`
+                      : "Awaiting finish line"
+                    : formatDeltaToLeader(entry, leaderBestLapMs)
+                )}</span>
               </div>
             </td>
             <td class="timing-cell ${entry.bestLapTimeMs === leaderBestLapMs ? "is-best" : ""}">${escapeHtml(formatLap(entry.bestLapTimeMs))}</td>
@@ -2355,6 +2438,12 @@
     return `${firstToken.slice(0, 9)}...`;
   }
 
+  function lapTrackSeed(value) {
+    return String(value || "")
+      .split("")
+      .reduce((hash, character) => ((hash * 33 + character.charCodeAt(0)) % 9973), 17);
+  }
+
   function buildLapTrackerEstimateModel(nowMs = Date.now()) {
     const snapshot = state.raceSnapshot;
     const activeSession = getDisplaySession();
@@ -2362,11 +2451,12 @@
       return [];
     }
 
+    const leaderboardEntries = getDisplayLeaderboardEntries(snapshot);
     const leaderboardByRacerId = new Map(
-      snapshot.leaderboard.map((entry) => [entry.racerId, entry])
+      leaderboardEntries.map((entry) => [entry.racerId, entry])
     );
     const baselineSamples = [
-      ...snapshot.leaderboard.map((entry) => entry.bestLapTimeMs),
+      ...leaderboardEntries.map((entry) => entry.bestLapTimeMs),
       ...activeSession.racers.map((racer) => racer.bestLapTimeMs),
     ].filter((value) => Number.isFinite(value) && value > 0);
     const baselineLapMs = baselineSamples.length
@@ -2379,7 +2469,10 @@
         )
       : 45000;
     const syncTimeMs = parseTimestampMs(snapshot.serverTime ?? state.lastSyncAt) ?? nowMs;
-    const liveAdvanceMs = snapshot.state === "RUNNING" ? Math.max(0, nowMs - syncTimeMs) : 0;
+    const liveAdvanceMs =
+      snapshot.state === "RUNNING" || snapshot.state === "FINISHED"
+        ? Math.max(0, nowMs - syncTimeMs)
+        : 0;
     const orderedRacers = activeSession.racers.slice().sort((left, right) => {
       const leftEntry = leaderboardByRacerId.get(left.id);
       const rightEntry = leaderboardByRacerId.get(right.id);
@@ -2396,34 +2489,55 @@
 
     return orderedRacers.map((racer, index) => {
       const entry = leaderboardByRacerId.get(racer.id);
+      const seed = lapTrackSeed(`${racer.id}:${racer.carNumber || racer.name}`);
+      const seedUnit = (seed % 1000) / 1000;
       const lapCount = entry?.lapCount ?? racer.lapCount ?? 0;
       const bestLapMs = Number.isFinite(entry?.bestLapTimeMs)
         ? entry.bestLapTimeMs
         : Number.isFinite(racer.bestLapTimeMs)
           ? racer.bestLapTimeMs
           : null;
-      const currentLapMs = Number.isFinite(entry?.currentLapTimeMs)
+      const reportedCurrentLapMs = Number.isFinite(entry?.currentLapTimeMs)
         ? entry.currentLapTimeMs + liveAdvanceMs
-        : Number.isFinite(racer.lastCrossingTimestampMs)
-          ? Math.max(0, nowMs - racer.lastCrossingTimestampMs)
-          : null;
+        : null;
+      const elapsedFromCrossingMs = Number.isFinite(racer.lastCrossingTimestampMs)
+        ? Math.max(0, nowMs - racer.lastCrossingTimestampMs)
+        : null;
       const estimatedLapMs = clamp(
-        Math.max(
-          bestLapMs ? Math.round(bestLapMs * 1.06) : 0,
-          baselineLapMs,
-          Number.isFinite(currentLapMs) ? currentLapMs + 2500 : 0
+        Math.round(
+          Math.max(
+            bestLapMs ? bestLapMs * (1.02 + seedUnit * 0.06) : 0,
+            baselineLapMs * (0.92 + seedUnit * 0.16),
+            Number.isFinite(reportedCurrentLapMs)
+              ? reportedCurrentLapMs + 2200
+              : Number.isFinite(elapsedFromCrossingMs)
+                ? elapsedFromCrossingMs + 2600
+                : 0
+          )
         ),
         18000,
         120000
       );
-      const fallbackProgress = clamp(
-        0.9 - ((index + 0.5) / Math.max(racerCount, 1)) * 0.72,
+      const fallbackBaseProgress = clamp(
+        0.12 + ((racerCount - index) / Math.max(racerCount, 1)) * 0.58 + seedUnit * 0.06,
         0.08,
-        0.92
+        0.84
       );
-      const lapProgress = Number.isFinite(currentLapMs)
-        ? clamp(currentLapMs / estimatedLapMs, 0.02, 0.985)
-        : fallbackProgress;
+      const sparseDriftProgress = clamp(
+        (fallbackBaseProgress + liveAdvanceMs / Math.max(estimatedLapMs * (0.88 + seedUnit * 0.2), 1)) %
+          1,
+        0.05,
+        0.985
+      );
+      let lapProgress = Number.isFinite(reportedCurrentLapMs)
+        ? clamp(reportedCurrentLapMs / estimatedLapMs, 0.03, 0.985)
+        : Number.isFinite(elapsedFromCrossingMs)
+          ? clamp(elapsedFromCrossingMs / estimatedLapMs, 0.04, 0.985)
+          : sparseDriftProgress;
+
+      if (snapshot.finishOrderActive && Number.isFinite(entry?.finishPlace)) {
+        lapProgress = clamp(0.982 + entry.finishPlace * 0.003, 0.982, 0.997);
+      }
 
       return {
         id: racer.id,
@@ -2433,6 +2547,7 @@
         lapCount,
         orderIndex: index,
         position: entry?.position ?? index + 1,
+        finishPlace: entry?.finishPlace ?? racer.finishPlace ?? null,
         totalProgress: lapCount + lapProgress,
       };
     });
@@ -2443,10 +2558,15 @@
     const markerMarkup = racers
       .map(
         (racer) => `
-          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}" data-track-marker="${escapeHtml(racer.id)}">
+          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}${Number.isFinite(racer.finishPlace) ? " is-finished" : ""}" data-track-marker="${escapeHtml(racer.id)}">
             <circle class="lap-track-marker-dot" cx="0" cy="0" r="18"></circle>
             <text class="lap-track-marker-car" text-anchor="middle" x="0" y="6">${escapeHtml(racer.carNumber)}</text>
             <text class="lap-track-marker-name" text-anchor="middle" x="0" y="34">${escapeHtml(racer.shortName)}</text>
+            ${
+              Number.isFinite(racer.finishPlace)
+                ? `<text class="lap-track-marker-place" text-anchor="middle" x="0" y="-26">${escapeHtml(formatOrdinal(racer.finishPlace))}</text>`
+                : ""
+            }
           </g>
         `
       )
@@ -2456,7 +2576,9 @@
       <div class="lap-track-visual" id="lap-track-estimate">
         <div class="lap-track-visual-head">
           <p class="section-kicker">Estimated track</p>
-          <span class="chip tiny-chip">Live estimate</span>
+          <span class="chip tiny-chip">${escapeHtml(
+            state.raceSnapshot.finishOrderActive ? "Estimated live finish" : "Live estimate"
+          )}</span>
         </div>
         <svg class="lap-track-svg" viewBox="0 0 560 320" role="img" aria-label="Estimated live track view">
           <ellipse class="lap-track-lane lap-track-lane-outer" cx="280" cy="160" rx="226" ry="116"></ellipse>
@@ -2503,6 +2625,7 @@
   function raceControlPanel() {
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
+    const displayEntries = getDisplayLeaderboardEntries(snapshot);
     const accessReason = staffAccessReason();
     const flagMeta = getFlagMeta(snapshot);
     const checkeredActive = snapshot.state === "FINISHED";
@@ -2529,11 +2652,7 @@
       snapshot.state === "RUNNING" ? "" : "Modes only during running."
     );
     const modeVisible = snapshot.state === "RUNNING";
-    const authorityNote = lockedActive
-      ? "Locked. Results are final and lap input is blocked."
-      : checkeredActive
-        ? "Checkered. Post-finish laps still count until lock."
-        : flagMeta.detail;
+    const authorityNote = flagMeta.detail;
 
     const modeButtons = RACE_CONTROL_MODES.map((mode) => {
       const active = snapshot.mode === mode;
@@ -2603,9 +2722,12 @@
                 <p class="section-kicker">Live order</p>
                 <strong class="queue-title">Track order stays visible while controls stay compact.</strong>
               </div>
-              <span class="chip tiny-chip">${snapshot.leaderboard.length} racers</span>
+              <span class="chip tiny-chip">${displayEntries.length} racers</span>
             </div>
-            ${leaderboardTable(snapshot.leaderboard, { wrapClass: "race-order-scroll" })}
+            ${leaderboardTable(displayEntries, {
+              wrapClass: "race-order-scroll",
+              finishOrderActive: snapshot.finishOrderActive,
+            })}
           </div>
         </div>
       `,
@@ -2777,7 +2899,8 @@
 
   function leaderBoardPanels() {
     const activeSession = getDisplaySession();
-    const leader = state.raceSnapshot.leaderboard[0] || null;
+    const displayEntries = getDisplayLeaderboardEntries();
+    const leader = displayEntries[0] || null;
     const flagMeta = getFlagMeta();
     const countdownLabel = formatTime(state.raceSnapshot.remainingSeconds);
     const leaderBestLap = leader ? formatLap(leader.bestLapTimeMs) : "--";
@@ -2794,14 +2917,24 @@
               ${kpiPill("Best Lap", leaderBestLap, "safe")}
             </div>
             <div class="leaderboard-leader-meta${finishedClass()}">
-              <p class="section-kicker">Leader</p>
+              <p class="section-kicker">${escapeHtml(
+                state.raceSnapshot.finishOrderActive ? "Finish order" : "Leader"
+              )}</p>
               <strong class="leaderboard-leader-name">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
               <span class="leaderboard-leader-session">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
-              <span class="leaderboard-leader-laps">Best ${escapeHtml(leaderBestLap)} · Live ${escapeHtml(leaderCurrentLap)}</span>
+              <span class="leaderboard-leader-laps">${escapeHtml(
+                state.raceSnapshot.finishOrderActive && Number.isFinite(leader?.finishPlace)
+                  ? `${formatOrdinal(leader.finishPlace)} place over the line · Best ${leaderBestLap}`
+                  : `Best ${leaderBestLap} · Live ${leaderCurrentLap}`
+              )}</span>
+              <span class="leaderboard-state-detail">${escapeHtml(flagMeta.detail)}</span>
             </div>
           </div>
           <div class="leaderboard-table-shell">
-            ${leaderboardTable(state.raceSnapshot.leaderboard, { wrapClass: "leaderboard-scroll" })}
+            ${leaderboardTable(displayEntries, {
+              wrapClass: "leaderboard-scroll",
+              finishOrderActive: state.raceSnapshot.finishOrderActive,
+            })}
           </div>
         `,
         flagMeta.tone,
@@ -3653,11 +3786,14 @@
   }
 
   function stopLapTrackAnimation() {
-    if (lapTrackVisualState.frameId) {
+    if (lapTrackVisualState.frameId && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(lapTrackVisualState.frameId);
       lapTrackVisualState.frameId = 0;
     }
     lapTrackVisualState.lastFrameTs = 0;
+    if (typeof cancelAnimationFrame !== "function") {
+      lapTrackVisualState.frameId = 0;
+    }
   }
 
   function lapTrackPoint(progress, offset = 0) {
@@ -3760,6 +3896,10 @@
   }
 
   function ensureLapTrackAnimation() {
+    if (typeof requestAnimationFrame !== "function") {
+      return;
+    }
+
     if (route !== "/lap-line-tracker") {
       stopLapTrackAnimation();
       return;

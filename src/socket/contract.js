@@ -47,6 +47,8 @@ const racerSnapshotSchema = z.object({
   currentLapTimeMs: z.number().int().positive().nullable(),
   bestLapTimeMs: z.number().int().positive().nullable(),
   lastCrossingTimestampMs: z.number().int().nonnegative().nullable(),
+  finishPlace: z.number().int().positive().nullable(),
+  finishRecordedAtMs: z.number().int().nonnegative().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -67,6 +69,7 @@ const leaderboardEntrySchema = z.object({
   lapCount: z.number().int().nonnegative(),
   currentLapTimeMs: z.number().int().positive().nullable(),
   bestLapTimeMs: z.number().int().positive().nullable(),
+  finishPlace: z.number().int().positive().nullable(),
 });
 
 const raceFlagSchema = z.enum([
@@ -86,6 +89,7 @@ const raceSnapshotSchema = z.object({
   stateDescription: z.string().min(1),
   flag: raceFlagSchema,
   resultsFinalized: z.boolean(),
+  finishOrderActive: z.boolean(),
   mode: z.enum(Object.values(RACE_MODES)),
   lapEntryAllowed: z.boolean(),
   raceDurationSeconds: z.number().int().positive(),
@@ -121,6 +125,7 @@ const leaderboardUpdateSchema = z.object({
   flag: z.enum(Object.values(RACE_FLAGS)),
   lapEntryAllowed: z.boolean(),
   activeSessionId: z.string().min(1).nullable(),
+  finishOrderActive: z.boolean(),
   leaderboard: z.array(leaderboardEntrySchema),
 });
 

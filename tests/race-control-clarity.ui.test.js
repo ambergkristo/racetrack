@@ -194,7 +194,7 @@ test("race-control makes FINISHED state visibly checkered before lock", async ()
     remainingSeconds: 0,
   });
 
-  assert.equal(html.includes("Checkered"), true);
+  assert.equal(html.includes("Finished"), true);
   assert.equal(
     html.includes("Finish has been called. Post-finish laps are still accepted until lock."),
     true

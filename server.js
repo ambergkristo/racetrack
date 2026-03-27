@@ -355,6 +355,7 @@ function createApp(options = {}) {
       flag: snapshot.flag,
       lapEntryAllowed: snapshot.lapEntryAllowed,
       activeSessionId: snapshot.activeSessionId,
+      finishOrderActive: Boolean(snapshot.finishOrderActive),
       leaderboard: snapshot.leaderboard,
     });
   }

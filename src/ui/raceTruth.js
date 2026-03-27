@@ -111,6 +111,7 @@ function buildRaceSnapshotViewModel(snapshot, lockedSnapshotContext = null) {
     flag: resolveFlag(snapshot),
     lapEntryAllowed: canAcceptLapInput(snapshot.state),
     resultsFinalized: snapshot.state === RACE_STATES.LOCKED,
+    finishOrderActive: Boolean(snapshot.finishOrderActive),
     currentSessionId: queueView.currentSessionId,
     currentSession: queueView.currentSession,
     nextSessionId: queueView.nextSessionId,

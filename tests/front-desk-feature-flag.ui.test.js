@@ -11,6 +11,7 @@ function buildSnapshot() {
     mode: "SAFE",
     flag: "SAFE",
     lapEntryAllowed: false,
+    finishOrderActive: false,
     raceDurationSeconds: 60,
     remainingSeconds: 60,
     endsAt: null,
@@ -103,8 +104,8 @@ test("front-desk shows the manual assignment panel when the flag is on", async (
   });
 
   assert.equal(html.includes("Manual Car Assignment"), true);
-  assert.equal(html.includes("FF_MANUAL_CAR_ASSIGNMENT"), true);
-  assert.equal(html.includes("frontdesk-workflow has-secondary"), true);
-  assert.equal(html.includes('class="front-desk-secondary"'), true);
-  assert.equal(html.includes("frontdesk-summary-strip"), true);
+  assert.equal(html.includes("Front Desk Console"), true);
+  assert.equal(html.includes("frontdesk-shell-grid"), true);
+  assert.equal(html.includes("Next Race Setup"), true);
+  assert.equal(html.includes("Racer Management"), true);
 });

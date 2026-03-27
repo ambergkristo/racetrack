@@ -11,6 +11,7 @@ function buildSnapshot(overrides = {}) {
     mode: "SAFE",
     flag: "SAFE",
     lapEntryAllowed: false,
+    finishOrderActive: false,
     raceDurationSeconds: 60,
     remainingSeconds: 60,
     endsAt: null,
@@ -139,13 +140,13 @@ async function renderRoute(pathname, { featureFlags, snapshot } = {}) {
 test("front-desk renders the one-screen workbench layout", async () => {
   const html = await renderRoute("/front-desk");
 
-  assert.equal(html.includes("Front Desk Workflow"), true);
+  assert.equal(html.includes("Front Desk Console"), true);
   assert.equal(html.includes("frontdesk-workflow is-single-column"), true);
-  assert.equal(html.includes("frontdesk-summary-strip"), true);
-  assert.equal(html.includes("Current / next / queued"), true);
-  assert.equal(html.includes("Racer management"), true);
-  assert.equal(html.includes("Session Queue"), false);
-  assert.equal(html.includes('class="front-desk-secondary"'), false);
+  assert.equal(html.includes("frontdesk-shell-grid"), true);
+  assert.equal(html.includes("Next Race Setup"), true);
+  assert.equal(html.includes("Racer Management"), true);
+  assert.equal(html.includes("Queue size"), false);
+  assert.equal(html.includes("Queue control"), false);
 });
 
 test("home route condenses launches into a single compact route board", async () => {
@@ -162,9 +163,10 @@ test("race-control renders a single primary control console", async () => {
   const html = await renderRoute("/race-control");
 
   assert.equal(html.includes("Race Control Console"), true);
-  assert.equal(html.includes("race-control-shell"), true);
+  assert.equal(html.includes("race-control-console"), true);
   assert.equal(html.includes("Flag mode"), true);
   assert.equal(html.includes("Mode Control"), false);
+  assert.equal(html.includes("Live order"), true);
 });
 
 test("lap-line-tracker keeps lap entry and tap targets in one console", async () => {
@@ -179,6 +181,7 @@ test("lap-line-tracker keeps lap entry and tap targets in one console", async ()
 
   assert.equal(html.includes("Lap Entry Console"), true);
   assert.equal(html.includes("lap-tracker-shell"), true);
-  assert.equal(html.includes("Ready for taps"), true);
+  assert.equal(html.includes("Authoritative entry"), true);
+  assert.equal(html.includes("Estimated track"), true);
   assert.equal(html.includes("Crossing Console"), false);
 });
