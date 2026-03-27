@@ -28,6 +28,66 @@ function normalizeOptionalString(value) {
   return trimmed === "" ? null : trimmed;
 }
 
+const DEFAULT_SIMULATION_CONFIG = Object.freeze({
+  maxDurationMs: 600_000,
+  targetLapCount: 3,
+  baselineLapMsMin: 22_000,
+  baselineLapMsMax: 30_000,
+  jitterMsMin: 450,
+  jitterMsMax: 1_250,
+  minLapDurationMs: 6_000,
+  drainIntervalMs: 650,
+  hazardSlowFactor: 0.45,
+});
+
+const SIMULATION_STATUSES = Object.freeze({
+  IDLE: "IDLE",
+  READY: "READY",
+  ACTIVE: "ACTIVE",
+  COMPLETED: "COMPLETED",
+});
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  const source = String(value);
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnit(seed) {
+  let value = seed >>> 0;
+  value += 0x6d2b79f5;
+  value = Math.imul(value ^ (value >>> 15), value | 1);
+  value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+  return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+}
+
+function createSimulationState() {
+  return {
+    status: SIMULATION_STATUSES.IDLE,
+    active: false,
+    seed: null,
+    sessionId: null,
+    startedAtMs: null,
+    endedAtMs: null,
+    maxDurationMs: null,
+    targetLapCount: null,
+    hardCapReached: false,
+    completionReason: null,
+    finishQueue: [],
+    finishQueueNextAtMs: null,
+    racerOrder: [],
+    racers: [],
+  };
+}
+
 function buildQueueView(sessions, activeSessionId) {
   const currentSession = activeSessionId
     ? sessions.find((session) => session.id === activeSessionId) || null
@@ -60,6 +120,7 @@ function createInitialState(raceDurationSeconds) {
     lockedLeaderboard: [],
     nextSessionId: 1,
     nextRacerId: 1,
+    simulation: createSimulationState(),
   };
 }
 
@@ -70,6 +131,64 @@ function normalizeRestoredRacer(racer) {
     finishRecordedAtMs: Number.isFinite(racer?.finishRecordedAtMs)
       ? racer.finishRecordedAtMs
       : null,
+  };
+}
+
+function normalizeRestoredSimulationRacer(racer) {
+  return {
+    ...racer,
+    seed: Number.isFinite(racer?.seed) ? racer.seed : null,
+    baselineLapMs: Number.isFinite(racer?.baselineLapMs) ? racer.baselineLapMs : null,
+    jitterMs: Number.isFinite(racer?.jitterMs) ? racer.jitterMs : null,
+    consistencyFactor: Number.isFinite(racer?.consistencyFactor)
+      ? racer.consistencyFactor
+      : 1,
+    lapIndex: Number.isFinite(racer?.lapIndex) ? racer.lapIndex : 1,
+    targetLapDurationMs: Number.isFinite(racer?.targetLapDurationMs)
+      ? racer.targetLapDurationMs
+      : null,
+    lapProgressMs: Number.isFinite(racer?.lapProgressMs) ? racer.lapProgressMs : 0,
+    lastAdvancedAtMs: Number.isFinite(racer?.lastAdvancedAtMs) ? racer.lastAdvancedAtMs : null,
+    targetCompleted: Boolean(racer?.targetCompleted),
+    targetCompletedAtMs: Number.isFinite(racer?.targetCompletedAtMs)
+      ? racer.targetCompletedAtMs
+      : null,
+  };
+}
+
+function normalizeRestoredSimulation(simulation) {
+  return {
+    ...createSimulationState(),
+    ...clone(simulation || {}),
+    status: Object.values(SIMULATION_STATUSES).includes(simulation?.status)
+      ? simulation.status
+      : SIMULATION_STATUSES.IDLE,
+    active: Boolean(simulation?.active),
+    seed: Number.isFinite(simulation?.seed) ? simulation.seed : null,
+    sessionId: typeof simulation?.sessionId === "string" ? simulation.sessionId : null,
+    startedAtMs: Number.isFinite(simulation?.startedAtMs) ? simulation.startedAtMs : null,
+    endedAtMs: Number.isFinite(simulation?.endedAtMs) ? simulation.endedAtMs : null,
+    maxDurationMs: Number.isFinite(simulation?.maxDurationMs)
+      ? simulation.maxDurationMs
+      : null,
+    targetLapCount: Number.isFinite(simulation?.targetLapCount)
+      ? simulation.targetLapCount
+      : null,
+    hardCapReached: Boolean(simulation?.hardCapReached),
+    completionReason:
+      typeof simulation?.completionReason === "string" ? simulation.completionReason : null,
+    finishQueue: Array.isArray(simulation?.finishQueue)
+      ? simulation.finishQueue.filter((value) => typeof value === "string")
+      : [],
+    finishQueueNextAtMs: Number.isFinite(simulation?.finishQueueNextAtMs)
+      ? simulation.finishQueueNextAtMs
+      : null,
+    racerOrder: Array.isArray(simulation?.racerOrder)
+      ? simulation.racerOrder.filter((value) => typeof value === "string")
+      : [],
+    racers: Array.isArray(simulation?.racers)
+      ? simulation.racers.map(normalizeRestoredSimulationRacer)
+      : [],
   };
 }
 
@@ -107,6 +226,7 @@ function normalizeRestoredState(restoredState, raceDurationSeconds) {
     lockedLeaderboard: Array.isArray(restoredState.lockedLeaderboard)
       ? restoredState.lockedLeaderboard.map(normalizeRestoredLeaderboardEntry)
       : [],
+    simulation: normalizeRestoredSimulation(restoredState.simulation),
   };
 }
 
@@ -114,8 +234,13 @@ function createRaceStore({
   raceDurationSeconds,
   now = () => Date.now(),
   restoredState = null,
+  simulationConfig = {},
 }) {
   const state = normalizeRestoredState(restoredState, raceDurationSeconds);
+  const simConfig = {
+    ...DEFAULT_SIMULATION_CONFIG,
+    ...simulationConfig,
+  };
 
   function ensure(condition, code, message, status = 400) {
     if (!condition) {
@@ -143,6 +268,51 @@ function createRaceStore({
     state.lockedLeaderboard = [];
   }
 
+  function buildSimulationSnapshot() {
+    const session =
+      state.simulation.sessionId && state.activeSessionId === state.simulation.sessionId
+        ? state.sessions.find((item) => item.id === state.simulation.sessionId) || null
+        : null;
+    const hasReadySession = Boolean(state.activeSessionId && state.raceState !== RACE_STATES.LOCKED);
+    const status = state.simulation.active
+      ? SIMULATION_STATUSES.ACTIVE
+      : state.simulation.status === SIMULATION_STATUSES.COMPLETED
+        ? SIMULATION_STATUSES.COMPLETED
+        : hasReadySession
+          ? SIMULATION_STATUSES.READY
+          : SIMULATION_STATUSES.IDLE;
+
+    return {
+      status,
+      active: state.simulation.active,
+      sessionId: state.simulation.sessionId,
+      startedAtMs: state.simulation.startedAtMs,
+      endedAtMs: state.simulation.endedAtMs,
+      maxDurationMs: state.simulation.maxDurationMs,
+      targetLapCount: state.simulation.targetLapCount,
+      hardCapReached: state.simulation.hardCapReached,
+      completionReason: state.simulation.completionReason,
+      racers: state.simulation.racers.map((meta) => {
+        const racer = session?.racers.find((item) => item.id === meta.racerId) || null;
+        const targetDuration = Number.isFinite(meta.targetLapDurationMs)
+          ? meta.targetLapDurationMs
+          : 1;
+        const progress = meta.targetCompleted
+          ? 1
+          : clamp(meta.lapProgressMs / targetDuration, 0, 0.999);
+        return {
+          racerId: meta.racerId,
+          progress,
+          lapIndex: meta.lapIndex,
+          targetLapDurationMs: meta.targetLapDurationMs,
+          lapProgressMs: meta.lapProgressMs,
+          targetCompleted: Boolean(meta.targetCompleted),
+          finishPlace: Number.isFinite(racer?.finishPlace) ? racer.finishPlace : null,
+        };
+      }),
+    };
+  }
+
   function syncFlagFromState() {
     if (state.raceState === RACE_STATES.FINISHED) {
       state.raceFlag = RACE_FLAGS.CHECKERED;
@@ -158,6 +328,77 @@ function createRaceStore({
   }
 
   syncFlagFromState();
+
+  function ensureSimulationReady(code = "SIMULATION_BLOCKED") {
+    ensure(
+      state.raceState === RACE_STATES.STAGING,
+      code,
+      "Simulation can only start from STAGING.",
+      409
+    );
+    const activeSession = getActiveSession(code);
+    ensure(
+      activeSession.racers.length > 0,
+      code,
+      "Simulation requires at least one staged racer.",
+      409
+    );
+    ensure(!state.simulation.active, code, "Simulation is already active.", 409);
+    return activeSession;
+  }
+
+  function clearSimulation({ preserveCompletion = false } = {}) {
+    const nextState = createSimulationState();
+    if (preserveCompletion) {
+      nextState.status = SIMULATION_STATUSES.COMPLETED;
+      nextState.active = false;
+      nextState.seed = state.simulation.seed;
+      nextState.sessionId = state.simulation.sessionId;
+      nextState.startedAtMs = state.simulation.startedAtMs;
+      nextState.endedAtMs = state.simulation.endedAtMs;
+      nextState.maxDurationMs = state.simulation.maxDurationMs;
+      nextState.targetLapCount = state.simulation.targetLapCount;
+      nextState.hardCapReached = state.simulation.hardCapReached;
+      nextState.completionReason = state.simulation.completionReason;
+    }
+    state.simulation = nextState;
+  }
+
+  function simulationLapDuration(meta, lapIndex) {
+    const jitterSeed = meta.seed + lapIndex * 101;
+    const jitter = (seededUnit(jitterSeed) - 0.5) * 2 * meta.jitterMs;
+    const staminaShift = ((lapIndex - 1) * 0.015) * meta.baselineLapMs * (1 - meta.consistencyFactor);
+    return Math.max(
+      simConfig.minLapDurationMs,
+      Math.round(meta.baselineLapMs + jitter + staminaShift)
+    );
+  }
+
+  function prepareSimulationFinishQueue({ nowMs, racerIds = [] }) {
+    const queue = racerIds.filter((racerId) => {
+      const racer = getActiveSession().racers.find((item) => item.id === racerId);
+      return racer && !Number.isFinite(racer.finishPlace);
+    });
+    state.simulation.finishQueue = queue;
+    state.simulation.finishQueueNextAtMs = queue.length > 0 ? nowMs + simConfig.drainIntervalMs : null;
+  }
+
+  function completeSimulation({ reason, endedAtMs = now(), hardCapReached = false }) {
+    state.simulation.active = false;
+    state.simulation.status = SIMULATION_STATUSES.COMPLETED;
+    state.simulation.endedAtMs = endedAtMs;
+    state.simulation.completionReason = reason;
+    state.simulation.hardCapReached = hardCapReached;
+    state.simulation.finishQueue = [];
+    state.simulation.finishQueueNextAtMs = null;
+    state.simulation.racers = state.simulation.racers.map((meta) => ({
+      ...meta,
+      lapProgressMs: meta.targetCompleted
+        ? meta.targetLapDurationMs || meta.lapProgressMs
+        : meta.lapProgressMs,
+      lastAdvancedAtMs: endedAtMs,
+    }));
+  }
 
   function getSessionIndex(sessionId) {
     return state.sessions.findIndex((session) => session.id === sessionId);
@@ -177,6 +418,7 @@ function createRaceStore({
   function assignActiveSession(sessionId) {
     state.activeSessionId = sessionId;
     resetLockedPresentation();
+    clearSimulation();
 
     if (state.raceState === RACE_STATES.IDLE) {
       transitionTo(RACE_STATES.STAGING, "SESSION_SELECTION_BLOCKED");
@@ -244,6 +486,10 @@ function createRaceStore({
     );
 
     state.sessions = state.sessions.filter((item) => item.id !== session.id);
+
+    if (state.simulation.sessionId === sessionId) {
+      clearSimulation();
+    }
 
     if (state.activeSessionId === sessionId) {
       state.activeSessionId = null;
@@ -438,12 +684,77 @@ function createRaceStore({
     );
 
     resetLapData(activeSession);
+    clearSimulation();
     state.raceMode = RACE_MODES.SAFE;
     state.remainingSeconds = raceDurationSeconds;
     state.timerEndsAt = null;
     resetLockedPresentation();
     transitionTo(RACE_STATES.RUNNING, "START_BLOCKED");
     syncFlagFromState();
+
+    return clone(activeSession);
+  }
+
+  function startSimulation({
+    seed = now(),
+    startedAtMs = now(),
+    maxDurationMs = simConfig.maxDurationMs,
+    targetLapCount = simConfig.targetLapCount,
+  } = {}) {
+    const activeSession = ensureSimulationReady("SIMULATION_START_BLOCKED");
+    startRace();
+
+    state.simulation = {
+      status: SIMULATION_STATUSES.ACTIVE,
+      active: true,
+      seed,
+      sessionId: activeSession.id,
+      startedAtMs,
+      endedAtMs: null,
+      maxDurationMs,
+      targetLapCount,
+      hardCapReached: false,
+      completionReason: null,
+      finishQueue: [],
+      finishQueueNextAtMs: null,
+      racerOrder: [],
+      racers: activeSession.racers.map((racer, index) => {
+        const racerSeed = hashString(`${seed}:${racer.id}:${racer.carNumber || racer.name}:${index}`);
+        const baselineLapMs = Math.round(
+          simConfig.baselineLapMsMin +
+            seededUnit(racerSeed) * (simConfig.baselineLapMsMax - simConfig.baselineLapMsMin)
+        );
+        const jitterMs = Math.round(
+          simConfig.jitterMsMin +
+            seededUnit(racerSeed + 1) * (simConfig.jitterMsMax - simConfig.jitterMsMin)
+        );
+        const consistencyFactor = 0.84 + seededUnit(racerSeed + 2) * 0.16;
+        const lapIndex = 1;
+        const targetLapDurationMs = simulationLapDuration(
+          {
+            seed: racerSeed,
+            baselineLapMs,
+            jitterMs,
+            consistencyFactor,
+          },
+          lapIndex
+        );
+
+        return {
+          racerId: racer.id,
+          seed: racerSeed,
+          baselineLapMs,
+          jitterMs,
+          consistencyFactor,
+          lapIndex,
+          targetLapDurationMs,
+          lapProgressMs: 0,
+          lastAdvancedAtMs: startedAtMs,
+          targetCompleted: false,
+          targetCompletedAtMs: null,
+        };
+      }),
+    };
 
     return clone(activeSession);
   }
@@ -484,6 +795,14 @@ function createRaceStore({
     transitionTo(RACE_STATES.FINISHED, "FINISH_BLOCKED");
     syncFlagFromState();
 
+    if (state.simulation.active) {
+      const orderedRacerIds =
+        reason === "simulation_target_laps" && state.simulation.racerOrder.length > 0
+          ? state.simulation.racerOrder
+          : buildLeaderboard().map((entry) => entry.racerId);
+      prepareSimulationFinishQueue({ nowMs: now(), racerIds: orderedRacerIds });
+    }
+
     return { reason };
   }
 
@@ -504,15 +823,22 @@ function createRaceStore({
     resetRaceClock();
     state.raceMode = RACE_MODES.SAFE;
     syncFlagFromState();
+    clearSimulation();
 
     return clone(activeSession);
   }
 
-  function recordLapCrossing({ racerId, timestampMs = now() }) {
+  function recordLapCrossing({ racerId, timestampMs = now(), source = "manual" }) {
     ensure(
       canAcceptLapInput(state.raceState),
       "LAP_INPUT_BLOCKED",
       "Lap input is only allowed while RUNNING or FINISHED.",
+      409
+    );
+    ensure(
+      !state.simulation.active || source === "simulation",
+      "LAP_INPUT_BLOCKED",
+      "Manual lap input is blocked while simulation is active.",
       409
     );
 
@@ -552,6 +878,117 @@ function createRaceStore({
     activeSession.updatedAt = new Date(now()).toISOString();
 
     return clone(racer);
+  }
+
+  function advanceSimulation({ nowMs = now() } = {}) {
+    if (!state.simulation.active) {
+      return { active: false, changed: false, shouldPersist: false };
+    }
+
+    let changed = false;
+    let shouldPersist = false;
+
+    if (state.simulation.startedAtMs !== null) {
+      const elapsedMs = nowMs - state.simulation.startedAtMs;
+      if (elapsedMs >= state.simulation.maxDurationMs) {
+        if (state.raceState === RACE_STATES.RUNNING) {
+          finishRace({ reason: "simulation_time_cap" });
+          changed = true;
+          shouldPersist = true;
+        }
+        completeSimulation({
+          reason: "hard_cap",
+          endedAtMs: nowMs,
+          hardCapReached: true,
+        });
+        return { active: false, changed: true, shouldPersist: true, hardCapReached: true };
+      }
+    }
+
+    if (state.raceState === RACE_STATES.RUNNING) {
+      const modeFactor =
+        state.raceMode === RACE_MODES.HAZARD_STOP
+          ? 0
+          : state.raceMode === RACE_MODES.HAZARD_SLOW
+            ? simConfig.hazardSlowFactor
+            : 1;
+
+      for (const meta of state.simulation.racers) {
+        if (meta.targetCompleted) {
+          meta.lastAdvancedAtMs = nowMs;
+          continue;
+        }
+
+        const deltaMs = Math.max(0, nowMs - (meta.lastAdvancedAtMs ?? nowMs));
+        meta.lastAdvancedAtMs = nowMs;
+        meta.lapProgressMs += deltaMs * modeFactor;
+        changed = changed || deltaMs > 0;
+
+        while (!meta.targetCompleted && meta.lapProgressMs >= meta.targetLapDurationMs) {
+          meta.lapProgressMs -= meta.targetLapDurationMs;
+          recordLapCrossing({ racerId: meta.racerId, timestampMs: nowMs, source: "simulation" });
+          shouldPersist = true;
+          changed = true;
+          const racer = getActiveSession().racers.find((item) => item.id === meta.racerId);
+          if (racer && racer.lapCount >= state.simulation.targetLapCount) {
+            meta.targetCompleted = true;
+            meta.targetCompletedAtMs = nowMs;
+            meta.lapProgressMs = meta.targetLapDurationMs;
+            if (!state.simulation.racerOrder.includes(meta.racerId)) {
+              state.simulation.racerOrder.push(meta.racerId);
+            }
+            break;
+          }
+          meta.lapIndex += 1;
+          meta.targetLapDurationMs = simulationLapDuration(meta, meta.lapIndex);
+        }
+      }
+
+      const everyoneComplete =
+        state.simulation.racers.length > 0 &&
+        state.simulation.racers.every((meta) => meta.targetCompleted);
+      if (everyoneComplete) {
+        finishRace({ reason: "simulation_target_laps" });
+        changed = true;
+        shouldPersist = true;
+      }
+    }
+
+    if (state.raceState === RACE_STATES.FINISHED && state.simulation.active) {
+      if (
+        state.simulation.finishQueue.length > 0 &&
+        state.simulation.finishQueueNextAtMs !== null &&
+        nowMs >= state.simulation.finishQueueNextAtMs
+      ) {
+        const racerId = state.simulation.finishQueue.shift();
+        if (racerId) {
+          recordLapCrossing({ racerId, timestampMs: nowMs, source: "simulation" });
+          changed = true;
+          shouldPersist = true;
+        }
+        state.simulation.finishQueueNextAtMs =
+          state.simulation.finishQueue.length > 0 ? nowMs + simConfig.drainIntervalMs : null;
+      }
+
+      if (state.simulation.finishQueue.length === 0) {
+        completeSimulation({ reason: "auto_checkered", endedAtMs: nowMs });
+        changed = true;
+        shouldPersist = true;
+      }
+    }
+
+    if (state.raceState === RACE_STATES.LOCKED && state.simulation.active) {
+      completeSimulation({ reason: "manual_lock", endedAtMs: nowMs });
+      changed = true;
+      shouldPersist = true;
+    }
+
+    return {
+      active: state.simulation.active,
+      changed,
+      shouldPersist,
+      hardCapReached: false,
+    };
   }
 
   function buildLeaderboard() {
@@ -608,6 +1045,7 @@ function createRaceStore({
       queuedSessions: queueView.queuedSessions,
       finishOrderActive:
         state.raceState === RACE_STATES.FINISHED || state.raceState === RACE_STATES.LOCKED,
+      simulation: buildSimulationSnapshot(),
       lockedSession: state.lockedSession ? clone(state.lockedSession) : null,
       sessions: clone(state.sessions),
       leaderboard: buildLeaderboard(),
@@ -631,7 +1069,9 @@ function createRaceStore({
     removeRacer,
     selectSession,
     setRaceMode,
+    startSimulation,
     startRace,
+    advanceSimulation,
     syncTimer,
     updateRacer,
     updateSession,

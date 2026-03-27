@@ -38,6 +38,37 @@ const persistedLeaderboardEntrySchema = z.object({
   finishPlace: z.number().int().positive().nullable().optional(),
 });
 
+const persistedSimulationRacerSchema = z.object({
+  racerId: z.string().min(1),
+  seed: z.number().int().nonnegative().nullable(),
+  baselineLapMs: z.number().int().positive().nullable(),
+  jitterMs: z.number().int().positive().nullable(),
+  consistencyFactor: z.number().positive(),
+  lapIndex: z.number().int().positive(),
+  targetLapDurationMs: z.number().int().positive().nullable(),
+  lapProgressMs: z.number().nonnegative(),
+  lastAdvancedAtMs: z.number().int().nonnegative().nullable(),
+  targetCompleted: z.boolean(),
+  targetCompletedAtMs: z.number().int().nonnegative().nullable(),
+});
+
+const persistedSimulationSchema = z.object({
+  status: z.enum(["IDLE", "READY", "ACTIVE", "COMPLETED"]),
+  active: z.boolean(),
+  seed: z.number().int().nonnegative().nullable(),
+  sessionId: z.string().min(1).nullable(),
+  startedAtMs: z.number().int().nonnegative().nullable(),
+  endedAtMs: z.number().int().nonnegative().nullable(),
+  maxDurationMs: z.number().int().positive().nullable(),
+  targetLapCount: z.number().int().positive().nullable(),
+  hardCapReached: z.boolean(),
+  completionReason: z.string().min(1).nullable(),
+  finishQueue: z.array(z.string().min(1)),
+  finishQueueNextAtMs: z.number().int().nonnegative().nullable(),
+  racerOrder: z.array(z.string().min(1)),
+  racers: z.array(persistedSimulationRacerSchema),
+});
+
 const persistedRaceStateSchema = z.object({
   raceState: z.enum(Object.values(RACE_STATES)),
   raceMode: z.enum(Object.values(RACE_MODES)),
@@ -50,6 +81,7 @@ const persistedRaceStateSchema = z.object({
   lockedLeaderboard: z.array(persistedLeaderboardEntrySchema),
   nextSessionId: z.number().int().positive(),
   nextRacerId: z.number().int().positive(),
+  simulation: persistedSimulationSchema.optional(),
 });
 
 const persistedLockedSnapshotContextSchema = z.object({

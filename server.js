@@ -82,6 +82,10 @@ const lapCrossingSchema = z.object({
   requestId: requestIdSchema.optional(),
 });
 
+const simulateRaceSchema = z.object({
+  requestId: requestIdSchema.optional(),
+});
+
 function createStaffSets(staffRouteToKey) {
   return {
     staffRoutes: new Set(Object.keys(staffRouteToKey)),
@@ -336,6 +340,7 @@ function createApp(options = {}) {
     raceDurationSeconds,
     now: options.now,
     restoredState,
+    simulationConfig: options.simulationConfig,
   });
   const idempotencyStore = createIdempotencyStore();
   const staticDir = resolveStaticDir();
@@ -370,6 +375,7 @@ function createApp(options = {}) {
       raceDurationSeconds,
       remainingSeconds: snapshot.remainingSeconds,
       endsAt: snapshot.endsAt,
+      simulation: snapshot.simulation,
     });
   }
 
@@ -464,6 +470,45 @@ function createApp(options = {}) {
     },
   });
 
+  const simulationTickIntervalMs = options.simulationTickIntervalMs || 250;
+  let simulationIntervalHandle = null;
+
+  function stopSimulationLoop() {
+    if (simulationIntervalHandle) {
+      clearInterval(simulationIntervalHandle);
+      simulationIntervalHandle = null;
+    }
+  }
+
+  function runSimulationTick() {
+    const result = raceStore.advanceSimulation();
+    const snapshot = raceStore.getSnapshot();
+    if (snapshot.state !== RACE_STATES.RUNNING && timerService.isRunning()) {
+      timerService.stop();
+    }
+    if (!result.changed && !result.active) {
+      stopSimulationLoop();
+      return;
+    }
+
+    broadcastCanonicalState(result.hardCapReached ? "simulation_hard_cap" : "simulation_tick");
+    if (result.shouldPersist) {
+      persistCanonicalState();
+    }
+
+    if (!result.active) {
+      stopSimulationLoop();
+    }
+  }
+
+  function ensureSimulationLoop() {
+    if (simulationIntervalHandle) {
+      return;
+    }
+
+    simulationIntervalHandle = setInterval(runSimulationTick, simulationTickIntervalMs);
+  }
+
   const frontDeskOrRaceControlAuth = createStaffAuthMiddleware({
     allowedRoutes: FRONT_DESK_OR_RACE_CONTROL,
     env,
@@ -485,6 +530,10 @@ function createApp(options = {}) {
       remainingSeconds: restoredState.remainingSeconds,
     });
     raceStore.syncTimer(resumedTimer);
+  }
+
+  if (raceStore.getSnapshot().simulation?.active) {
+    ensureSimulationLoop();
   }
 
   persistCanonicalState();
@@ -718,6 +767,26 @@ function createApp(options = {}) {
     })
   );
 
+  app.post("/api/race/simulate", lapTrackerAuth, (req, res) =>
+    executeMutation(req, res, async () => {
+      parseBody(simulateRaceSchema, req);
+      const session = raceStore.startSimulation();
+      const timerState = timerService.start();
+      raceStore.syncTimer(timerState);
+      ensureSimulationLoop();
+      broadcastCanonicalState("simulation_started");
+      persistCanonicalState();
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
+
   app.post("/api/race/mode", raceControlAuth, (req, res) =>
     executeMutation(req, res, async () => {
       const { mode } = parseBody(raceModeSchema, req);
@@ -739,6 +808,9 @@ function createApp(options = {}) {
     executeMutation(req, res, async () => {
       timerService.stop();
       raceStore.finishRace({ reason: "manual" });
+      if (raceStore.getSnapshot().simulation?.active) {
+        ensureSimulationLoop();
+      }
       broadcastCanonicalState("race_finished_manual");
       persistCanonicalState();
       return {
@@ -754,6 +826,7 @@ function createApp(options = {}) {
   app.post("/api/race/lock", raceControlAuth, (req, res) =>
     executeMutation(req, res, async () => {
       timerService.stop();
+      stopSimulationLoop();
       const preLockSnapshot = raceStore.getSnapshot();
       const session = raceStore.lockRace();
       lockedSnapshotContext = normalizeLockedSnapshotContext({
@@ -927,6 +1000,11 @@ function createApp(options = {}) {
     }
 
     return res.status(404).json({ error: "Not found" });
+  });
+
+  server.on("close", () => {
+    timerService.stop();
+    stopSimulationLoop();
   });
 
   return {

@@ -334,3 +334,138 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("simulation mode runs through the canonical websocket truth layer", async () => {
+  process.env.FRONT_DESK_KEY = "front-desk-test-key";
+  process.env.RACE_CONTROL_KEY = "race-control-test-key";
+  process.env.LAP_LINE_TRACKER_KEY = "lap-line-test-key";
+  process.env.RACE_DURATION_SECONDS = "20";
+  process.env.NODE_ENV = "test";
+
+  const { server } = createApp({
+    tickIntervalMs: 20,
+    simulationTickIntervalMs: 20,
+    simulationConfig: {
+      baselineLapMsMin: 40,
+      baselineLapMsMax: 40,
+      jitterMsMin: 0,
+      jitterMsMax: 0,
+      minLapDurationMs: 1,
+      drainIntervalMs: 20,
+      targetLapCount: 3,
+      maxDurationMs: 5_000,
+    },
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const url = `http://127.0.0.1:${address.port}`;
+
+  const socket = createClient(url, {
+    autoConnect: false,
+    auth: { route: "/leader-board" },
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  try {
+    const connected = new Promise((resolve, reject) => {
+      socket.once("connect", resolve);
+      socket.once("connect_error", reject);
+    });
+    const initialSnapshotPromise = waitForEvent(
+      socket,
+      SOCKET_EVENTS.RACE_SNAPSHOT,
+      (payload) => payload.state === "IDLE"
+    );
+    socket.connect();
+    await connected;
+
+    await initialSnapshotPromise;
+
+    const sessionResult = await postJson(
+      url,
+      "/api/sessions",
+      { name: "Sim Heat" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(sessionResult.response.status, 201);
+    const sessionId = sessionResult.json.session.id;
+
+    const addRacerOne = await postJson(
+      url,
+      `/api/sessions/${sessionId}/racers`,
+      { name: "Amy", carNumber: "7" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(addRacerOne.response.status, 201);
+
+    const addRacerTwo = await postJson(
+      url,
+      `/api/sessions/${sessionId}/racers`,
+      { name: "Ben", carNumber: "8" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(addRacerTwo.response.status, 201);
+
+    const simulationActiveSnapshotPromise = waitForEvent(
+      socket,
+      SOCKET_EVENTS.RACE_SNAPSHOT,
+      (payload) => payload.state === "RUNNING" && payload.simulation?.active === true
+    );
+    const simulateResult = await postJson(
+      url,
+      "/api/race/simulate",
+      {},
+      {
+        "x-staff-route": "/lap-line-tracker",
+        "x-staff-key": process.env.LAP_LINE_TRACKER_KEY,
+      }
+    );
+    assert.equal(simulateResult.response.status, 200);
+
+    const simulationActiveSnapshot = await simulationActiveSnapshotPromise;
+    assertSchema(raceSnapshotSchema, simulationActiveSnapshot, "race:snapshot (simulation active)");
+    assert.equal(simulationActiveSnapshot.simulation.active, true);
+    assert.equal(simulationActiveSnapshot.simulation.status, "ACTIVE");
+    assert.equal(simulationActiveSnapshot.simulation.racers.length, 2);
+
+    const blockedManualLap = await postJson(
+      url,
+      "/api/laps/crossing",
+      { racerId: addRacerOne.json.racer.id },
+      {
+        "x-staff-route": "/lap-line-tracker",
+        "x-staff-key": process.env.LAP_LINE_TRACKER_KEY,
+      }
+    );
+    assert.equal(blockedManualLap.response.status, 409);
+
+    const finishedSnapshot = await waitForEvent(
+      socket,
+      SOCKET_EVENTS.RACE_SNAPSHOT,
+      (payload) =>
+        payload.state === "FINISHED" &&
+        payload.simulation?.active === false &&
+        payload.finishOrderActive === true &&
+        payload.leaderboard.every((entry) => entry.finishPlace !== null)
+    );
+    assertSchema(raceSnapshotSchema, finishedSnapshot, "race:snapshot (simulation finished)");
+    assert.equal(finishedSnapshot.simulation.status, "COMPLETED");
+    assert.equal(finishedSnapshot.simulation.hardCapReached, false);
+    assert.equal(finishedSnapshot.leaderboard[0].finishPlace, 1);
+    assert.equal(finishedSnapshot.leaderboard[1].finishPlace, 2);
+  } finally {
+    socket.close();
+    delete process.env.RACE_DURATION_SECONDS;
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

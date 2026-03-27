@@ -3693,6 +3693,14 @@ body {
   gap: 6px;
 }
 
+.route-lap-line-tracker .lap-tracker-head-tags {
+  align-items: center;
+}
+
+.route-lap-line-tracker .lap-tracker-head-tags .action-btn {
+  min-height: 40px;
+}
+
 .route-lap-line-tracker .lap-tracker-sidecar {
   min-height: var(--lap-track-panel-height);
   padding: 12px;
@@ -3711,6 +3719,14 @@ body {
   justify-content: space-between;
   gap: 8px;
   align-items: center;
+}
+
+.route-lap-line-tracker .lap-track-visual-title {
+  display: block;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.94rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .route-lap-line-tracker .lap-track-svg {

@@ -72,6 +72,31 @@ const leaderboardEntrySchema = z.object({
   finishPlace: z.number().int().positive().nullable(),
 });
 
+const simulationStatusSchema = z.enum(["IDLE", "READY", "ACTIVE", "COMPLETED"]);
+
+const simulationRacerSchema = z.object({
+  racerId: z.string().min(1),
+  progress: z.number().min(0).max(1),
+  lapIndex: z.number().int().positive(),
+  targetLapDurationMs: z.number().int().positive().nullable(),
+  lapProgressMs: z.number().min(0),
+  targetCompleted: z.boolean(),
+  finishPlace: z.number().int().positive().nullable(),
+});
+
+const simulationSnapshotSchema = z.object({
+  status: simulationStatusSchema,
+  active: z.boolean(),
+  sessionId: z.string().min(1).nullable(),
+  startedAtMs: z.number().int().nonnegative().nullable(),
+  endedAtMs: z.number().int().nonnegative().nullable(),
+  maxDurationMs: z.number().int().positive().nullable(),
+  targetLapCount: z.number().int().positive().nullable(),
+  hardCapReached: z.boolean(),
+  completionReason: z.string().min(1).nullable(),
+  racers: z.array(simulationRacerSchema),
+});
+
 const raceFlagSchema = z.enum([
   RACE_FLAGS.IDLE,
   RACE_FLAGS.STAGING,
@@ -90,6 +115,7 @@ const raceSnapshotSchema = z.object({
   flag: raceFlagSchema,
   resultsFinalized: z.boolean(),
   finishOrderActive: z.boolean(),
+  simulation: simulationSnapshotSchema,
   mode: z.enum(Object.values(RACE_MODES)),
   lapEntryAllowed: z.boolean(),
   raceDurationSeconds: z.number().int().positive(),
@@ -117,6 +143,7 @@ const raceTickSchema = z.object({
   raceDurationSeconds: z.number().int().positive(),
   remainingSeconds: z.number().int().nonnegative(),
   endsAt: z.string().datetime().nullable(),
+  simulation: simulationSnapshotSchema.optional(),
 });
 
 const leaderboardUpdateSchema = z.object({

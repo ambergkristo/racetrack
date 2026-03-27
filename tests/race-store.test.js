@@ -195,3 +195,119 @@ test("race store exposes canonical current, next, and queued session truth", () 
   assert.equal(snapshot.nextSessionId, heat2.id);
   assert.deepEqual(snapshot.queuedSessionIds, [heat2.id]);
 });
+
+test("simulation starts racers together, auto-checkers after target laps, and records finish order", () => {
+  let currentNow = 1_000;
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 600,
+    now: () => currentNow,
+    simulationConfig: {
+      baselineLapMsMin: 100,
+      baselineLapMsMax: 100,
+      jitterMsMin: 0,
+      jitterMsMax: 0,
+      minLapDurationMs: 1,
+      drainIntervalMs: 10,
+      targetLapCount: 3,
+      maxDurationMs: 10_000,
+    },
+  });
+
+  const session = raceStore.createSession({ name: "Sim Heat" });
+  const amy = raceStore.addRacer(session.id, { name: "Amy", carNumber: "7" });
+  const ben = raceStore.addRacer(session.id, { name: "Ben", carNumber: "8" });
+
+  raceStore.startSimulation({
+    startedAtMs: currentNow,
+    seed: 42,
+    maxDurationMs: 10_000,
+    targetLapCount: 3,
+  });
+
+  let snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "RUNNING");
+  assert.equal(snapshot.simulation.active, true);
+  assert.deepEqual(
+    snapshot.simulation.racers.map((racer) => racer.progress),
+    [0, 0]
+  );
+
+  currentNow = 1_100;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+  currentNow = 1_200;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+  currentNow = 1_300;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "FINISHED");
+  assert.equal(snapshot.simulation.active, true);
+  assert.equal(snapshot.activeSession.racers[0].lapCount, 3);
+  assert.equal(snapshot.activeSession.racers[1].lapCount, 3);
+
+  currentNow = 1_310;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+  currentNow = 1_320;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+  currentNow = 1_330;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.simulation.active, false);
+  assert.equal(snapshot.simulation.status, "COMPLETED");
+  assert.equal(snapshot.finishOrderActive, true);
+  assert.equal(snapshot.leaderboard[0].racerId, amy.id);
+  assert.equal(snapshot.leaderboard[0].finishPlace, 1);
+  assert.equal(snapshot.leaderboard[1].racerId, ben.id);
+  assert.equal(snapshot.leaderboard[1].finishPlace, 2);
+});
+
+test("simulation honors hazard stop and enforces the hard time cap", () => {
+  let currentNow = 5_000;
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 600,
+    now: () => currentNow,
+    simulationConfig: {
+      baselineLapMsMin: 100,
+      baselineLapMsMax: 100,
+      jitterMsMin: 0,
+      jitterMsMax: 0,
+      minLapDurationMs: 1,
+      drainIntervalMs: 10,
+      targetLapCount: 3,
+      maxDurationMs: 150,
+    },
+  });
+
+  const session = raceStore.createSession({ name: "Hazard Sim" });
+  const racer = raceStore.addRacer(session.id, { name: "Casey", carNumber: "3" });
+
+  raceStore.startSimulation({
+    startedAtMs: currentNow,
+    seed: 99,
+    maxDurationMs: 150,
+    targetLapCount: 3,
+  });
+
+  assert.throws(
+    () => raceStore.recordLapCrossing({ racerId: racer.id, timestampMs: 5_010 }),
+    /Manual lap input is blocked while simulation is active/
+  );
+  raceStore.setRaceMode("HAZARD_STOP");
+
+  currentNow = 5_100;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+  let snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.activeSession.racers[0].lapCount, 0);
+
+  raceStore.setRaceMode("SAFE");
+  currentNow = 5_151;
+  raceStore.advanceSimulation({ nowMs: currentNow });
+
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "FINISHED");
+  assert.equal(snapshot.simulation.active, false);
+  assert.equal(snapshot.simulation.hardCapReached, true);
+  assert.equal(snapshot.simulation.completionReason, "hard_cap");
+  assert.equal(snapshot.activeSession.racers[0].lapCount, 0);
+});

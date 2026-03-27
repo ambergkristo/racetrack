@@ -214,6 +214,18 @@
       nextSession: null,
       queuedSessionIds: [],
       queuedSessions: [],
+      simulation: {
+        status: "IDLE",
+        active: false,
+        sessionId: null,
+        startedAtMs: null,
+        endedAtMs: null,
+        maxDurationMs: null,
+        targetLapCount: null,
+        hardCapReached: false,
+        completionReason: null,
+        racers: [],
+      },
       lockedSession: null,
       finalResults: null,
       sessions: [],
@@ -422,6 +434,36 @@
     };
   }
 
+  function normalizeSimulation(simulation) {
+    if (!isObject(simulation)) {
+      return state.raceSnapshot.simulation;
+    }
+
+    return {
+      status: typeof simulation.status === "string" ? simulation.status : "IDLE",
+      active: Boolean(simulation.active),
+      sessionId: simulation.sessionId ? String(simulation.sessionId) : null,
+      startedAtMs: parseNumber(simulation.startedAtMs),
+      endedAtMs: parseNumber(simulation.endedAtMs),
+      maxDurationMs: parseNumber(simulation.maxDurationMs),
+      targetLapCount: parseNumber(simulation.targetLapCount),
+      hardCapReached: Boolean(simulation.hardCapReached),
+      completionReason:
+        typeof simulation.completionReason === "string" ? simulation.completionReason : null,
+      racers: Array.isArray(simulation.racers)
+        ? simulation.racers.map((entry) => ({
+            racerId: String(entry.racerId),
+            progress: clamp(Number(entry.progress) || 0, 0, 1),
+            lapIndex: parseNumber(entry.lapIndex) ?? 1,
+            targetLapDurationMs: parseNumber(entry.targetLapDurationMs),
+            lapProgressMs: Number(entry.lapProgressMs) || 0,
+            targetCompleted: Boolean(entry.targetCompleted),
+            finishPlace: parseNumber(entry.finishPlace),
+          }))
+        : [],
+    };
+  }
+
   function normalizeSnapshot(snapshot) {
     if (!isObject(snapshot)) {
       return state.raceSnapshot;
@@ -497,6 +539,7 @@
       nextSession,
       queuedSessionIds,
       queuedSessions,
+      simulation: normalizeSimulation(snapshot.simulation),
       lockedSession,
       finalResults,
       sessions,
@@ -737,6 +780,10 @@
             : payload.activeSessionId === null
               ? null
               : String(payload.activeSessionId),
+        simulation:
+          payload.simulation === undefined
+            ? state.raceSnapshot.simulation
+            : normalizeSimulation(payload.simulation),
         leaderboard: sortLeaderboard(payload.leaderboard.map(normalizeLeaderboardEntry)),
       },
     });
@@ -762,6 +809,10 @@
           remainingSeconds === null ? state.raceSnapshot.remainingSeconds : remainingSeconds,
         endsAt: payload.endsAt ?? state.raceSnapshot.endsAt,
         serverTime: payload.serverTime ?? state.raceSnapshot.serverTime,
+        simulation:
+          payload.simulation === undefined
+            ? state.raceSnapshot.simulation
+            : normalizeSimulation(payload.simulation),
       },
     });
   }
@@ -2482,6 +2533,26 @@
       .reduce((hash, character) => ((hash * 33 + character.charCodeAt(0)) % 9973), 17);
   }
 
+  function getSimulationMeta(snapshot = state.raceSnapshot) {
+    return snapshot.simulation || createEmptyRaceSnapshot().simulation;
+  }
+
+  function simulationStatusTone(status) {
+    if (status === "ACTIVE") {
+      return "warning";
+    }
+
+    if (status === "READY") {
+      return "safe";
+    }
+
+    if (status === "COMPLETED") {
+      return "danger";
+    }
+
+    return "idle";
+  }
+
   function buildLapTrackerEstimateModel(nowMs = Date.now()) {
     const snapshot = state.raceSnapshot;
     const activeSession = getDisplaySession();
@@ -2489,9 +2560,13 @@
       return [];
     }
 
+    const simulation = getSimulationMeta(snapshot);
     const leaderboardEntries = getDisplayLeaderboardEntries(snapshot);
     const leaderboardByRacerId = new Map(
       leaderboardEntries.map((entry) => [entry.racerId, entry])
+    );
+    const simulationByRacerId = new Map(
+      simulation.racers.map((entry) => [entry.racerId, entry])
     );
     const baselineSamples = [
       ...leaderboardEntries.map((entry) => entry.bestLapTimeMs),
@@ -2527,6 +2602,7 @@
 
     return orderedRacers.map((racer, index) => {
       const entry = leaderboardByRacerId.get(racer.id);
+      const simulationEntry = simulationByRacerId.get(racer.id);
       const seed = lapTrackSeed(`${racer.id}:${racer.carNumber || racer.name}`);
       const seedUnit = (seed % 1000) / 1000;
       const lapCount = entry?.lapCount ?? racer.lapCount ?? 0;
@@ -2567,13 +2643,15 @@
         0.05,
         0.985
       );
-      let lapProgress = Number.isFinite(reportedCurrentLapMs)
-        ? clamp(reportedCurrentLapMs / estimatedLapMs, 0.03, 0.985)
-        : Number.isFinite(elapsedFromCrossingMs)
-          ? clamp(elapsedFromCrossingMs / estimatedLapMs, 0.04, 0.985)
-          : sparseDriftProgress;
+      let lapProgress = simulation.active && simulationEntry
+        ? clamp(simulationEntry.progress, 0.01, 0.995)
+        : Number.isFinite(reportedCurrentLapMs)
+          ? clamp(reportedCurrentLapMs / estimatedLapMs, 0.03, 0.985)
+          : Number.isFinite(elapsedFromCrossingMs)
+            ? clamp(elapsedFromCrossingMs / estimatedLapMs, 0.04, 0.985)
+            : sparseDriftProgress;
 
-      if (snapshot.finishOrderActive && Number.isFinite(entry?.finishPlace)) {
+      if ((snapshot.finishOrderActive || simulation.status === "COMPLETED") && Number.isFinite(entry?.finishPlace)) {
         lapProgress = clamp(0.982 + entry.finishPlace * 0.003, 0.982, 0.997);
       }
 
@@ -2586,6 +2664,7 @@
         orderIndex: index,
         position: entry?.position ?? index + 1,
         finishPlace: entry?.finishPlace ?? racer.finishPlace ?? null,
+        simulationProgress: simulationEntry?.progress ?? null,
         totalProgress: lapCount + lapProgress,
       };
     });
@@ -2593,6 +2672,8 @@
 
   function lapTrackerVisualPanel() {
     const racers = buildLapTrackerEstimateModel();
+    const simulation = getSimulationMeta();
+    const simulationStatus = simulation.active ? "ACTIVE" : simulation.status;
     const markerMarkup = racers
       .map(
         (racer) => `
@@ -2613,9 +2694,18 @@
     return `
       <div class="lap-track-visual" id="lap-track-estimate">
         <div class="lap-track-visual-head">
-          <p class="section-kicker">Estimated track</p>
-          <span class="chip tiny-chip">${escapeHtml(
-            state.raceSnapshot.finishOrderActive ? "Estimated live finish" : "Live estimate"
+          <div>
+            <p class="section-kicker">${escapeHtml(simulation.active ? "Simulation track" : "Estimated track")}</p>
+            <strong class="lap-track-visual-title">${escapeHtml(
+              simulation.active
+                ? "Truth-driven live simulation"
+                : state.raceSnapshot.finishOrderActive
+                  ? "Estimated live finish"
+                  : "Live estimate"
+            )}</strong>
+          </div>
+          <span class="chip tiny-chip tone-${escapeHtml(simulationStatusTone(simulationStatus))}">${escapeHtml(
+            simulation.active ? "Simulation Active" : simulationStatus === "READY" ? "Simulation Ready" : simulationStatus === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
           )}</span>
         </div>
         <svg class="lap-track-svg" viewBox="0 0 560 320" role="img" aria-label="Estimated live track view">
@@ -2777,13 +2867,24 @@
   function lapTrackerPanel() {
     const snapshot = state.raceSnapshot;
     const activeSession = getDisplaySession();
+    const simulation = getSimulationMeta(snapshot);
     const lapAllowed = Boolean(snapshot.lapEntryAllowed);
     const flagMeta = getFlagMeta(snapshot);
     const lapReason = firstReason(
       staffAccessReason(),
       state.pending ? "Wait for the current request to finish." : "",
       activeSession ? "" : "Stage a session before lap entry.",
+      simulation.active ? "Simulation is driving lap truth right now." : "",
       lapAllowed ? "" : "Lap entry is only available while RUNNING or FINISHED."
+    );
+    const simulateReason = firstReason(
+      staffAccessReason(),
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before starting simulation.",
+      snapshot.state === "STAGING" ? "" : "Simulation can only start from STAGING.",
+      activeSession && activeSession.racers.length > 0 ? "" : "Simulation needs staged racers.",
+      simulation.active ? "Simulation is already active." : "",
+      snapshot.state === "LOCKED" ? "Simulation is unavailable once the race is locked." : ""
     );
     const racers = activeSession ? activeSession.racers : [];
 
@@ -2826,11 +2927,29 @@
                   <div class="lap-stage-copy">
                     <p class="section-kicker">Authoritative entry</p>
                     <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
-                    <span class="command-stage-detail">${escapeHtml(lapAllowed ? "Tap the racer crossing the line." : "Input unlocks during RUNNING or FINISHED.")}</span>
+                    <span class="command-stage-detail">${escapeHtml(
+                      simulation.active
+                        ? "Simulation is advancing the truth. Manual taps stay locked until it stops."
+                        : lapAllowed
+                          ? "Tap the racer crossing the line."
+                          : "Input unlocks during RUNNING or FINISHED."
+                    )}</span>
                   </div>
-                  <div class="telemetry-tags">
+                  <div class="telemetry-tags lap-tracker-head-tags">
                     <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
-                    <span class="telemetry-tag tone-${lapAllowed ? "safe" : "danger"}">${escapeHtml(lapAllowed ? "Lap entry open" : "Lap entry blocked")}</span>
+                    <span class="telemetry-tag tone-${simulation.active ? "warning" : lapAllowed ? "safe" : "danger"}">${escapeHtml(
+                      simulation.active ? "Simulation driving" : lapAllowed ? "Lap entry open" : "Lap entry blocked"
+                    )}</span>
+                    <span class="telemetry-tag tone-${escapeHtml(simulationStatusTone(simulation.active ? "ACTIVE" : simulation.status))}">${escapeHtml(
+                      simulation.active ? "Simulation Active" : simulation.status === "READY" ? "Simulation Ready" : simulation.status === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
+                    )}</span>
+                    ${buttonMarkup({
+                      id: "simulate-race-btn",
+                      label: "Simulate Race",
+                      variant: "warning",
+                      size: "mini",
+                      disabled: Boolean(simulateReason),
+                    })}
                   </div>
                 </div>
                 <div class="car-grid lap-grid lap-entry-grid">${buttons}</div>
@@ -2994,7 +3113,7 @@
             ${topThreeEntries
               .map((entry, index) => {
                 const timingValue = Number.isFinite(entry?.bestLapTimeMs)
-                  ? formatDurationMs(entry.bestLapTimeMs)
+                  ? formatLap(entry.bestLapTimeMs)
                   : "Lap pending";
                 return `
                   <article class="next-race-top-three-card place-${index + 1}">
@@ -3854,6 +3973,24 @@
   }
 
   function bindLapTrackerEvents() {
+    const simulateBtn = document.getElementById("simulate-race-btn");
+
+    if (simulateBtn) {
+      simulateBtn.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/simulate", {
+              method: "POST",
+              body: {},
+            }),
+          "Simulation started.",
+          () => {
+            setNotice("success", "Simulation is driving the staged session.", 2200);
+          }
+        );
+      });
+    }
+
     document.querySelectorAll("[data-action='lap-crossing']").forEach((node) => {
       node.addEventListener("click", () => {
         runAction(

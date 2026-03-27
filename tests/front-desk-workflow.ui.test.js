@@ -171,10 +171,11 @@ test("front-desk renders current, next, and queued workflow blocks", async () =>
   assert.equal(html.includes("Saved Sessions"), true);
   assert.equal(html.includes("Control State"), true);
   assert.equal(html.includes("Racer Management"), true);
+  assert.equal(html.includes("Current Race"), true);
   assert.equal(html.includes("Heat 2"), true);
+  assert.equal(html.includes("Heat 1"), true);
   assert.equal(html.includes("Heat 3"), true);
-  assert.equal(html.includes("Alex"), true);
-  assert.equal(html.includes("7"), true);
+  assert.equal(html.includes("Choose a session to manage"), false);
   assert.equal(html.includes("Queue control"), false);
   assert.equal(html.includes("Next Up"), false);
 });
@@ -195,7 +196,7 @@ test("front-desk shows manual assignment messaging only when the flag is on", as
   assert.equal(html.includes("FF ON"), false);
 });
 
-test("front-desk queue cards cap visible racers and show overflow note", async () => {
+test("front-desk saved sessions stay visible while racer management follows the selected next session", async () => {
   const makeRacer = (index) => ({
     id: `racer-${index}`,
     name: `Racer ${index}`,
@@ -237,9 +238,9 @@ test("front-desk queue cards cap visible racers and show overflow note", async (
     }
   );
 
-  assert.equal(html.includes("Racer 4"), true);
-  assert.equal(html.includes("Racer 5"), true);
+  assert.equal(html.includes("Heat 2"), true);
   assert.equal(html.includes("Heat 1"), true);
   assert.equal(html.includes("Saved Sessions"), true);
+  assert.equal(html.includes("No racers in the selected session."), true);
   assert.equal(html.includes("Queue is empty"), false);
 });
