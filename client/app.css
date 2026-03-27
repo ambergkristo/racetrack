@@ -3506,6 +3506,163 @@ body {
   font-size: 0.72rem;
 }
 
+.route-lap-line-tracker {
+  --lap-track-panel-height: 238px;
+}
+
+.route-lap-line-tracker.staff-shell {
+  padding: 10px 14px 10px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.route-lap-line-tracker .staff-route-grid {
+  grid-template-columns: 1fr;
+  grid-auto-rows: minmax(0, auto);
+}
+
+.route-lap-line-tracker .staff-status-panel,
+.route-lap-line-tracker .lap-tracker-panel {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.route-lap-line-tracker .staff-status-panel {
+  padding: 10px 12px;
+}
+
+.route-lap-line-tracker .lap-tracker-panel {
+  padding: 10px 12px;
+}
+
+.route-lap-line-tracker .lap-tracker-shell {
+  grid-template-columns: minmax(0, 0.96fr) minmax(360px, 1.04fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.route-lap-line-tracker .lap-stage,
+.route-lap-line-tracker .lap-tracker-sidecar {
+  min-height: var(--lap-track-panel-height);
+}
+
+.route-lap-line-tracker .lap-stage {
+  padding: 14px;
+  align-content: space-between;
+}
+
+.route-lap-line-tracker .lap-stage-copy {
+  gap: 6px;
+}
+
+.route-lap-line-tracker .lap-tracker-sidecar {
+  padding: 12px;
+  overflow: hidden;
+}
+
+.route-lap-line-tracker .lap-track-visual {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.route-lap-line-tracker .lap-track-visual-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.route-lap-line-tracker .lap-track-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.route-lap-line-tracker .lap-track-lane {
+  fill: none;
+}
+
+.route-lap-line-tracker .lap-track-lane-outer,
+.route-lap-line-tracker .lap-track-lane-inner {
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 26;
+}
+
+.route-lap-line-tracker .lap-track-center-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 2;
+  stroke-dasharray: 8 10;
+}
+
+.route-lap-line-tracker .lap-track-finish-line line {
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.route-lap-line-tracker .lap-track-finish-line text {
+  fill: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+}
+
+.route-lap-line-tracker .lap-track-marker {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.route-lap-line-tracker .lap-track-marker-dot {
+  fill: rgba(255, 71, 71, 0.92);
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 2;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.26));
+}
+
+.route-lap-line-tracker .lap-track-marker.is-leader .lap-track-marker-dot {
+  fill: rgba(0, 255, 123, 0.92);
+}
+
+.route-lap-line-tracker .lap-track-marker-car {
+  fill: var(--ink);
+  font-size: 13px;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.route-lap-line-tracker .lap-track-marker-name {
+  fill: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.route-lap-line-tracker .lap-grid {
+  margin-top: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.route-lap-line-tracker .huge-touch-btn {
+  min-height: 102px;
+  padding: 12px 10px;
+  gap: 4px;
+}
+
+.route-lap-line-tracker .huge-touch-btn strong {
+  font-size: 1rem;
+}
+
+.route-lap-line-tracker .huge-touch-btn span,
+.route-lap-line-tracker .huge-touch-btn em {
+  font-size: 0.74rem;
+}
+
 .route-leader-board {
   --leaderboard-row-height: 30px;
   --leaderboard-table-head-height: 28px;

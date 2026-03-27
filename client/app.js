@@ -150,6 +150,11 @@
   let publicConnectStarted = false;
   let staffBypassConnectStarted = false;
   let noticeTimer = null;
+  const lapTrackVisualState = {
+    frameId: 0,
+    lastFrameTs: 0,
+    markers: new Map(),
+  };
   let state = {
     bootstrap: null,
     bootstrapStatus: "loading",
@@ -241,6 +246,19 @@
   function parseNumber(value) {
     const parsed = Number.parseInt(value ?? "", 10);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function parseTimestampMs(value) {
+    if (Number.isFinite(value)) {
+      return value;
+    }
+
+    const parsed = Date.parse(value ?? "");
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
   }
 
   function formatTime(seconds) {
@@ -2328,6 +2346,134 @@
     );
   }
 
+  function lapTrackShortName(name) {
+    const firstToken = String(name || "").trim().split(/\s+/)[0] || "";
+    if (firstToken.length <= 10) {
+      return firstToken;
+    }
+
+    return `${firstToken.slice(0, 9)}...`;
+  }
+
+  function buildLapTrackerEstimateModel(nowMs = Date.now()) {
+    const snapshot = state.raceSnapshot;
+    const activeSession = getDisplaySession();
+    if (!activeSession || activeSession.racers.length === 0) {
+      return [];
+    }
+
+    const leaderboardByRacerId = new Map(
+      snapshot.leaderboard.map((entry) => [entry.racerId, entry])
+    );
+    const baselineSamples = [
+      ...snapshot.leaderboard.map((entry) => entry.bestLapTimeMs),
+      ...activeSession.racers.map((racer) => racer.bestLapTimeMs),
+    ].filter((value) => Number.isFinite(value) && value > 0);
+    const baselineLapMs = baselineSamples.length
+      ? clamp(
+          Math.round(
+            baselineSamples.reduce((sum, value) => sum + value, 0) / baselineSamples.length
+          ),
+          18000,
+          120000
+        )
+      : 45000;
+    const syncTimeMs = parseTimestampMs(snapshot.serverTime ?? state.lastSyncAt) ?? nowMs;
+    const liveAdvanceMs = snapshot.state === "RUNNING" ? Math.max(0, nowMs - syncTimeMs) : 0;
+    const orderedRacers = activeSession.racers.slice().sort((left, right) => {
+      const leftEntry = leaderboardByRacerId.get(left.id);
+      const rightEntry = leaderboardByRacerId.get(right.id);
+      const leftOrder = Number.isFinite(leftEntry?.position) ? leftEntry.position : Number.MAX_SAFE_INTEGER;
+      const rightOrder = Number.isFinite(rightEntry?.position) ? rightEntry.position : Number.MAX_SAFE_INTEGER;
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return compareRacers(left, right);
+    });
+    const racerCount = orderedRacers.length;
+
+    return orderedRacers.map((racer, index) => {
+      const entry = leaderboardByRacerId.get(racer.id);
+      const lapCount = entry?.lapCount ?? racer.lapCount ?? 0;
+      const bestLapMs = Number.isFinite(entry?.bestLapTimeMs)
+        ? entry.bestLapTimeMs
+        : Number.isFinite(racer.bestLapTimeMs)
+          ? racer.bestLapTimeMs
+          : null;
+      const currentLapMs = Number.isFinite(entry?.currentLapTimeMs)
+        ? entry.currentLapTimeMs + liveAdvanceMs
+        : Number.isFinite(racer.lastCrossingTimestampMs)
+          ? Math.max(0, nowMs - racer.lastCrossingTimestampMs)
+          : null;
+      const estimatedLapMs = clamp(
+        Math.max(
+          bestLapMs ? Math.round(bestLapMs * 1.06) : 0,
+          baselineLapMs,
+          Number.isFinite(currentLapMs) ? currentLapMs + 2500 : 0
+        ),
+        18000,
+        120000
+      );
+      const fallbackProgress = clamp(
+        0.9 - ((index + 0.5) / Math.max(racerCount, 1)) * 0.72,
+        0.08,
+        0.92
+      );
+      const lapProgress = Number.isFinite(currentLapMs)
+        ? clamp(currentLapMs / estimatedLapMs, 0.02, 0.985)
+        : fallbackProgress;
+
+      return {
+        id: racer.id,
+        name: racer.name,
+        shortName: lapTrackShortName(racer.name),
+        carNumber: racer.carNumber || "--",
+        lapCount,
+        orderIndex: index,
+        position: entry?.position ?? index + 1,
+        totalProgress: lapCount + lapProgress,
+      };
+    });
+  }
+
+  function lapTrackerVisualPanel() {
+    const racers = buildLapTrackerEstimateModel();
+    const markerMarkup = racers
+      .map(
+        (racer) => `
+          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}" data-track-marker="${escapeHtml(racer.id)}">
+            <circle class="lap-track-marker-dot" cx="0" cy="0" r="18"></circle>
+            <text class="lap-track-marker-car" text-anchor="middle" x="0" y="6">${escapeHtml(racer.carNumber)}</text>
+            <text class="lap-track-marker-name" text-anchor="middle" x="0" y="34">${escapeHtml(racer.shortName)}</text>
+          </g>
+        `
+      )
+      .join("");
+
+    return `
+      <div class="lap-track-visual" id="lap-track-estimate">
+        <div class="lap-track-visual-head">
+          <p class="section-kicker">Estimated track</p>
+          <span class="chip tiny-chip">Live estimate</span>
+        </div>
+        <svg class="lap-track-svg" viewBox="0 0 560 320" role="img" aria-label="Estimated live track view">
+          <ellipse class="lap-track-lane lap-track-lane-outer" cx="280" cy="160" rx="226" ry="116"></ellipse>
+          <ellipse class="lap-track-lane lap-track-lane-inner" cx="280" cy="160" rx="154" ry="58"></ellipse>
+          <ellipse class="lap-track-center-line" cx="280" cy="160" rx="190" ry="88"></ellipse>
+          <g class="lap-track-finish-line">
+            <line x1="280" y1="42" x2="280" y2="102"></line>
+            <text x="292" y="50">Finish</text>
+          </g>
+          <g class="lap-track-marker-layer">
+            ${markerMarkup}
+          </g>
+        </svg>
+      </div>
+    `;
+  }
+
   function rosterStrip(session, { emptyTitle, emptyDetail, limit = 8 } = {}) {
     if (isInitialPublicLoad()) {
       return loadingSkeleton(4);
@@ -2526,9 +2672,7 @@
               </div>
             </div>
             <div class="lap-tracker-sidecar">
-              <p class="section-kicker">Crossing controls</p>
-              <strong class="summary-value">${escapeHtml(lapAllowed ? "Ready for taps" : "Waiting on race state")}</strong>
-              ${actionGuardList([{ label: "Lap crossing", reason: lapReason }])}
+              ${lapTrackerVisualPanel()}
             </div>
           </div>
           <div class="car-grid lap-grid">${buttons}</div>
@@ -3504,6 +3648,124 @@
     });
   }
 
+  function stopLapTrackAnimation() {
+    if (lapTrackVisualState.frameId) {
+      cancelAnimationFrame(lapTrackVisualState.frameId);
+      lapTrackVisualState.frameId = 0;
+    }
+    lapTrackVisualState.lastFrameTs = 0;
+  }
+
+  function lapTrackPoint(progress, offset = 0) {
+    const normalized = ((progress % 1) + 1) % 1;
+    const angle = (-Math.PI / 2) + (Math.PI * 2 * normalized);
+    const centerX = 280;
+    const centerY = 160;
+    const radiusX = 190 + offset;
+    const radiusY = 88 + (offset * 0.58);
+    return {
+      x: centerX + Math.cos(angle) * radiusX,
+      y: centerY + Math.sin(angle) * radiusY,
+    };
+  }
+
+  function applyLapTrackOverlapOffsets(items) {
+    if (items.length <= 1) {
+      return new Map(items.map((item) => [item.id, 0]));
+    }
+
+    const sorted = items.slice().sort((left, right) => left.progress - right.progress);
+    const clusters = [];
+    let cluster = [sorted[0]];
+
+    for (let index = 1; index < sorted.length; index += 1) {
+      if ((sorted[index].progress - sorted[index - 1].progress) < 0.04) {
+        cluster.push(sorted[index]);
+        continue;
+      }
+      clusters.push(cluster);
+      cluster = [sorted[index]];
+    }
+    clusters.push(cluster);
+
+    if (
+      clusters.length > 1 &&
+      ((sorted[0].progress + 1) - sorted[sorted.length - 1].progress) < 0.04
+    ) {
+      clusters[0] = [...clusters[clusters.length - 1], ...clusters[0]];
+      clusters.pop();
+    }
+
+    const offsets = new Map();
+    const pattern = [0, 18, -18, 30, -30, 42, -42, 54];
+    clusters.forEach((group) => {
+      group.forEach((item, index) => {
+        offsets.set(item.id, pattern[index] ?? 0);
+      });
+    });
+
+    return offsets;
+  }
+
+  function frameLapTrackVisual(frameTs) {
+    const root = document.getElementById("lap-track-estimate");
+    if (!root || route !== "/lap-line-tracker") {
+      stopLapTrackAnimation();
+      return;
+    }
+
+    const nowMs = Date.now();
+    const model = buildLapTrackerEstimateModel(nowMs);
+    const nextIds = new Set(model.map((item) => item.id));
+    const smoothing = lapTrackVisualState.lastFrameTs
+      ? 1 - Math.exp(-(Math.min(frameTs - lapTrackVisualState.lastFrameTs, 96) / 180))
+      : 1;
+    lapTrackVisualState.lastFrameTs = frameTs;
+
+    lapTrackVisualState.markers.forEach((_, markerId) => {
+      if (!nextIds.has(markerId)) {
+        lapTrackVisualState.markers.delete(markerId);
+      }
+    });
+
+    const displayItems = model.map((item) => {
+      const previous = lapTrackVisualState.markers.get(item.id) || {
+        displayTotalProgress: item.totalProgress,
+      };
+      previous.displayTotalProgress += (item.totalProgress - previous.displayTotalProgress) * smoothing;
+      lapTrackVisualState.markers.set(item.id, previous);
+      return {
+        ...item,
+        progress: ((previous.displayTotalProgress % 1) + 1) % 1,
+      };
+    });
+    const offsets = applyLapTrackOverlapOffsets(displayItems);
+
+    displayItems.forEach((item) => {
+      const marker = root.querySelector(`[data-track-marker=\"${item.id}\"]`);
+      if (!marker) {
+        return;
+      }
+
+      const point = lapTrackPoint(item.progress, offsets.get(item.id) ?? 0);
+      marker.setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`);
+      marker.classList.toggle("is-leader", item.position === 1);
+    });
+
+    lapTrackVisualState.frameId = requestAnimationFrame(frameLapTrackVisual);
+  }
+
+  function ensureLapTrackAnimation() {
+    if (route !== "/lap-line-tracker") {
+      stopLapTrackAnimation();
+      return;
+    }
+
+    if (!lapTrackVisualState.frameId) {
+      lapTrackVisualState.frameId = requestAnimationFrame(frameLapTrackVisual);
+    }
+  }
+
   function render() {
     appEl.innerHTML = appShell(buildContent());
 
@@ -3523,6 +3785,9 @@
 
     if (route === "/lap-line-tracker") {
       bindLapTrackerEvents();
+      ensureLapTrackAnimation();
+    } else {
+      stopLapTrackAnimation();
     }
 
     if (routeConfig.public && !publicConnectStarted) {
