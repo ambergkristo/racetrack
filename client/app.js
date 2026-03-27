@@ -1283,6 +1283,27 @@
       `;
   }
 
+  function raceControlConsoleStatusBody() {
+    const snapshot = state.raceSnapshot;
+    const activeSession = getActiveSession();
+    const flagMeta = getFlagMeta(snapshot);
+    return `
+        <div class="status-marquee tone-${flagMeta.tone}">
+          <div class="status-marquee-copy">
+            <p class="section-kicker">Live authority</p>
+            <strong class="status-marquee-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
+            <span class="status-marquee-detail">${escapeHtml(flagMeta.detail)}</span>
+          </div>
+          <div class="staff-status-metrics">
+            ${kpiPill("State", STATE_META[snapshot.state]?.label || snapshot.state, flagMeta.tone)}
+            ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
+            ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "danger")}
+            ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
+          </div>
+        </div>
+      `;
+  }
+
   function staffStatusPanel() {
     return panel(
       "Control State",
@@ -2431,8 +2452,11 @@
               </div>
             </div>
             <div class="race-control-sidecar">
-              <p class="section-kicker">Flag mode</p>
-              <strong class="summary-value">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</strong>
+              ${raceControlConsoleStatusBody()}
+              <div class="race-control-mode-block">
+                <p class="section-kicker">Flag mode</p>
+                <strong class="summary-value">${escapeHtml(MODE_META[snapshot.mode]?.label || snapshot.mode)}</strong>
+              </div>
               ${
                 modeVisible
                   ? `
@@ -2857,7 +2881,7 @@
     }
 
     if (route === "/race-control") {
-      return [staffStatusPanel(), raceControlPanel(), debugMode ? runtimePanel() : ""].join("");
+      return [raceControlPanel(), debugMode ? runtimePanel() : ""].join("");
     }
 
     if (route === "/lap-line-tracker") {
