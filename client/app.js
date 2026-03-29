@@ -2972,58 +2972,55 @@
     const flagMeta = getFlagMeta(snapshot);
     const activeSession = getDisplaySession();
     const connectionMeta = getConnectionMeta();
-    const syncBanner =
-      state.connection === "reconnecting" || state.awaitingLiveResync || state.connection === "error"
-        ? inlineAlert({
-            tone:
-              state.connection === "error"
-                ? "danger"
-                : state.awaitingLiveResync
-                  ? "warning"
-                  : "warning",
-            title: connectionMeta.label,
-            detail: connectionMeta.detail,
-          })
-        : "";
-    const fullscreenBanner = state.fullscreenError
-      ? inlineAlert({
+    const banners = [];
+    if (
+      state.connection === "reconnecting" ||
+      state.awaitingLiveResync ||
+      state.connection === "error"
+    ) {
+      banners.push(
+        inlineAlert({
+          tone:
+            state.connection === "error"
+              ? "danger"
+              : state.awaitingLiveResync
+                ? "warning"
+                : "warning",
+          title: connectionMeta.label,
+          detail: connectionMeta.detail,
+        })
+      );
+    }
+    if (state.fullscreenError) {
+      banners.push(
+        inlineAlert({
           tone: "danger",
           title: "Fullscreen needs manual recovery",
           detail: state.fullscreenError,
         })
-      : "";
-    const confidenceMarkup = `
-      <div class="confidence-row">
-        <span class="chip">Last sync ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
-        <span class="chip">${routeConfig.public ? "No polling" : "Socket only"}</span>
-        <span class="chip">${escapeHtml(state.socketConnectedOnce ? "Resync ready" : "First sync pending")}</span>
-      </div>
-    `;
+      );
+    }
 
-    return panel(
-      "Live State",
-      `
-        <div class="public-state-shell">
-          <div class="public-state-copy">
-            <p class="section-kicker">Presentation mode</p>
-            <strong class="overview-title">${escapeHtml(flagMeta.label)}</strong>
-            <span class="public-state-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+    return `
+      <section class="public-status-panel tone-${escapeHtml(flagMeta.tone)}${finishedClass(snapshot)}">
+        <div class="public-status-ribbon">
+          <div class="public-status-copy">
+            <p class="section-kicker">Live public feed</p>
+            <strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
+            <span>${escapeHtml(flagMeta.detail)}</span>
           </div>
-          <div class="kpi-grid">
-            ${kpiPill("Phase", STATE_META[snapshot.state]?.label || snapshot.state, STATE_META[snapshot.state]?.tone || "safe")}
-            ${kpiPill("Countdown", formatTime(snapshot.remainingSeconds), "danger")}
-            ${kpiPill("Sync", state.awaitingLiveResync ? "PENDING" : "LIVE", state.awaitingLiveResync ? "warning" : "safe")}
-            ${kpiPill("Rows", String(snapshot.leaderboard.length), snapshot.leaderboard.length ? "safe" : "warning")}
+          <div class="public-status-chips">
+            <span class="chip">State ${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</span>
+            <span class="chip">Flag ${escapeHtml(flagMeta.label)}</span>
+            <span class="chip">Countdown ${escapeHtml(formatTime(snapshot.remainingSeconds))}</span>
+            <span class="chip">Sync ${escapeHtml(state.awaitingLiveResync ? "Pending" : "Live")}</span>
+            <span class="chip">Last sync ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
+            <span class="chip">${routeConfig.public ? "No polling" : "Socket only"}</span>
           </div>
         </div>
-        ${syncBanner}
-        ${fullscreenBanner}
-        ${confidenceMarkup}
-        <p class="hint">${escapeHtml(flagMeta.detail)}</p>
-      `,
-      flagMeta.tone,
-      `panel-wide${finishedClass(snapshot)}`
-    );
+        ${banners.length ? `<div class="public-status-alerts">${banners.join("")}</div>` : ""}
+      </section>
+    `;
   }
 
   function activeRosterTable(session) {
@@ -3063,6 +3060,7 @@
     const leaderBestLap = leader ? formatLap(leader.bestLapTimeMs) : "--";
     const leaderCurrentLap = leader ? formatLap(leader.currentLapTimeMs) : "--";
     return [
+      publicStatusPanel(),
       panel(
         "Timing Tower",
         `
@@ -3139,6 +3137,7 @@
       `;
 
     return [
+      publicStatusPanel(),
       panel(
         "Race Board",
         `
@@ -3204,14 +3203,25 @@
     const queued = getQueuedSessions()[0] || null;
     const flagMeta = getFlagMeta();
     return [
+      publicStatusPanel(),
       panel(
         "Race Countdown",
         `
           <div class="countdown-focus-shell">
-            <div class="public-glance-copy">
-              <p class="section-kicker">Primary question</p>
-              <strong class="public-question">${escapeHtml(publicRouteQuestion())}</strong>
-              <span class="public-state-detail">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
+            <div class="countdown-status-strip">
+              <div class="countdown-status-copy">
+                <p class="section-kicker">Race countdown</p>
+                <strong class="countdown-status-title">${escapeHtml(
+                  activeSession ? activeSession.name : "Awaiting active session"
+                )}</strong>
+                <span class="public-state-detail">${escapeHtml(flagMeta.detail)}</span>
+              </div>
+              <div class="glance-metric-grid">
+                ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
+                ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
+                ${kpiPill("Countdown", formatTime(state.raceSnapshot.remainingSeconds), "danger")}
+                ${kpiPill("Next", queued ? queued.name : "Waiting", queued ? "safe" : "warning")}
+              </div>
             </div>
             <div class="countdown-shell tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
               <div class="countdown-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
@@ -3246,17 +3256,20 @@
     const flagMeta = getFlagMeta();
     const displaySession = getDisplaySession();
     return [
+      publicStatusPanel(),
       panel(
         "Track State Board",
         `
           <div class="flag-shell flag-shell-minimal">
             <div class="flag-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
-              <p class="section-kicker">Current flag</p>
+              <p class="section-kicker">Track flag</p>
               <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
               <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
-              <p>${escapeHtml(publicStateMeaning())}</p>
-              <span class="flag-session">${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
-              <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
+              <p class="flag-state-detail">${escapeHtml(publicStateMeaning())}</p>
+              <div class="flag-display-meta">
+                <span>${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
+                <span>${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
+              </div>
             </div>
           </div>
         `,
