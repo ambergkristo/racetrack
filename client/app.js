@@ -3169,10 +3169,14 @@
             <div class="session-board tone-safe">
               <p class="section-kicker">Up next</p>
               <strong>${escapeHtml(queued ? queued.name : "No queued session")}</strong>
-              <span>${escapeHtml(queued ? "Next queued lineup waiting for handoff." : "No next lineup has been queued yet.")}</span>
+              <span>${escapeHtml(
+                queued
+                  ? "Next lineup waiting to take the track."
+                  : "Front desk has not staged the next lineup yet."
+              )}</span>
               ${rosterStrip(queued, {
-                emptyTitle: "Queue is empty",
-                emptyDetail: "Add and queue the next session from front desk.",
+                emptyTitle: "Next lineup not ready",
+                emptyDetail: "Front desk has not staged the next lineup yet.",
                 limit: 4,
               })}
             </div>
