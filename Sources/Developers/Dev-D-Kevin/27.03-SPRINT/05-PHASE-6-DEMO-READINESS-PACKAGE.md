@@ -6,11 +6,12 @@ FAIL
 Phase 6 deliverables owned by Dev D are now present, but the repo is not ready for a truthful `PASS` verdict.
 
 ## Branch evidence
-- Package prepared from `origin/main` commit `9d3bedff95cd57edb35ddc3e25e1f2168fe740f1`.
-- `origin/feat/phase-6-devD-release-checklist-fallback` currently matches `origin/main` exactly: `0` commits ahead, `0` commits behind.
+- Package rebased onto `origin/main` commit `2e5c661`.
+- `origin/feat/phase-6-devD-release-checklist-fallback` remains stale relative to current `origin/main`.
 - Remote Phase 6 branches found:
   - `origin/feat/phase-6-devA-backend-demo-support`
   - `origin/feat/phase-6-devD-release-checklist-fallback`
+  - `origin/feat/phase-6-devC-demo-stabilization`
 - Remote Phase 6 branches not found:
   - `origin/feat/phase-6-devB-operator-demo-flow`
   - `origin/feat/phase-6-devC-public-demo-readiness`
@@ -20,7 +21,7 @@ Phase 6 deliverables owned by Dev D are now present, but the repo is not ready f
 - Phase 2 PASS ref: `Sources/Developers/Dev-B-Kristo-Leier/27.03-SPRINT/01-PHASE-2-P0-UX-CORRECTION-EVIDENCE.md`
 - Phase 3 PASS ref: `Sources/Developers/Dev-D-Kevin/27.03-SPRINT/PHASE-3-USABLE-PASS.md`
 - Phase 4 PASS ref: `Sources/Developers/Dev-B-Kristo-Leier/27.03-SPRINT/03-PHASE-4-RACE-CONTROL-CLARITY-EVIDENCE.md`
-- Phase 5 explicit PASS/FAIL proof file was not found under `Sources/Developers/...` in this checkout.
+- Phase 5 PASS ref: `Sources/Developers/Dev-B-Kristo-Leier/27.03-SPRINT/04-PHASE-5-PUBLIC-DISPLAY-POLISH-EVIDENCE.md`
 
 ## Dev D deliverables
 - Release checklist: `Sources/Developers/Dev-D-Kevin/27.03-SPRINT/05-PHASE-6-RELEASE-CHECKLIST.md`
@@ -42,8 +43,8 @@ Phase 6 deliverables owned by Dev D are now present, but the repo is not ready f
 ## Why verdict is FAIL
 - `Sources/Developers/27.03-SPRINT-INTEGRATION-STATUTE.md` requires Phase 6 final smoke, demo-flow, and fallback gate on `integration/phase-6-demo-readiness`.
 - That integration branch does not exist on origin in this checkout.
-- Dev B and Dev C Phase 6 source branches are also absent on origin in this checkout.
-- Phase 5 standalone PASS/FAIL proof is not present under `Sources/Developers/...`, so the `Phase 2-5 proof first` precondition is not fully evidenced.
+- The required Dev B Phase 6 source branch is absent on origin in this checkout.
+- Dev C has a remote Phase 6 branch, but not under the statute's expected branch name.
 - The two dry runs were local rehearsals only; they are not a cross-dev Phase 6 integration gate.
 
 ## Final PASS/FAIL decision
