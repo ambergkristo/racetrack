@@ -86,11 +86,15 @@ function resolveQueueView(snapshot) {
 }
 
 function resolveFinalResults(snapshot, lockedSnapshotContext) {
+  if (snapshot.state === RACE_STATES.RUNNING) {
+    return null;
+  }
+
   if (snapshot.state === RACE_STATES.FINISHED) {
     return clone(snapshot.leaderboard);
   }
 
-  if (snapshot.state === RACE_STATES.LOCKED) {
+  if (lockedSnapshotContext.finalResults !== null) {
     return lockedSnapshotContext.finalResults === null
       ? null
       : clone(lockedSnapshotContext.finalResults);
@@ -119,9 +123,9 @@ function buildRaceSnapshotViewModel(snapshot, lockedSnapshotContext = null) {
     queuedSessionIds: queueView.queuedSessionIds,
     queuedSessions: queueView.queuedSessions,
     lockedSession:
-      snapshot.state === RACE_STATES.LOCKED
-        ? normalizedLockedSnapshotContext.lockedSession
-        : null,
+      snapshot.state === RACE_STATES.RUNNING
+        ? null
+        : normalizedLockedSnapshotContext.lockedSession,
     finalResults: resolveFinalResults(snapshot, normalizedLockedSnapshotContext),
   };
 }

@@ -2354,6 +2354,36 @@ body {
   padding: 10px 12px;
 }
 
+.public-shell .session-board-pit {
+  border-color: rgba(255, 46, 46, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 46, 46, 0.1), rgba(255, 46, 46, 0.03)),
+    rgba(14, 16, 24, 0.96);
+}
+
+.public-shell .next-race-pit-callout {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 212, 0, 0.24);
+  background: rgba(255, 212, 0, 0.1);
+}
+
+.public-shell .next-race-pit-callout strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--warning);
+}
+
+.public-shell .next-race-pit-callout span {
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.24;
+}
+
 .public-shell .countdown-focus-shell {
   gap: 12px;
 }
@@ -2396,6 +2426,8 @@ body {
   min-height: min(58vh, 560px);
   padding: 18px;
   gap: 10px;
+  border-width: 2px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
 }
 
 .public-shell .flag-shell-minimal .flag-code {
@@ -2405,6 +2437,48 @@ body {
 
 .public-shell .flag-shell-minimal .flag-board strong {
   font-size: clamp(1.55rem, 3.4vw, 2.7rem);
+}
+
+.public-shell .flag-display-label {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-shell .flag-shell-minimal .flag-board.is-safe {
+  background:
+    linear-gradient(180deg, rgba(0, 255, 123, 0.24), rgba(0, 255, 123, 0.14)),
+    #072313;
+}
+
+.public-shell .flag-shell-minimal .flag-board.is-hazard-slow {
+  background:
+    linear-gradient(180deg, rgba(255, 212, 0, 0.26), rgba(255, 212, 0, 0.14)),
+    #261f00;
+}
+
+.public-shell .flag-shell-minimal .flag-board.is-hazard-stop {
+  background:
+    linear-gradient(180deg, rgba(255, 46, 46, 0.28), rgba(255, 46, 46, 0.16)),
+    #240606;
+}
+
+.public-shell .flag-shell-minimal .flag-board.is-checkered {
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.12) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.12) 75%, transparent 75%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.09) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.09) 75%, transparent 75%),
+    #101014;
+  background-size: 48px 48px;
+}
+
+.public-shell .flag-shell-minimal .flag-board.is-locked {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    #15171d;
+}
+
+.public-shell .flag-shell-minimal .flag-board p {
+  max-width: 24ch;
 }
 
 .public-shell .flag-display-meta {
@@ -3313,6 +3387,29 @@ body {
   display: none;
 }
 
+.route-front-desk .auto-assignment-note {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 255, 123, 0.2);
+  background: rgba(0, 255, 123, 0.06);
+}
+
+.route-front-desk .auto-assignment-note strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.84rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--safe);
+}
+
+.route-front-desk .auto-assignment-note span:last-child {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
 .route-front-desk .field input,
 .route-front-desk .action-btn {
   min-height: 40px;
@@ -3795,6 +3892,21 @@ body {
   fill: var(--muted);
   font-size: 12px;
   letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+}
+
+.route-lap-line-tracker .lap-track-pit-lane line {
+  stroke: rgba(255, 212, 0, 0.88);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 8 8;
+}
+
+.route-lap-line-tracker .lap-track-pit-lane text {
+  fill: rgba(255, 212, 0, 0.96);
+  font-size: 12px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   font-family: "Orbitron", "Segoe UI", sans-serif;
 }

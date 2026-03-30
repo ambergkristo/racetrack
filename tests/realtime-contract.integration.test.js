@@ -182,13 +182,14 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     const addRacerResult = await postJson(
       url,
       `/api/sessions/${sessionId}/racers`,
-      { name: "Amy", carNumber: "7" },
+      { name: "Amy" },
       {
         "x-staff-route": "/front-desk",
         "x-staff-key": process.env.FRONT_DESK_KEY,
       }
     );
     assert.equal(addRacerResult.response.status, 201);
+    assert.equal(addRacerResult.json.racer.carNumber, "1");
     const racerId = addRacerResult.json.racer.id;
     const createNextSessionResult = await postJson(
       url,
@@ -317,12 +318,12 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(lockedSnapshotPayload.flag, "LOCKED");
     assert.equal(lockedSnapshotPayload.lapEntryAllowed, false);
     assert.equal(lockedSnapshotPayload.resultsFinalized, true);
-    assert.equal(lockedSnapshotPayload.activeSessionId, null);
-    assert.equal(lockedSnapshotPayload.activeSession, null);
-    assert.equal(lockedSnapshotPayload.currentSessionId, null);
-    assert.equal(lockedSnapshotPayload.nextSessionId, nextSessionId);
-    assert.deepEqual(lockedSnapshotPayload.queuedSessionIds, [nextSessionId]);
-    assert.equal(lockedSnapshotPayload.nextSession?.id, nextSessionId);
+    assert.equal(lockedSnapshotPayload.activeSessionId, nextSessionId);
+    assert.equal(lockedSnapshotPayload.activeSession?.id, nextSessionId);
+    assert.equal(lockedSnapshotPayload.currentSessionId, nextSessionId);
+    assert.equal(lockedSnapshotPayload.nextSessionId, null);
+    assert.deepEqual(lockedSnapshotPayload.queuedSessionIds, []);
+    assert.equal(lockedSnapshotPayload.nextSession, null);
     assert.equal(lockedSnapshotPayload.lockedSession?.id, sessionId);
     assert.equal(lockedSnapshotPayload.finalResults?.length, 1);
     assert.equal(lockedSnapshotPayload.finishOrderActive, true);

@@ -341,6 +341,7 @@ function createApp(options = {}) {
     now: options.now,
     restoredState,
     simulationConfig: options.simulationConfig,
+    manualCarAssignmentEnabled: env.featureFlags.FF_MANUAL_CAR_ASSIGNMENT,
   });
   const idempotencyStore = createIdempotencyStore();
   const staticDir = resolveStaticDir();
@@ -410,14 +411,12 @@ function createApp(options = {}) {
 
   function persistCanonicalState() {
     const exportedState = raceStore.exportState();
-    if (exportedState.raceState !== RACE_STATES.LOCKED) {
-      lockedSnapshotContext = normalizeLockedSnapshotContext();
-    }
-
     persistenceAdapter.save({
       state: exportedState,
       lockedSnapshotContext:
-        exportedState.raceState === RACE_STATES.LOCKED ? lockedSnapshotContext : null,
+        lockedSnapshotContext.lockedSession || lockedSnapshotContext.finalResults
+          ? lockedSnapshotContext
+          : null,
     });
   }
 
@@ -751,6 +750,7 @@ function createApp(options = {}) {
 
   app.post("/api/race/start", raceControlAuth, (req, res) =>
     executeMutation(req, res, async () => {
+      lockedSnapshotContext = normalizeLockedSnapshotContext();
       const session = raceStore.startRace();
       const timerState = timerService.start();
       raceStore.syncTimer(timerState);
@@ -770,6 +770,7 @@ function createApp(options = {}) {
   app.post("/api/race/simulate", lapTrackerAuth, (req, res) =>
     executeMutation(req, res, async () => {
       parseBody(simulateRaceSchema, req);
+      lockedSnapshotContext = normalizeLockedSnapshotContext();
       const session = raceStore.startSimulation();
       const timerState = timerService.start();
       raceStore.syncTimer(timerState);

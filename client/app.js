@@ -586,6 +586,14 @@
     return state.raceSnapshot.activeSession || state.raceSnapshot.lockedSession;
   }
 
+  function hasHeldResults(snapshot = state.raceSnapshot) {
+    return Boolean(
+      snapshot.state !== "RUNNING" &&
+        Array.isArray(snapshot.finalResults) &&
+        snapshot.finalResults.length > 0
+    );
+  }
+
   function getQueuedSessions() {
     if (state.raceSnapshot.queuedSessions.length > 0) {
       return state.raceSnapshot.queuedSessions;
@@ -597,11 +605,7 @@
   }
 
   function getDisplayLeaderboardEntries(snapshot = state.raceSnapshot) {
-    if (
-      snapshot.state === "LOCKED" &&
-      Array.isArray(snapshot.finalResults) &&
-      snapshot.finalResults.length > 0
-    ) {
+    if (hasHeldResults(snapshot)) {
       return snapshot.finalResults;
     }
 
@@ -1886,7 +1890,8 @@
     const racerUpdateMode = state.racerForm.id !== null;
     const accessReason = staffAccessReason();
     const activeEditable = activeSessionEditable(activeSession);
-    const normalizedCarNumber = state.racerForm.carNumber.trim().toLowerCase();
+    const autoAssignmentMode = !manualAssignmentEnabled();
+    const normalizedCarNumber = autoAssignmentMode ? "" : state.racerForm.carNumber.trim().toLowerCase();
     const duplicateCarRacer =
       normalizedCarNumber && activeSession
         ? activeSession.racers.find((racer) => {
@@ -1929,6 +1934,7 @@
       racerEditReason,
       saveRacerReason,
       frontDeskReasons,
+      autoAssignmentMode,
     };
   }
 
@@ -2131,17 +2137,34 @@
     const racerManagementBody = `
       <div class="frontdesk-card-copy">
         <strong class="frontdesk-target-session">${escapeHtml(managedSession ? managedSession.name : "Choose a session to manage")}</strong>
-        <p id="racer-edit-hint" class="hint">${escapeHtml(formState.racerEditReason || "Racer edits and car numbers save against the selected session.")}</p>
+        <p id="racer-edit-hint" class="hint">${escapeHtml(
+          formState.racerEditReason ||
+            (formState.autoAssignmentMode
+              ? "Cars auto-assign from the authoritative 1-8 pool when racers are added."
+              : "Racer edits and car numbers save against the selected session.")
+        )}</p>
       </div>
       <div class="ops-board racer-board frontdesk-racer-form">
         <label class="field">
           <span>Racer name</span>
           <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
         </label>
-        <label class="field">
-          <span>Car number</span>
-          <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
-        </label>
+        ${
+          formState.autoAssignmentMode
+            ? `
+              <div class="auto-assignment-note">
+                <span class="chip tiny-chip">Cars 1-8</span>
+                <strong>Assigned automatically</strong>
+                <span>Duplicate car numbers are blocked by the canonical session truth.</span>
+              </div>
+            `
+            : `
+              <label class="field">
+                <span>Car number</span>
+                <input id="car-number-input" type="text" value="${escapeHtml(state.racerForm.carNumber)}" placeholder="7" ${formState.racerEditReason ? "disabled" : ""} />
+              </label>
+            `
+        }
         <div class="controls">
           ${buttonMarkup({
             id: "save-racer-btn",
@@ -2731,6 +2754,10 @@
             <line x1="280" y1="42" x2="280" y2="102"></line>
             <text x="292" y="50">Finish</text>
           </g>
+          <g class="lap-track-pit-lane">
+            <line x1="422" y1="226" x2="506" y2="286"></line>
+            <text x="430" y="220">Pit Lane</text>
+          </g>
           <g class="lap-track-marker-layer">
             ${markerMarkup}
           </g>
@@ -3070,7 +3097,9 @@
   }
 
   function leaderBoardPanels() {
-    const activeSession = getDisplaySession();
+    const activeSession = hasHeldResults() && state.raceSnapshot.lockedSession
+      ? state.raceSnapshot.lockedSession
+      : getDisplaySession();
     const displayEntries = getDisplayLeaderboardEntries();
     const leader = displayEntries[0] || null;
     const flagMeta = getFlagMeta();
@@ -3116,10 +3145,18 @@
   }
 
   function nextRacePanels() {
-    const activeSession = getDisplaySession();
-    const queued = getQueuedSessions()[0] || null;
+    const activeSession = state.raceSnapshot.activeSession;
+    const pitLaneSession =
+      state.raceSnapshot.state !== "RUNNING" && state.raceSnapshot.lockedSession
+        ? state.raceSnapshot.lockedSession
+        : null;
+    const onTrackSession = pitLaneSession || activeSession || getDisplaySession();
+    const queued = pitLaneSession
+      ? activeSession || state.raceSnapshot.nextSession || getQueuedSessions()[0] || null
+      : getQueuedSessions()[0] || null;
     const flagMeta = getFlagMeta();
     const runningRace = state.raceSnapshot.state === "RUNNING";
+    const pitReturnActive = Boolean(pitLaneSession);
     const topThreeEntries = runningRace ? getDisplayLeaderboardEntries().slice(0, 3) : [];
     const topThreeMarkup = runningRace
       ? topThreeEntries.length > 0
@@ -3152,6 +3189,16 @@
           <strong>Current race Top 3 appears once the race is running.</strong>
         </div>
       `;
+    const trackStateCopy = pitReturnActive
+      ? "This session has finished. Drivers should proceed to the pit lane."
+      : STATE_META[state.raceSnapshot.state]?.detail || "Waiting for the next session to be staged.";
+    const nextStateCopy = pitReturnActive
+      ? queued
+        ? "Next lineup is now in focus for the next safe start."
+        : "No next lineup is staged yet."
+      : queued
+        ? "Next lineup waiting to take the track."
+        : "Front desk has not staged the next lineup yet.";
 
     return [
       panel(
@@ -3171,24 +3218,27 @@
             </div>
           </div>
           <div class="session-board-grid${finishedClass()}">
-            <div class="session-board tone-${escapeHtml(flagMeta.tone)}">
-              <p class="section-kicker">On track now</p>
-              <strong>${escapeHtml(activeSession ? activeSession.name : "No active session")}</strong>
-              <span>${escapeHtml(STATE_META[state.raceSnapshot.state]?.detail || "Waiting for the next session to be staged.")}</span>
-              ${rosterStrip(activeSession, {
-                emptyTitle: "No racers on track",
-                emptyDetail: "Front desk has not staged an active session yet.",
+            <div class="session-board tone-${escapeHtml(pitReturnActive ? "danger" : flagMeta.tone)} ${pitReturnActive ? "session-board-pit" : ""}">
+              <p class="section-kicker">${escapeHtml(pitReturnActive ? "Return to pit lane" : "On track now")}</p>
+              <strong>${escapeHtml(onTrackSession ? onTrackSession.name : "No active session")}</strong>
+              <span>${escapeHtml(trackStateCopy)}</span>
+              ${
+                pitReturnActive
+                  ? `<div class="next-race-pit-callout"><strong>Proceed to pit lane</strong><span>Keep this lineup moving off track before the next safe start.</span></div>`
+                  : ""
+              }
+              ${rosterStrip(onTrackSession, {
+                emptyTitle: pitReturnActive ? "Pit return roster unavailable" : "No racers on track",
+                emptyDetail: pitReturnActive
+                  ? "The finished session roster will appear here until the next race starts safely."
+                  : "Front desk has not staged an active session yet.",
                 limit: 4,
               })}
             </div>
             <div class="session-board tone-safe">
               <p class="section-kicker">Up next</p>
               <strong>${escapeHtml(queued ? queued.name : "No queued session")}</strong>
-              <span>${escapeHtml(
-                queued
-                  ? "Next lineup waiting to take the track."
-                  : "Front desk has not staged the next lineup yet."
-              )}</span>
+              <span>${escapeHtml(nextStateCopy)}</span>
               ${rosterStrip(queued, {
                 emptyTitle: "Next lineup not ready",
                 emptyDetail: "Front desk has not staged the next lineup yet.",
@@ -3260,15 +3310,25 @@
   function flagPanels() {
     const flagMeta = getFlagMeta();
     const displaySession = getDisplaySession();
+    const flagVisualClass =
+      state.raceSnapshot.flag === "SAFE"
+        ? "is-safe"
+        : state.raceSnapshot.flag === "HAZARD_SLOW"
+          ? "is-hazard-slow"
+          : state.raceSnapshot.flag === "HAZARD_STOP"
+            ? "is-hazard-stop"
+            : state.raceSnapshot.flag === "CHECKERED"
+              ? "is-checkered"
+              : "is-locked";
     return [
       panel(
         "Track State Board",
         `
           <div class="flag-shell flag-shell-minimal">
-            <div class="flag-board tone-${escapeHtml(flagMeta.tone)}${finishedClass()}">
+            <div class="flag-board tone-${escapeHtml(flagMeta.tone)} ${flagVisualClass}${finishedClass()}">
               <p class="section-kicker">Current flag</p>
               <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
-              <strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong>
+              <strong class="flag-display-label">${escapeHtml(flagMeta.label)}</strong>
               <p>${escapeHtml(publicStateMeaning())}</p>
               <span class="flag-session">${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
               <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
@@ -3740,11 +3800,14 @@
           return;
         }
 
+        const autoAssignmentMode = !manualAssignmentEnabled();
         const carNumber = state.racerForm.carNumber.trim();
-        const body = {
-          name,
-          carNumber: carNumber === "" ? null : carNumber,
-        };
+        const body = autoAssignmentMode
+          ? { name }
+          : {
+              name,
+              carNumber: carNumber === "" ? null : carNumber,
+            };
 
         runAction(
           () => {

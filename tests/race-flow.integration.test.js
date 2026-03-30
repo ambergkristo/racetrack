@@ -135,13 +135,14 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
     const addRacerResult = await postJson(
       url,
       `/api/sessions/${sessionId}/racers`,
-      { name: "Amy", carNumber: "7" },
+      { name: "Amy" },
       {
         "x-staff-route": "/front-desk",
         "x-staff-key": process.env.FRONT_DESK_KEY,
       }
     );
     assert.equal(addRacerResult.response.status, 201);
+    assert.equal(addRacerResult.json.racer.carNumber, "1");
     const racerId = addRacerResult.json.racer.id;
 
     const startSnapshotPromise = waitForEvent(

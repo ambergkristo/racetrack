@@ -12,7 +12,6 @@ test("race store ignores non-positive lap deltas without corrupting leaderboard 
   const session = raceStore.createSession({ name: "Heat 1" });
   const racer = raceStore.addRacer(session.id, {
     name: "Amy",
-    carNumber: "7",
   });
 
   raceStore.startRace();
@@ -67,7 +66,6 @@ test("race store exposes checkered finish state and freezes the locked session s
   const session = raceStore.createSession({ name: "Heat 2" });
   const racer = raceStore.addRacer(session.id, {
     name: "Ben",
-    carNumber: "8",
   });
 
   raceStore.startRace();
@@ -101,8 +99,8 @@ test("race store records first post-checkered crossing order and ignores repeat 
   });
 
   const session = raceStore.createSession({ name: "Heat 3" });
-  const amy = raceStore.addRacer(session.id, { name: "Amy", carNumber: "7" });
-  const ben = raceStore.addRacer(session.id, { name: "Ben", carNumber: "8" });
+  const amy = raceStore.addRacer(session.id, { name: "Amy" });
+  const ben = raceStore.addRacer(session.id, { name: "Ben" });
 
   raceStore.startRace();
   raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 10_000 });
@@ -135,7 +133,6 @@ test("derived state truth keeps FINISHED distinct from LOCKED", () => {
   const session = raceStore.createSession({ name: "Heat 1" });
   const racer = raceStore.addRacer(session.id, {
     name: "Amy",
-    carNumber: "7",
   });
 
   raceStore.startRace();
@@ -190,19 +187,43 @@ test("race store exposes canonical current, next, and queued session truth", () 
   raceStore.lockRace();
 
   snapshot = raceStore.getSnapshot();
-  assert.equal(snapshot.currentSessionId, null);
-  assert.equal(snapshot.currentSession, null);
-  assert.equal(snapshot.nextSessionId, heat2.id);
-  assert.deepEqual(snapshot.queuedSessionIds, [heat2.id]);
+  assert.equal(snapshot.currentSessionId, heat2.id);
+  assert.equal(snapshot.currentSession?.id, heat2.id);
+  assert.equal(snapshot.activeSessionId, heat2.id);
+  assert.equal(snapshot.nextSessionId, null);
+  assert.deepEqual(snapshot.queuedSessionIds, []);
 });
 
-test("race store rejects duplicate car numbers within the same session", () => {
+test("race store auto-assigns cars from the authoritative 1-8 pool by default", () => {
   const raceStore = createRaceStore({
     raceDurationSeconds: 60,
     now: () => 2_000,
   });
 
   const session = raceStore.createSession({ name: "Heat Cars" });
+  const racers = Array.from({ length: 8 }, (_unused, index) =>
+    raceStore.addRacer(session.id, { name: `Racer ${index + 1}` })
+  );
+
+  assert.deepEqual(
+    racers.map((racer) => racer.carNumber),
+    ["1", "2", "3", "4", "5", "6", "7", "8"]
+  );
+
+  assert.throws(
+    () => raceStore.addRacer(session.id, { name: "Overflow Racer" }),
+    (error) => error.code === "SESSION_CAR_POOL_EXHAUSTED"
+  );
+});
+
+test("race store keeps duplicate car prevention behind manual assignment mode", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 60,
+    now: () => 2_000,
+    manualCarAssignmentEnabled: true,
+  });
+
+  const session = raceStore.createSession({ name: "Manual Heat Cars" });
   const amy = raceStore.addRacer(session.id, { name: "Amy", carNumber: "7" });
   assert.equal(amy.carNumber, "7");
 
@@ -238,8 +259,8 @@ test("simulation starts racers together, auto-checkers after target laps, and re
   });
 
   const session = raceStore.createSession({ name: "Sim Heat" });
-  const amy = raceStore.addRacer(session.id, { name: "Amy", carNumber: "7" });
-  const ben = raceStore.addRacer(session.id, { name: "Ben", carNumber: "8" });
+  const amy = raceStore.addRacer(session.id, { name: "Amy" });
+  const ben = raceStore.addRacer(session.id, { name: "Ben" });
 
   raceStore.startSimulation({
     startedAtMs: currentNow,

@@ -125,15 +125,15 @@ function validatePersistedState(state) {
   }
 
   if (parsed.raceState === RACE_STATES.LOCKED) {
-    if (parsed.activeSessionId !== null) {
-      throw new Error("Persisted LOCKED state cannot keep an active session.");
-    }
     if (parsed.lockedSession === null) {
       throw new Error("Persisted LOCKED state requires locked session data.");
     }
   }
 
-  if (parsed.raceState !== RACE_STATES.LOCKED && parsed.lockedSession !== null) {
+  if (
+    parsed.lockedSession !== null &&
+    ![RACE_STATES.LOCKED, RACE_STATES.STAGING, RACE_STATES.IDLE].includes(parsed.raceState)
+  ) {
     throw new Error(`Persisted ${parsed.raceState} state cannot keep locked session data.`);
   }
   return parsed;
@@ -182,7 +182,7 @@ function createFilePersistenceAdapter({ filePath }) {
         state,
       };
 
-      if (state.raceState === RACE_STATES.LOCKED && nextPayload.lockedSnapshotContext) {
+      if (nextPayload.lockedSnapshotContext) {
         persistedPayload.lockedSnapshotContext = persistedLockedSnapshotContextSchema.parse(
           nextPayload.lockedSnapshotContext
         );

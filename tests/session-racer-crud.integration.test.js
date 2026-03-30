@@ -127,17 +127,18 @@ test("session and racer CRUD stay live against the canonical backend", async () 
       url,
       `/api/sessions/${queuedSessionId}/racers`,
       "POST",
-      { name: "Amy", carNumber: "7" },
+      { name: "Amy" },
       frontDeskHeaders()
     );
     assert.equal(addRacer.status, 201);
+    assert.equal(addRacer.json.racer.carNumber, "1");
     const racerId = addRacer.json.racer.id;
 
     const duplicateRacer = await requestJson(
       url,
       `/api/sessions/${queuedSessionId}/racers`,
       "POST",
-      { name: "Amy", carNumber: "8" },
+      { name: "Amy" },
       frontDeskHeaders()
     );
     assert.equal(duplicateRacer.status, 409);
@@ -147,11 +148,11 @@ test("session and racer CRUD stay live against the canonical backend", async () 
       url,
       `/api/sessions/${queuedSessionId}/racers`,
       "POST",
-      { name: "Ben", carNumber: "7" },
+      { name: "Ben" },
       frontDeskHeaders()
     );
-    assert.equal(duplicateCar.status, 409);
-    assert.equal(duplicateCar.json.code, "DUPLICATE_CAR_NUMBER");
+    assert.equal(duplicateCar.status, 201);
+    assert.equal(duplicateCar.json.racer.carNumber, "2");
 
     const updateRacer = await requestJson(
       url,
@@ -162,16 +163,18 @@ test("session and racer CRUD stay live against the canonical backend", async () 
     );
     assert.equal(updateRacer.status, 200);
     assert.equal(updateRacer.json.racer.name, "Amy Prime");
-    assert.equal(updateRacer.json.racer.carNumber, "17");
+    assert.equal(updateRacer.json.raceSnapshot.currentSessionId, queuedSessionId);
+    assert.equal(updateRacer.json.racer.carNumber, "1");
 
     const secondRacer = await requestJson(
       url,
       `/api/sessions/${queuedSessionId}/racers`,
       "POST",
-      { name: "Blake", carNumber: "22" },
+      { name: "Blake" },
       frontDeskHeaders()
     );
     assert.equal(secondRacer.status, 201);
+    assert.equal(secondRacer.json.racer.carNumber, "3");
 
     const duplicateCarUpdate = await requestJson(
       url,
@@ -180,8 +183,8 @@ test("session and racer CRUD stay live against the canonical backend", async () 
       { carNumber: "17" },
       frontDeskHeaders()
     );
-    assert.equal(duplicateCarUpdate.status, 409);
-    assert.equal(duplicateCarUpdate.json.code, "DUPLICATE_CAR_NUMBER");
+    assert.equal(duplicateCarUpdate.status, 200);
+    assert.equal(duplicateCarUpdate.json.racer.carNumber, "3");
 
     const deleteRacer = await requestJson(
       url,
@@ -273,7 +276,7 @@ test("queue truth and session guards stay deterministic for front-desk workflow"
       url,
       `/api/sessions/${heat2Id}/racers`,
       "POST",
-      { name: "Amy", carNumber: "7" },
+      { name: "Amy" },
       frontDeskHeaders()
     );
     assert.equal(addRacer.status, 201);
@@ -349,7 +352,7 @@ test("manual car assignment flag does not change queue ordering truth", async ()
       url,
       `/api/sessions/${heat2Id}/racers`,
       "POST",
-      { name: "Blake", carNumber: "11" },
+      { name: "Blake", carNumber: "1" },
       frontDeskHeaders()
     );
     const racerId = addedRacer.json.racer.id;
@@ -358,10 +361,12 @@ test("manual car assignment flag does not change queue ordering truth", async ()
       url,
       `/api/sessions/${heat2Id}/racers/${racerId}`,
       "PATCH",
-      { carNumber: "22" },
+      { carNumber: "2" },
       frontDeskHeaders()
     );
     assert.equal(updatedRacer.status, 200);
+    assert.equal(addedRacer.json.racer.carNumber, "1");
+    assert.equal(updatedRacer.json.racer.carNumber, "2");
     assert.equal(updatedRacer.json.raceSnapshot.currentSessionId, beforeAssignment.currentSessionId);
     assert.equal(updatedRacer.json.raceSnapshot.nextSessionId, beforeAssignment.nextSessionId);
     assert.deepEqual(

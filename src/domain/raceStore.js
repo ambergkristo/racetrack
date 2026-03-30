@@ -40,6 +40,10 @@ const DEFAULT_SIMULATION_CONFIG = Object.freeze({
   hazardSlowFactor: 0.45,
 });
 
+const AUTHORITATIVE_CAR_POOL = Object.freeze(
+  Array.from({ length: 8 }, (_unused, index) => String(index + 1))
+);
+
 const SIMULATION_STATUSES = Object.freeze({
   IDLE: "IDLE",
   READY: "READY",
@@ -235,6 +239,7 @@ function createRaceStore({
   now = () => Date.now(),
   restoredState = null,
   simulationConfig = {},
+  manualCarAssignmentEnabled = false,
 }) {
   const state = normalizeRestoredState(restoredState, raceDurationSeconds);
   const simConfig = {
@@ -266,6 +271,39 @@ function createRaceStore({
   function resetLockedPresentation() {
     state.lockedSession = null;
     state.lockedLeaderboard = [];
+  }
+
+  function getAssignedCarNumbers(session, excludeRacerId = null) {
+    return new Set(
+      session.racers
+        .filter((racer) => !(excludeRacerId && racer.id === excludeRacerId))
+        .map((racer) => normalizeOptionalString(racer.carNumber))
+        .filter((value) => value !== null)
+    );
+  }
+
+  function getAvailableCarNumbers(session, excludeRacerId = null) {
+    const assigned = getAssignedCarNumbers(session, excludeRacerId);
+    return AUTHORITATIVE_CAR_POOL.filter((carNumber) => !assigned.has(carNumber));
+  }
+
+  function normalizeSessionAssignments(session) {
+    const available = AUTHORITATIVE_CAR_POOL.slice();
+    const remainingRacers = [];
+
+    for (const racer of session.racers) {
+      const normalizedCarNumber = normalizeOptionalString(racer.carNumber);
+      if (normalizedCarNumber && available.includes(normalizedCarNumber)) {
+        racer.carNumber = normalizedCarNumber;
+        available.splice(available.indexOf(normalizedCarNumber), 1);
+      } else {
+        remainingRacers.push(racer);
+      }
+    }
+
+    for (const racer of remainingRacers) {
+      racer.carNumber = available.shift() || null;
+    }
   }
 
   function buildSimulationSnapshot() {
@@ -328,6 +366,13 @@ function createRaceStore({
   }
 
   syncFlagFromState();
+
+  if (!manualCarAssignmentEnabled) {
+    state.sessions.forEach(normalizeSessionAssignments);
+    if (state.lockedSession) {
+      normalizeSessionAssignments(state.lockedSession);
+    }
+  }
 
   function ensureSimulationReady(code = "SIMULATION_BLOCKED") {
     ensure(
@@ -417,7 +462,6 @@ function createRaceStore({
 
   function assignActiveSession(sessionId) {
     state.activeSessionId = sessionId;
-    resetLockedPresentation();
     clearSimulation();
 
     if (state.raceState === RACE_STATES.IDLE) {
@@ -567,6 +611,33 @@ function createRaceStore({
     );
   }
 
+  function ensureCarPoolCapacity(session, excludeRacerId = null) {
+    const availableCars = getAvailableCarNumbers(session, excludeRacerId);
+    ensure(
+      availableCars.length > 0,
+      "SESSION_CAR_POOL_EXHAUSTED",
+      "All 8 authoritative cars are already assigned in this session.",
+      409
+    );
+    return availableCars;
+  }
+
+  function validateManualCarNumber(carNumber) {
+    const normalizedCarNumber = normalizeOptionalString(carNumber);
+    if (!normalizedCarNumber) {
+      return null;
+    }
+
+    ensure(
+      AUTHORITATIVE_CAR_POOL.includes(normalizedCarNumber),
+      "INVALID_CAR_NUMBER",
+      `Car ${normalizedCarNumber} is not in the authoritative 1-8 car pool.`,
+      409
+    );
+
+    return normalizedCarNumber;
+  }
+
   function addRacer(sessionId, { name, carNumber }) {
     const session = getSession(sessionId);
     assertSessionMutationAllowed(
@@ -575,12 +646,15 @@ function createRaceStore({
       "Current session cannot be edited while the race is running or finished."
     );
     ensureUniqueRacerName(session, name);
-    ensureUniqueCarNumber(session, carNumber);
+    const resolvedCarNumber = manualCarAssignmentEnabled
+      ? validateManualCarNumber(carNumber)
+      : ensureCarPoolCapacity(session)[0];
+    ensureUniqueCarNumber(session, resolvedCarNumber);
 
     const racer = {
       id: `racer-${state.nextRacerId++}`,
       name: name.trim(),
-      carNumber: normalizeOptionalString(carNumber),
+      carNumber: resolvedCarNumber,
       lapCount: 0,
       currentLapTimeMs: null,
       bestLapTimeMs: null,
@@ -613,8 +687,11 @@ function createRaceStore({
     }
 
     if (carNumber !== undefined) {
-      ensureUniqueCarNumber(session, carNumber, racerId);
-      racer.carNumber = normalizeOptionalString(carNumber);
+      if (manualCarAssignmentEnabled) {
+        const normalizedCarNumber = validateManualCarNumber(carNumber);
+        ensureUniqueCarNumber(session, normalizedCarNumber, racerId);
+        racer.carNumber = normalizedCarNumber;
+      }
     }
 
     racer.updatedAt = new Date(now()).toISOString();
@@ -708,6 +785,7 @@ function createRaceStore({
     );
 
     resetLapData(activeSession);
+    resetLockedPresentation();
     clearSimulation();
     state.raceMode = RACE_MODES.SAFE;
     state.remainingSeconds = raceDurationSeconds;
@@ -843,9 +921,9 @@ function createRaceStore({
     state.lockedLeaderboard = clone(buildLeaderboard());
     transitionTo(RACE_STATES.LOCKED, "LOCK_BLOCKED");
     state.sessions = state.sessions.filter((session) => session.id !== activeSession.id);
-    state.activeSessionId = null;
+    state.activeSessionId = state.sessions[0]?.id || null;
     resetRaceClock();
-    state.raceMode = RACE_MODES.SAFE;
+    state.raceMode = RACE_MODES.HAZARD_STOP;
     syncFlagFromState();
     clearSimulation();
 

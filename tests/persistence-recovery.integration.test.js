@@ -489,9 +489,11 @@ test("LOCK -> restart preserves locked state exactly", async () => {
       assert.equal(restoredSnapshot.json.state, "LOCKED");
       assert.equal(restoredSnapshot.json.flag, "LOCKED");
       assert.equal(restoredSnapshot.json.lapEntryAllowed, false);
-      assert.equal(restoredSnapshot.json.activeSessionId, null);
-      assert.equal(restoredSnapshot.json.activeSession, null);
-      assert.equal(restoredSnapshot.json.nextSession.id, nextSessionId);
+      assert.equal(restoredSnapshot.json.activeSessionId, nextSessionId);
+      assert.equal(restoredSnapshot.json.activeSession.id, nextSessionId);
+      assert.equal(restoredSnapshot.json.currentSessionId, nextSessionId);
+      assert.equal(restoredSnapshot.json.currentSession.id, nextSessionId);
+      assert.equal(restoredSnapshot.json.nextSession, null);
       assert.equal(restoredSnapshot.json.lockedSession.id, sessionId);
       assert.equal(restoredSnapshot.json.finalResults.length, 1);
       assert.equal(restoredSnapshot.json.finalResults[0].racerId, racerId);
