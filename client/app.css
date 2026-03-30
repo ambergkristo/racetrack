@@ -3137,6 +3137,22 @@ body {
   padding-right: 0;
 }
 
+.route-front-desk.staff-shell.is-fullscreen {
+  min-height: 100dvh;
+  height: auto;
+  overflow: auto;
+}
+
+.route-front-desk.staff-shell.is-fullscreen .frontdesk-panel,
+.route-front-desk.staff-shell.is-fullscreen .frontdesk-shell-grid,
+.route-front-desk.staff-shell.is-fullscreen .frontdesk-workflow {
+  height: auto;
+}
+
+.route-front-desk.staff-shell.is-fullscreen .frontdesk-setup-body {
+  overflow: visible;
+}
+
 .route-front-desk .frontdesk-card-copy {
   display: grid;
   gap: 3px;
@@ -3707,6 +3723,20 @@ body {
   min-height: var(--lap-track-panel-height);
   padding: 12px;
   overflow: hidden;
+}
+
+.route-lap-line-tracker.staff-shell.is-fullscreen {
+  min-height: 100dvh;
+  height: auto;
+  overflow: auto;
+}
+
+.route-lap-line-tracker .lap-tracker-shell {
+  align-items: start;
+}
+
+.route-lap-line-tracker .lap-tracker-sidecar {
+  min-height: 0;
 }
 
 .route-lap-line-tracker .lap-track-visual {
