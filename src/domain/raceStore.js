@@ -545,6 +545,28 @@ function createRaceStore({
     );
   }
 
+  function ensureUniqueCarNumber(session, carNumber, excludeRacerId = null) {
+    const normalizedCarNumber = normalizeOptionalString(carNumber);
+    if (!normalizedCarNumber) {
+      return;
+    }
+
+    const duplicate = session.racers.find((racer) => {
+      if (excludeRacerId && racer.id === excludeRacerId) {
+        return false;
+      }
+
+      return normalizeOptionalString(racer.carNumber)?.toLowerCase() === normalizedCarNumber.toLowerCase();
+    });
+
+    ensure(
+      !duplicate,
+      "DUPLICATE_CAR_NUMBER",
+      `Car ${normalizedCarNumber} is already assigned to ${duplicate?.name || "another racer"} in this session.`,
+      409
+    );
+  }
+
   function addRacer(sessionId, { name, carNumber }) {
     const session = getSession(sessionId);
     assertSessionMutationAllowed(
@@ -553,6 +575,7 @@ function createRaceStore({
       "Current session cannot be edited while the race is running or finished."
     );
     ensureUniqueRacerName(session, name);
+    ensureUniqueCarNumber(session, carNumber);
 
     const racer = {
       id: `racer-${state.nextRacerId++}`,
@@ -590,6 +613,7 @@ function createRaceStore({
     }
 
     if (carNumber !== undefined) {
+      ensureUniqueCarNumber(session, carNumber, racerId);
       racer.carNumber = normalizeOptionalString(carNumber);
     }
 

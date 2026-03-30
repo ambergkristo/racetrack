@@ -196,6 +196,30 @@ test("race store exposes canonical current, next, and queued session truth", () 
   assert.deepEqual(snapshot.queuedSessionIds, [heat2.id]);
 });
 
+test("race store rejects duplicate car numbers within the same session", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 60,
+    now: () => 2_000,
+  });
+
+  const session = raceStore.createSession({ name: "Heat Cars" });
+  const amy = raceStore.addRacer(session.id, { name: "Amy", carNumber: "7" });
+  assert.equal(amy.carNumber, "7");
+
+  assert.throws(
+    () => raceStore.addRacer(session.id, { name: "Ben", carNumber: "7" }),
+    (error) => error.code === "DUPLICATE_CAR_NUMBER"
+  );
+
+  const ben = raceStore.addRacer(session.id, { name: "Ben", carNumber: "8" });
+  assert.equal(ben.carNumber, "8");
+
+  assert.throws(
+    () => raceStore.updateRacer(session.id, ben.id, { carNumber: "7" }),
+    (error) => error.code === "DUPLICATE_CAR_NUMBER"
+  );
+});
+
 test("simulation starts racers together, auto-checkers after target laps, and records finish order", () => {
   let currentNow = 1_000;
   const raceStore = createRaceStore({

@@ -143,6 +143,16 @@ test("session and racer CRUD stay live against the canonical backend", async () 
     assert.equal(duplicateRacer.status, 409);
     assert.equal(duplicateRacer.json.code, "DUPLICATE_RACER_NAME");
 
+    const duplicateCar = await requestJson(
+      url,
+      `/api/sessions/${queuedSessionId}/racers`,
+      "POST",
+      { name: "Ben", carNumber: "7" },
+      frontDeskHeaders()
+    );
+    assert.equal(duplicateCar.status, 409);
+    assert.equal(duplicateCar.json.code, "DUPLICATE_CAR_NUMBER");
+
     const updateRacer = await requestJson(
       url,
       `/api/sessions/${queuedSessionId}/racers/${racerId}`,
@@ -153,6 +163,25 @@ test("session and racer CRUD stay live against the canonical backend", async () 
     assert.equal(updateRacer.status, 200);
     assert.equal(updateRacer.json.racer.name, "Amy Prime");
     assert.equal(updateRacer.json.racer.carNumber, "17");
+
+    const secondRacer = await requestJson(
+      url,
+      `/api/sessions/${queuedSessionId}/racers`,
+      "POST",
+      { name: "Blake", carNumber: "22" },
+      frontDeskHeaders()
+    );
+    assert.equal(secondRacer.status, 201);
+
+    const duplicateCarUpdate = await requestJson(
+      url,
+      `/api/sessions/${queuedSessionId}/racers/${secondRacer.json.racer.id}`,
+      "PATCH",
+      { carNumber: "17" },
+      frontDeskHeaders()
+    );
+    assert.equal(duplicateCarUpdate.status, 409);
+    assert.equal(duplicateCarUpdate.json.code, "DUPLICATE_CAR_NUMBER");
 
     const deleteRacer = await requestJson(
       url,

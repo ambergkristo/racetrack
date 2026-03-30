@@ -1993,9 +1993,7 @@ body {
 }
 
 .public-shell.is-fullscreen {
-  width: 100%;
-  max-width: none;
-  padding: 10px 12px;
+  padding: 12px;
 }
 
 .public-shell .telemetry-header {
@@ -2078,67 +2076,6 @@ body {
   align-content: stretch;
 }
 
-.public-status-panel {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
-    rgba(12, 16, 24, 0.94);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.public-status-ribbon {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
-  gap: 12px;
-  align-items: start;
-}
-
-.public-status-copy {
-  display: grid;
-  gap: 3px;
-  align-content: start;
-}
-
-.public-status-copy strong {
-  font-family: "Orbitron", "Segoe UI", sans-serif;
-  font-size: clamp(1rem, 1.8vw, 1.35rem);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.public-status-copy span {
-  font-size: 0.84rem;
-  line-height: 1.22;
-  color: var(--muted);
-}
-
-.public-status-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: flex-start;
-  justify-content: flex-end;
-}
-
-.public-status-panel .chip {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.public-status-alerts {
-  display: grid;
-  gap: 8px;
-}
-
-.public-status-alerts .inline-alert {
-  margin-top: 0;
-  min-height: 0;
-  padding: 10px 12px;
-}
-
 .public-route-grid > .panel {
   grid-column: 1 / -1;
   min-height: 0;
@@ -2158,6 +2095,7 @@ body {
 
 .public-display-panel {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -2420,25 +2358,6 @@ body {
   gap: 12px;
 }
 
-.public-shell .countdown-status-strip {
-  display: grid;
-  grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.28fr);
-  gap: 12px;
-  align-items: start;
-}
-
-.public-shell .countdown-status-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.public-shell .countdown-status-title {
-  font-family: "Orbitron", "Segoe UI", sans-serif;
-  font-size: clamp(1.18rem, 1.9vw, 1.62rem);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .public-shell .countdown-shell {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   gap: 12px;
@@ -2488,20 +2407,10 @@ body {
   font-size: clamp(1.55rem, 3.4vw, 2.7rem);
 }
 
-.public-shell .flag-state-detail {
-  max-width: 18ch;
-  margin: 0;
-  text-align: center;
-}
-
 .public-shell .flag-display-meta {
   margin-top: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
   gap: 8px 14px;
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.78);
 }
 
 .staff-shell {
@@ -3521,6 +3430,7 @@ body {
 
 .route-race-control .race-control-panel {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
   padding: 8px 10px;
@@ -4174,17 +4084,6 @@ body {
     grid-template-columns: 1fr 1fr;
   }
 
-  .public-status-ribbon,
-  .public-shell .next-race-status-strip,
-  .public-shell .countdown-status-strip,
-  .public-shell .countdown-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .public-status-chips {
-    justify-content: flex-start;
-  }
-
   .compact-route-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4222,45 +4121,4 @@ body {
   .compact-route-grid {
     grid-template-columns: 1fr;
   }
-}
-
-.public-shell.is-fullscreen .telemetry-copy h1 {
-  font-size: clamp(1.2rem, 2vw, 1.8rem);
-}
-
-.public-shell.is-fullscreen .subtitle,
-.public-shell.is-fullscreen .connection-status span {
-  display: none;
-}
-
-.public-shell.is-fullscreen .telemetry-header {
-  align-items: center;
-}
-
-.public-shell.is-fullscreen .connection-status,
-.public-shell.is-fullscreen .fullscreen-btn {
-  padding: 8px 10px;
-}
-
-.public-shell.is-fullscreen.route-race-flags .public-status-panel {
-  display: none;
-}
-
-.public-shell.is-fullscreen.route-race-flags .public-route-grid > .panel {
-  padding: 10px;
-  border-radius: 18px;
-}
-
-.public-shell.is-fullscreen.route-race-flags .panel-heading {
-  display: none;
-}
-
-.public-shell.is-fullscreen.route-race-flags .flag-shell-minimal .flag-board {
-  min-height: calc(100dvh - 104px);
-  border-radius: 22px;
-}
-
-.public-shell.is-fullscreen.route-race-flags .flag-state-detail,
-.public-shell.is-fullscreen.route-race-flags .flag-display-meta {
-  display: none;
 }
