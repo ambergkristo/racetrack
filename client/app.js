@@ -2231,7 +2231,6 @@
           <div class="stack-list compact-list frontdesk-summary-list">
             <div class="info-row frontdesk-summary-row"><span>Current Race</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
             <div class="info-row frontdesk-summary-row"><span>Registered Racers</span><strong>${registeredCount}</strong></div>
-            <div class="info-row frontdesk-summary-row"><span>Saved Sessions</span><strong>${sessionCount}</strong></div>
           </div>
         </div>
       </section>

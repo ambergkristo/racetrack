@@ -3004,9 +3004,10 @@ body {
 }
 
 .route-front-desk .frontdesk-truth-value {
-  font-size: 1.08rem;
-  font-family: "Orbitron", "Segoe UI", sans-serif;
-  line-height: 1.05;
+  font-size: 0.98rem;
+  font-family: "Segoe UI", sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .route-front-desk .frontdesk-inline-card {
@@ -3032,8 +3033,10 @@ body {
 }
 
 .route-front-desk .queued-session-copy strong {
-  font-size: 0.92rem;
-  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.82rem;
+  font-family: "Segoe UI", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .route-front-desk .queued-session-actions {
@@ -3272,8 +3275,10 @@ body {
 }
 
 .route-front-desk .frontdesk-summary-row strong {
-  font-family: "Orbitron", "Segoe UI", sans-serif;
-  font-size: 0.9rem;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .route-front-desk .frontdesk-roster-preview .queue-racer-row {

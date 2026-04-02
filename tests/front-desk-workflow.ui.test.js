@@ -169,6 +169,7 @@ test("front-desk renders current, next, and queued workflow blocks", async () =>
   assert.equal(html.includes("Create Session"), true);
   assert.equal(html.includes("Session Summary"), true);
   assert.equal(html.includes("Saved Sessions"), true);
+  assert.equal((html.match(/Saved Sessions/g) || []).length, 1);
   assert.equal(html.includes("Control State"), false);
   assert.equal(html.includes("Racer Management"), true);
   assert.equal(html.includes("Current Race"), true);
