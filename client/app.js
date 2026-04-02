@@ -1297,14 +1297,6 @@
   }
 
   function telemetryHeader() {
-    if (route === "/race-flags" && routeConfig.public) {
-      return `
-        <header class="telemetry-header flag-route-header">
-          ${fullscreenButton()}
-        </header>
-      `;
-    }
-
     const snapshot = state.raceSnapshot;
     const flagMeta = getFlagMeta(snapshot);
     const routeTone = routeConfig.public ? "warning" : routeConfig.staff ? "safe" : "idle";
@@ -3652,6 +3644,7 @@
 
   function flagPanels() {
     const flagMeta = getFlagMeta();
+    const displaySession = getDisplaySession();
     const flagVisualClass =
       state.raceSnapshot.flag === "SAFE"
         ? "is-safe"
@@ -3662,17 +3655,25 @@
             : state.raceSnapshot.flag === "CHECKERED"
               ? "is-checkered"
               : "is-locked";
-    return `
-      <section class="flag-panel-standalone" aria-label="Track flag board">
-        <div class="flag-shell flag-shell-minimal">
-          <div
-            class="flag-board tone-${escapeHtml(flagMeta.tone)} ${flagVisualClass}${finishedClass()}"
-            role="img"
-            aria-label="Track flag board"
-          ></div>
-        </div>
-      </section>
-    `;
+    return [
+      panel(
+        "Track State Board",
+        `
+          <div class="flag-shell flag-shell-minimal">
+            <div class="flag-board tone-${escapeHtml(flagMeta.tone)} ${flagVisualClass}${finishedClass()}">
+              <p class="section-kicker">Current flag</p>
+              <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
+              <strong class="flag-display-label">${escapeHtml(flagMeta.label)}</strong>
+              <p>${escapeHtml(publicStateMeaning())}</p>
+              <span class="flag-session">${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
+              <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
+            </div>
+          </div>
+        `,
+        flagMeta.tone,
+        "panel-wide public-display-panel flag-panel"
+      ),
+    ].join("");
   }
 
   function homePanels() {

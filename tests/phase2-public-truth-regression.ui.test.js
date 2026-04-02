@@ -166,7 +166,7 @@ test("public routes keep fullscreen affordances on all display screens", async (
     ["/leader-board", "Timing Tower"],
     ["/next-race", "Race Board"],
     ["/race-countdown", "Race Countdown"],
-    ["/race-flags", "flag-panel-standalone"],
+    ["/race-flags", "Track State Board"],
   ];
 
   for (const [pathname, routeMarker] of expectations) {
@@ -347,7 +347,7 @@ test("locked truth stays visible on staff and public routes while fullscreen rem
 
   assert.equal(lapTrackerHtml.includes("Session is LOCKED. Lap input is blocked."), true);
   assert.equal(flagsHtml.includes("id=\"fullscreen-btn\""), true);
-  assert.equal(flagsHtml.includes("flag-panel-standalone"), true);
-  assert.equal(flagsHtml.includes("Heat 1"), false);
-  assert.equal(flagsHtml.includes("Race is locked. Results are final and lap input is blocked."), false);
+  assert.equal(flagsHtml.includes("Locked"), true);
+  assert.equal(flagsHtml.includes("Heat 1"), true);
+  assert.equal(flagsHtml.includes("Race is locked. Results are final and lap input is blocked."), true);
 });
