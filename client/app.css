@@ -3760,8 +3760,6 @@ body {
 
 .route-race-control .race-control-live-order-card {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 6px;
   min-height: 0;
   padding: 10px;
   border-radius: 16px;
@@ -3769,17 +3767,6 @@ body {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
     rgba(16, 18, 26, 0.92);
-}
-
-.route-race-control .race-control-live-order-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.route-race-control .race-control-live-order-head .queue-title {
-  font-size: 0.9rem;
 }
 
 .route-race-control .race-order-scroll {

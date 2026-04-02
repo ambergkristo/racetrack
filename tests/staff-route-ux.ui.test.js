@@ -167,7 +167,8 @@ test("race-control renders a single primary control console", async () => {
   assert.equal(html.includes("race-control-console"), true);
   assert.equal(html.includes("Flag mode"), true);
   assert.equal(html.includes("Mode Control"), false);
-  assert.equal(html.includes("Live order"), true);
+  assert.equal(html.includes("Live order"), false);
+  assert.equal(html.includes("Track order stays visible while controls stay compact."), false);
 });
 
 test("lap-line-tracker keeps lap entry and tap targets in one console", async () => {

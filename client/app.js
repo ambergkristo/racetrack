@@ -2894,13 +2894,6 @@
             </div>
           </div>
           <div class="race-control-live-order-card">
-            <div class="race-control-live-order-head">
-              <div>
-                <p class="section-kicker">Live order</p>
-                <strong class="queue-title">Track order stays visible while controls stay compact.</strong>
-              </div>
-              <span class="chip tiny-chip">${displayEntries.length} racers</span>
-            </div>
             ${leaderboardTable(displayEntries, {
               wrapClass: "race-order-scroll",
               finishOrderActive: snapshot.finishOrderActive,
