@@ -1532,8 +1532,6 @@
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
     const flagMeta = getFlagMeta(snapshot);
-    const syncLabel = state.awaitingLiveResync ? "waiting" : "live";
-    const gateLabel = state.staffAuthDisabled ? "Bypassed" : state.gateStatus;
     return `
         <div class="status-marquee tone-${flagMeta.tone}">
           <div class="status-marquee-copy">
@@ -1554,12 +1552,6 @@
         </div>
         ${staffConnectionAlert()}
         ${noticeMarkup()}
-        <div class="staff-chip-row">
-          <span class="chip">Gate ${escapeHtml(gateLabel)}</span>
-          <span class="chip">Manual Assign: ${escapeHtml(state.featureFlags.FF_MANUAL_CAR_ASSIGNMENT ? "ON" : "OFF")}</span>
-          <span class="chip">Sync ${escapeHtml(syncLabel)}</span>
-          <span class="chip">Last sync ${escapeHtml(formatTimestamp(state.lastSyncAt))}</span>
-        </div>
       `;
   }
 

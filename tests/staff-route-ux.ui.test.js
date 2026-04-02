@@ -189,4 +189,8 @@ test("lap-line-tracker keeps lap entry and tap targets in one console", async ()
   assert.equal(html.includes("Finish"), true);
   assert.equal(html.includes("Pit Lane"), true);
   assert.equal(html.includes("Crossing Console"), false);
+  assert.equal(html.includes("staff-chip-row"), false);
+  assert.equal(html.includes("Gate Bypassed"), false);
+  assert.equal(html.includes("Manual Assign: OFF"), false);
+  assert.equal(html.includes("Sync live"), false);
 });
