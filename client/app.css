@@ -2528,6 +2528,40 @@ body {
   font-size: 0.78rem;
 }
 
+.route-race-flags.public-shell {
+  padding: 10px;
+  gap: 10px;
+}
+
+.route-race-flags .flag-route-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: start;
+}
+
+.route-race-flags .public-route-grid {
+  min-height: 0;
+}
+
+.route-race-flags .flag-panel-standalone {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+}
+
+.route-race-flags .flag-panel-standalone .flag-shell,
+.route-race-flags .flag-panel-standalone .flag-board {
+  min-height: 0;
+  height: 100%;
+}
+
+.route-race-flags .flag-panel-standalone .flag-shell-minimal .flag-board {
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  border-radius: 28px;
+}
+
 .staff-shell {
   width: min(1720px, 100%);
   min-height: 100dvh;

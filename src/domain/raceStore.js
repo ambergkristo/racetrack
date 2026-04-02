@@ -1027,23 +1027,7 @@ function createRaceStore({
   }
 
   function sortLeaderboardEntries(entries) {
-    const finishOrderActive = entries.some((entry) => Number.isFinite(entry.finishPlace));
-    return entries.slice().sort((left, right) => {
-      if (finishOrderActive) {
-        const leftFinished = Number.isFinite(left.finishPlace);
-        const rightFinished = Number.isFinite(right.finishPlace);
-
-        if (leftFinished && rightFinished && left.finishPlace !== right.finishPlace) {
-          return left.finishPlace - right.finishPlace;
-        }
-
-        if (leftFinished !== rightFinished) {
-          return leftFinished ? -1 : 1;
-        }
-      }
-
-      return sortCompetitiveEntries(left, right);
-    });
+    return entries.slice().sort(sortCompetitiveEntries);
   }
 
   function startRace() {
@@ -1511,7 +1495,7 @@ function createRaceStore({
       }))
     )
       .map((entry, index) => ({
-        position: Number.isFinite(entry.finishPlace) ? entry.finishPlace : index + 1,
+        position: index + 1,
         ...entry,
       }));
   }

@@ -465,23 +465,9 @@
   }
 
   function sortLeaderboard(entries) {
-    const finishOrderActive = entries.some((entry) => Number.isFinite(entry.finishPlace));
     return entries
       .slice()
       .sort((left, right) => {
-        if (finishOrderActive) {
-          const leftFinished = Number.isFinite(left.finishPlace);
-          const rightFinished = Number.isFinite(right.finishPlace);
-
-          if (leftFinished && rightFinished && left.finishPlace !== right.finishPlace) {
-            return left.finishPlace - right.finishPlace;
-          }
-
-          if (leftFinished !== rightFinished) {
-            return leftFinished ? -1 : 1;
-          }
-        }
-
         if (left.bestLapTimeMs === null && right.bestLapTimeMs === null) {
           return left.name.localeCompare(right.name);
         }
@@ -502,7 +488,7 @@
       })
       .map((entry, index) => ({
         ...entry,
-        position: Number.isFinite(entry.finishPlace) ? entry.finishPlace : index + 1,
+        position: index + 1,
       }));
   }
 
@@ -1311,6 +1297,14 @@
   }
 
   function telemetryHeader() {
+    if (route === "/race-flags" && routeConfig.public) {
+      return `
+        <header class="telemetry-header flag-route-header">
+          ${fullscreenButton()}
+        </header>
+      `;
+    }
+
     const snapshot = state.raceSnapshot;
     const flagMeta = getFlagMeta(snapshot);
     const routeTone = routeConfig.public ? "warning" : routeConfig.staff ? "safe" : "idle";
@@ -2667,7 +2661,6 @@
       limit = entries.length,
       wrapClass = "",
       tableClass = "",
-      finishOrderActive = state.raceSnapshot.finishOrderActive,
     } = {}
   ) {
     if (isInitialPublicLoad()) {
@@ -2684,38 +2677,31 @@
     const leaderBestLapMs =
       entries.find((entry) => Number.isFinite(entry.bestLapTimeMs))?.bestLapTimeMs ?? null;
     const visibleEntries = entries.slice(0, limit);
-    const columns = finishOrderActive
-      ? ["Place", "Car", "Racer", "Best Lap", "Live Lap", "Laps"]
-      : ["Pos", "Car", "Racer", "Best Lap", "Live Lap", "Laps"];
+    const columns = ["Pos", "Car", "Racer", "Best Lap", "Live Lap", "Laps"];
 
     return dataTable(
       columns,
       visibleEntries.map(
-        (entry) => `
+        (entry) => {
+          const finishMeta = Number.isFinite(entry.finishPlace)
+            ? ` · ${formatOrdinal(entry.finishPlace)} over the line`
+            : "";
+          return `
           <tr class="${entry.position === 1 ? "leader-row" : ""}${Number.isFinite(entry.finishPlace) ? " finish-row" : ""}">
-            <td><span class="position-badge${finishOrderActive ? " finish-place-badge" : ""}">${escapeHtml(
-              finishOrderActive && Number.isFinite(entry.finishPlace)
-                ? formatOrdinal(entry.finishPlace)
-                : String(entry.position)
-            )}</span></td>
+            <td><span class="position-badge">${escapeHtml(String(entry.position))}</span></td>
             <td><span class="car-badge">${escapeHtml(entry.carNumber || "--")}</span></td>
             <td>
               <div class="driver-cell">
                 <strong>${escapeHtml(entry.name)}</strong>
-                <span>${escapeHtml(
-                  finishOrderActive
-                    ? Number.isFinite(entry.finishPlace)
-                      ? `${formatOrdinal(entry.finishPlace)} place over the line`
-                      : "Awaiting finish line"
-                    : formatDeltaToLeader(entry, leaderBestLapMs)
-                )}</span>
+                <span>${escapeHtml(`${formatDeltaToLeader(entry, leaderBestLapMs)}${finishMeta}`)}</span>
               </div>
             </td>
             <td class="timing-cell ${entry.bestLapTimeMs === leaderBestLapMs ? "is-best" : ""}">${escapeHtml(formatLap(entry.bestLapTimeMs))}</td>
             <td class="timing-cell">${escapeHtml(formatLap(entry.currentLapTimeMs))}</td>
             <td class="timing-cell">${entry.lapCount}</td>
           </tr>
-        `
+        `;
+        }
       ),
       { wrapClass, tableClass }
     );
@@ -2726,7 +2712,6 @@
     {
       limit = entries.length,
       wrapClass = "",
-      finishOrderActive = state.raceSnapshot.finishOrderActive,
     } = {}
   ) {
     if (isInitialPublicLoad()) {
@@ -2748,24 +2733,17 @@
       <div class="leaderboard-board ${wrapClass}">
         ${visibleEntries
           .map((entry, index) => {
-            const positionLabel =
-              finishOrderActive && Number.isFinite(entry.finishPlace)
-                ? formatOrdinal(entry.finishPlace)
-                : String(entry.position);
             const rowToneClass =
               entry.position === 1 ? " is-leader" : index % 2 === 1 ? " is-alt" : "";
-            const deltaLabel = finishOrderActive
-              ? Number.isFinite(entry.finishPlace)
-                ? `${formatOrdinal(entry.finishPlace)} over the line`
-                : "Awaiting finish line"
-              : formatDeltaToLeader(entry, leaderBestLapMs);
+            const finishMeta = Number.isFinite(entry.finishPlace)
+              ? ` · ${formatOrdinal(entry.finishPlace)} over the line`
+              : "";
+            const deltaLabel = `${formatDeltaToLeader(entry, leaderBestLapMs)}${finishMeta}`;
             return `
               <article class="leaderboard-board-row${rowToneClass}${Number.isFinite(entry.finishPlace) ? " is-finished" : ""}">
                 <div class="leaderboard-pos-stack">
-                  <span class="leaderboard-pos-label">${escapeHtml(
-                    finishOrderActive ? "Place" : "Pos"
-                  )}</span>
-                  <strong class="leaderboard-pos-value">${escapeHtml(positionLabel)}</strong>
+                  <span class="leaderboard-pos-label">Pos</span>
+                  <strong class="leaderboard-pos-value">${escapeHtml(String(entry.position))}</strong>
                 </div>
                 <div class="leaderboard-car-stack">
                   <span class="leaderboard-car-badge">${escapeHtml(entry.carNumber || "--")}</span>
@@ -3464,6 +3442,11 @@
     const countdownLabel = formatTime(state.raceSnapshot.remainingSeconds);
     const leaderBestLap = leader ? formatLap(leader.bestLapTimeMs) : "--";
     const leaderCurrentLap = leader ? formatLap(leader.currentLapTimeMs) : "--";
+    const leaderSecondary = leader
+      ? Number.isFinite(leader.finishPlace)
+        ? `Best ${leaderBestLap} · ${formatOrdinal(leader.finishPlace)} over the line`
+        : `Best ${leaderBestLap} · Live ${leaderCurrentLap}`
+      : "Best -- · Live --";
     return [
       panel(
         "Timing Tower",
@@ -3475,16 +3458,10 @@
               ${kpiPill("Countdown", countdownLabel, "danger")}
             </div>
             <div class="leaderboard-leader-meta${finishedClass()}">
-              <p class="section-kicker">${escapeHtml(
-                state.raceSnapshot.finishOrderActive ? "Finish order" : "Leader"
-              )}</p>
+              <p class="section-kicker">Leader</p>
               <strong class="leaderboard-leader-name">${escapeHtml(leader ? leader.name : "Waiting for first lap")}</strong>
               <span class="leaderboard-leader-session">${escapeHtml(activeSession ? activeSession.name : "No active session")}</span>
-              <span class="leaderboard-leader-laps">${escapeHtml(
-                state.raceSnapshot.finishOrderActive && Number.isFinite(leader?.finishPlace)
-                  ? `${formatOrdinal(leader.finishPlace)} place over the line · Best ${leaderBestLap}`
-                  : `Best ${leaderBestLap} · Live ${leaderCurrentLap}`
-              )}</span>
+              <span class="leaderboard-leader-laps">${escapeHtml(leaderSecondary)}</span>
               <span class="leaderboard-state-detail">${escapeHtml(flagMeta.detail)}</span>
             </div>
           </div>
@@ -3675,7 +3652,6 @@
 
   function flagPanels() {
     const flagMeta = getFlagMeta();
-    const displaySession = getDisplaySession();
     const flagVisualClass =
       state.raceSnapshot.flag === "SAFE"
         ? "is-safe"
@@ -3686,25 +3662,17 @@
             : state.raceSnapshot.flag === "CHECKERED"
               ? "is-checkered"
               : "is-locked";
-    return [
-      panel(
-        "Track State Board",
-        `
-          <div class="flag-shell flag-shell-minimal">
-            <div class="flag-board tone-${escapeHtml(flagMeta.tone)} ${flagVisualClass}${finishedClass()}">
-              <p class="section-kicker">Current flag</p>
-              <span class="flag-code">${escapeHtml(flagMeta.label.toUpperCase())}</span>
-              <strong class="flag-display-label">${escapeHtml(flagMeta.label)}</strong>
-              <p>${escapeHtml(publicStateMeaning())}</p>
-              <span class="flag-session">${escapeHtml(displaySession ? displaySession.name : "No active session")}</span>
-              <span class="flag-timer">${escapeHtml(formatTime(state.raceSnapshot.remainingSeconds))}</span>
-            </div>
-          </div>
-        `,
-        flagMeta.tone,
-        "panel-wide public-display-panel flag-panel"
-      ),
-    ].join("");
+    return `
+      <section class="flag-panel-standalone" aria-label="Track flag board">
+        <div class="flag-shell flag-shell-minimal">
+          <div
+            class="flag-board tone-${escapeHtml(flagMeta.tone)} ${flagVisualClass}${finishedClass()}"
+            role="img"
+            aria-label="Track flag board"
+          ></div>
+        </div>
+      </section>
+    `;
   }
 
   function homePanels() {

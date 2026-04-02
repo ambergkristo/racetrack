@@ -159,7 +159,7 @@ test("leader-board shows the live flag semantics alongside state", async () => {
   );
 });
 
-test("race-flags and leader-board share the same locked finality wording", async () => {
+test("race-flags stays pure while leader-board keeps locked wording", async () => {
   const snapshot = {
     state: "LOCKED",
     flag: "LOCKED",
@@ -192,10 +192,9 @@ test("race-flags and leader-board share the same locked finality wording", async
     leaderBoardHtml.includes("Race is locked. Results are final and lap input is blocked."),
     true
   );
-  assert.equal(flagsHtml.includes("LOCKED"), true);
-  assert.equal(flagsHtml.includes("Locked"), true);
-  assert.equal(
-    flagsHtml.includes("Race is locked. Results are final and lap input is blocked."),
-    true
-  );
+  assert.equal(flagsHtml.includes("flag-panel-standalone"), true);
+  assert.equal(flagsHtml.includes("LOCKED"), false);
+  assert.equal(flagsHtml.includes("Locked"), false);
+  assert.equal(flagsHtml.includes("Heat 1"), false);
+  assert.equal(flagsHtml.includes("Race is locked. Results are final and lap input is blocked."), false);
 });

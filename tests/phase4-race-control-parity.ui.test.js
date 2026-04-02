@@ -201,7 +201,8 @@ test("locked wording stays aligned between race-control and public state board",
     raceControlHtml.includes("Race is locked. Results are final and lap input is blocked."),
     true
   );
-  assert.equal(flagsHtml.includes("Locked"), true);
-  assert.equal(flagsHtml.includes("Heat 1"), true);
   assert.equal(flagsHtml.includes('id="fullscreen-btn"'), true);
+  assert.equal(flagsHtml.includes("flag-panel-standalone"), true);
+  assert.equal(flagsHtml.includes("Heat 1"), false);
+  assert.equal(flagsHtml.includes("Locked"), false);
 });

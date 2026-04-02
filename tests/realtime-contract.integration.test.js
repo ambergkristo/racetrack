@@ -531,8 +531,14 @@ test("simulation mode runs through the canonical websocket truth layer", async (
     assert.equal(stagedSnapshot.simulation.hardCapReached, false);
     assert.equal(stagedSnapshot.lockedSession?.id, sessionId);
     assert.equal(stagedSnapshot.activeSessionId, nextSessionId);
-    assert.equal(stagedSnapshot.finalResults[0].finishPlace, 1);
-    assert.equal(stagedSnapshot.finalResults[1].finishPlace, 2);
+    assert.equal(
+      stagedSnapshot.finalResults[0].bestLapTimeMs <= stagedSnapshot.finalResults[1].bestLapTimeMs,
+      true
+    );
+    assert.deepEqual(
+      stagedSnapshot.finalResults.map((entry) => entry.finishPlace).sort((left, right) => left - right),
+      [1, 2]
+    );
     assert.equal(stagedSnapshot.simulation.racers.every((racer) => racer.carNumber !== null), true);
   } finally {
     socket.close();

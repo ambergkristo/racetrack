@@ -92,7 +92,7 @@ test("race store exposes checkered finish state and freezes the locked session s
   assert.equal(lockedSnapshot.leaderboard[0].lapCount, 1);
 });
 
-test("race store records first post-checkered crossing order and ignores repeat finish taps", () => {
+test("race store keeps post-checkered finish place secondary to fastest-lap leaderboard order", () => {
   const raceStore = createRaceStore({
     raceDurationSeconds: 90,
     now: () => 1_000,
@@ -103,25 +103,29 @@ test("race store records first post-checkered crossing order and ignores repeat 
   const ben = raceStore.addRacer(session.id, { name: "Ben" });
 
   raceStore.startRace();
-  raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 10_000 });
-  raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 10_200 });
+  raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 9_000 });
+  raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 10_000 });
   raceStore.finishRace({ reason: "manual" });
 
-  const amyFinish = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 20_000 });
-  const benFinish = raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 20_600 });
-  const amyRepeat = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 21_200 });
+  const amyFinish = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 21_000 });
+  const benFinish = raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 21_200 });
+  const amyRepeat = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 21_800 });
 
   assert.equal(amyFinish.finishPlace, 1);
   assert.equal(benFinish.finishPlace, 2);
   assert.equal(amyRepeat.lapCount, 2);
   assert.equal(amyRepeat.finishPlace, 1);
+  assert.equal(amyFinish.bestLapTimeMs, 12_000);
+  assert.equal(benFinish.bestLapTimeMs, 11_200);
 
   const finishedSnapshot = raceStore.getSnapshot();
   assert.equal(finishedSnapshot.finishOrderActive, true);
-  assert.equal(finishedSnapshot.leaderboard[0].racerId, amy.id);
-  assert.equal(finishedSnapshot.leaderboard[0].finishPlace, 1);
-  assert.equal(finishedSnapshot.leaderboard[1].racerId, ben.id);
-  assert.equal(finishedSnapshot.leaderboard[1].finishPlace, 2);
+  assert.equal(finishedSnapshot.leaderboard[0].racerId, ben.id);
+  assert.equal(finishedSnapshot.leaderboard[0].position, 1);
+  assert.equal(finishedSnapshot.leaderboard[0].finishPlace, 2);
+  assert.equal(finishedSnapshot.leaderboard[1].racerId, amy.id);
+  assert.equal(finishedSnapshot.leaderboard[1].position, 2);
+  assert.equal(finishedSnapshot.leaderboard[1].finishPlace, 1);
 });
 
 test("derived state truth keeps FINISHED distinct from LOCKED", () => {
@@ -385,8 +389,11 @@ test("simulation runs scenario phases, returns through pit lane, and stages the 
   assert.equal(snapshot.simulation.phase, "COMPLETED");
   assert.equal(snapshot.simulation.completionReason, "pit_return_complete");
   assert.equal(snapshot.finishOrderActive, true);
-  assert.equal(snapshot.finalResults[0].finishPlace, 1);
-  assert.equal(snapshot.finalResults[1].finishPlace, 2);
+  assert.equal(snapshot.finalResults[0].bestLapTimeMs <= snapshot.finalResults[1].bestLapTimeMs, true);
+  assert.deepEqual(
+    snapshot.finalResults.map((entry) => entry.finishPlace).sort((left, right) => left - right),
+    [1, 2]
+  );
   assert.deepEqual(
     snapshot.finalResults.map((entry) => entry.racerId).sort(),
     [amy.id, ben.id].sort()

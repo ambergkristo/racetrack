@@ -166,7 +166,7 @@ test("public routes keep fullscreen affordances on all display screens", async (
     ["/leader-board", "Timing Tower"],
     ["/next-race", "Race Board"],
     ["/race-countdown", "Race Countdown"],
-    ["/race-flags", "Track State Board"],
+    ["/race-flags", "flag-panel-standalone"],
   ];
 
   for (const [pathname, routeMarker] of expectations) {
@@ -215,6 +215,49 @@ test("leader-board uses the public shell and renders eight F1-style timing rows"
   assert.equal(html.includes("public-route-grid"), true);
   assert.equal(html.includes("telemetry-table"), false);
   assert.equal(html.includes("leaderboard-board"), true);
+});
+
+test("leader-board keeps fastest-lap order after finish even when finish-place differs", async () => {
+  const html = await renderRoute("/leader-board", {
+    snapshot: {
+      state: "LOCKED",
+      flag: "LOCKED",
+      remainingSeconds: 0,
+      activeSessionId: null,
+      activeSession: null,
+      lockedSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: [],
+      },
+      finalResults: [
+        {
+          position: 1,
+          racerId: "racer-ben",
+          name: "Ben",
+          carNumber: "12",
+          lapCount: 2,
+          currentLapTimeMs: 41200,
+          bestLapTimeMs: 41200,
+          finishPlace: 2,
+        },
+        {
+          position: 2,
+          racerId: "racer-amy",
+          name: "Amy",
+          carNumber: "7",
+          lapCount: 2,
+          currentLapTimeMs: 42000,
+          bestLapTimeMs: 42000,
+          finishPlace: 1,
+        },
+      ],
+      leaderboard: [],
+    },
+  });
+
+  assert.equal(html.includes("1st over the line"), true);
+  assert.equal(html.indexOf("Ben") < html.indexOf("Amy"), true);
 });
 
 test("staff and public routes reflect the same CHECKERED truth without collapsing the next session", async () => {
@@ -303,7 +346,8 @@ test("locked truth stays visible on staff and public routes while fullscreen rem
   const flagsHtml = await renderRoute("/race-flags", { snapshot });
 
   assert.equal(lapTrackerHtml.includes("Session is LOCKED. Lap input is blocked."), true);
-  assert.equal(flagsHtml.includes("Locked"), true);
-  assert.equal(flagsHtml.includes("Heat 1"), true);
   assert.equal(flagsHtml.includes("id=\"fullscreen-btn\""), true);
+  assert.equal(flagsHtml.includes("flag-panel-standalone"), true);
+  assert.equal(flagsHtml.includes("Heat 1"), false);
+  assert.equal(flagsHtml.includes("Race is locked. Results are final and lap input is blocked."), false);
 });
