@@ -290,3 +290,71 @@ test("next-race shows pit-return guidance while simulation is routing cars off t
   assert.equal(html.includes("Cars are peeling into the pit lane before the session fully locks."), true);
   assert.equal(html.includes("Final order during pit return"), true);
 });
+
+test("next-race renders all eight current and next racers without truncating the roster", async () => {
+  const currentRacers = Array.from({ length: 8 }, (_unused, index) => ({
+    id: `current-${index + 1}`,
+    name: `Current ${index + 1}`,
+    carNumber: String(index + 1),
+    lapCount: 0,
+    currentLapTimeMs: null,
+    bestLapTimeMs: null,
+    lastCrossingTimestampMs: null,
+  }));
+  const nextRacers = Array.from({ length: 8 }, (_unused, index) => ({
+    id: `next-${index + 1}`,
+    name: `Next ${index + 1}`,
+    carNumber: String(index + 1),
+    lapCount: 0,
+    currentLapTimeMs: null,
+    bestLapTimeMs: null,
+    lastCrossingTimestampMs: null,
+  }));
+
+  const html = await renderRoute("/next-race", {
+    snapshot: {
+      activeSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: currentRacers,
+      },
+      nextSessionId: "session-2",
+      nextSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: nextRacers,
+      },
+      queuedSessionIds: ["session-2"],
+      queuedSessions: [
+        {
+          id: "session-2",
+          name: "Heat 2",
+          racers: nextRacers,
+        },
+      ],
+      sessions: [
+        {
+          id: "session-1",
+          name: "Heat 1",
+          racers: currentRacers,
+        },
+        {
+          id: "session-2",
+          name: "Heat 2",
+          racers: nextRacers,
+        },
+      ],
+    },
+  });
+
+  const rosterCount = (html.match(/class="roster-pill"/g) || []).length;
+
+  assert.equal(html.includes("Current Racers"), true);
+  assert.equal(html.includes("Next Racers"), true);
+  assert.equal(html.includes(">8<"), true);
+  assert.equal(rosterCount, 16);
+  assert.equal(html.includes("Current 8"), true);
+  assert.equal(html.includes("Next 8"), true);
+  assert.equal(html.includes("Car 8"), true);
+  assert.equal(html.includes("next-race-roster-grid"), true);
+});

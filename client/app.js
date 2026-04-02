@@ -3081,7 +3081,7 @@
     `;
   }
 
-  function rosterStrip(session, { emptyTitle, emptyDetail, limit = 8 } = {}) {
+  function rosterStrip(session, { emptyTitle, emptyDetail, limit = 8, gridClass = "" } = {}) {
     if (isInitialPublicLoad()) {
       return loadingSkeleton(4);
     }
@@ -3091,14 +3091,14 @@
     }
 
     return `
-      <div class="roster-pill-grid">
+      <div class="roster-pill-grid${gridClass ? ` ${escapeHtml(gridClass)}` : ""}">
         ${session.racers
           .slice(0, limit)
           .map(
             (racer) => `
               <div class="roster-pill">
                 <strong>${escapeHtml(racer.name)}</strong>
-                <span>Car ${escapeHtml(racer.carNumber || "--")}</span>
+                <span class="roster-pill-car">Car ${escapeHtml(racer.carNumber || "--")}</span>
               </div>
             `
           )
@@ -3544,7 +3544,7 @@
                 emptyDetail: pitReturnActive
                   ? "The finished session roster will appear here until the next race starts safely."
                   : "Front desk has not staged an active session yet.",
-                limit: 4,
+                gridClass: "next-race-roster-grid",
               })}
             </div>
             <div class="session-board tone-safe">
@@ -3554,7 +3554,7 @@
               ${rosterStrip(queued, {
                 emptyTitle: "Next lineup not ready",
                 emptyDetail: "Front desk has not staged the next lineup yet.",
-                limit: 4,
+                gridClass: "next-race-roster-grid",
               })}
             </div>
           </div>
