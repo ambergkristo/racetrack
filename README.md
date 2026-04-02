@@ -62,15 +62,35 @@ Timer defaults:
 - `npm run dev` => 60 seconds
 - `npm start` => 600 seconds
 
+## Access Keys (for testing)
+
+For evaluation and demo use, the default testing keys are:
+- Front Desk: `erkinool`
+- Race Control: `erkinool`
+- Lap Line Tracker: `erkinool`
+
+These values can be changed through environment variables, but they are intended only as testing defaults and not as production-grade security secrets.
+
 ## Local Run
 
 1. Copy env file:
    - `cp .env.example .env` (or create `.env` manually on Windows)
 2. Install dependencies:
-   - `npm ci`
-3. Build frontend assets:
+   - `npm install`
+3. Choose one of these setup options for staff access keys:
+   - Recommended: keep the values from `.env.example` in `.env`
+   - Manual export example:
+
+```bash
+export FRONT_DESK_KEY=erkinool
+export RACE_CONTROL_KEY=erkinool
+export LAP_LINE_TRACKER_KEY=erkinool
+npm start
+```
+
+4. Build frontend assets:
    - `npm run build`
-4. Start production mode:
+5. Start production mode:
    - `npm start`
 
 Development mode:
