@@ -143,21 +143,30 @@ Demo/testing mode without staff key prompts:
 
 ### Simulation usage
 
-1. Prepare a staged session in Front Desk with up to 8 racers.
-2. Open Race Control and start simulation for that staged session.
-3. Watch the track view in Lap Line Tracker:
+1. Open `/front-desk`.
+2. Enter the Front Desk access key.
+3. Create a session.
+4. Add racers to that session.
+5. Make sure the session is the active staged session before you try to simulate it.
+6. Open `/lap-line-tracker`.
+7. Enter the Lap Line Tracker access key.
+8. Press `Simulate`.
+
+Warning: Simulation will not start if no session is staged.
+
+9. Watch the track view in Lap Line Tracker:
    - cars start from pit lane
    - lap 1 starts only after each car crosses the lap line for the first time
    - hazard phases can appear during the run
    - after lap 5 the race enters `FINISHED`
    - cars continue through the finish flow and then return to pit lane
-4. Monitor the public routes during the run:
+10. Monitor the public routes during the run:
    - `/leader-board` shows live order and lap timing
    - `/race-flags` shows the current public race mode
    - `/next-race` shows the current and upcoming session lineup
    - `/race-countdown` shows the live session timer
-5. Wait for pit return to complete.
-6. Confirm that the next queued session becomes staged automatically after the finished cars are back in pit/garage.
+11. Wait for pit return to complete.
+12. Confirm that the next queued session becomes staged automatically after the finished cars are back in pit/garage.
 
 ### Session ending logic
 
