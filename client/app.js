@@ -2935,14 +2935,14 @@
           .map(
             (racer) => `
               ${buttonMarkup({
-                variant: "danger",
+                variant: "ghost",
                 size: "huge-touch",
                 disabled: Boolean(lapReason),
                 attrs: `data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}"`,
                 innerHtml: `
-                <span>${escapeHtml(racer.carNumber || "Car")}</span>
-                <strong>${escapeHtml(racer.name)}</strong>
-                <em>Laps ${racer.lapCount}</em>
+                <span class="lap-entry-car">${escapeHtml(racer.carNumber ? `Car ${racer.carNumber}` : "Car --")}</span>
+                <strong class="lap-entry-name">${escapeHtml(racer.name)}</strong>
+                <em class="lap-entry-laps">${escapeHtml(`${racer.lapCount} laps`)}</em>
                 `,
               })}
             `
@@ -2967,15 +2967,7 @@
               <div class="lap-entry-shell">
                 <div class="lap-entry-head">
                   <div class="lap-stage-copy">
-                    <p class="section-kicker">Authoritative entry</p>
                     <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
-                    <span class="command-stage-detail">${escapeHtml(
-                      simulation.active
-                        ? "Simulation is advancing the truth. Manual taps stay locked until it stops."
-                        : lapAllowed
-                          ? "Tap the racer crossing the line."
-                          : "Input unlocks during RUNNING or FINISHED."
-                    )}</span>
                   </div>
                   <div class="telemetry-tags lap-tracker-head-tags">
                     <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
