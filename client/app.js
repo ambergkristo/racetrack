@@ -2671,6 +2671,83 @@
     );
   }
 
+  function leaderboardTimingBoard(
+    entries,
+    {
+      limit = entries.length,
+      wrapClass = "",
+      finishOrderActive = state.raceSnapshot.finishOrderActive,
+    } = {}
+  ) {
+    if (isInitialPublicLoad()) {
+      return loadingSkeleton(5);
+    }
+
+    if (entries.length === 0) {
+      return emptyState(
+        "Leaderboard waiting for the first lap",
+        "As soon as lap crossings arrive, positions and best laps will populate here."
+      );
+    }
+
+    const leaderBestLapMs =
+      entries.find((entry) => Number.isFinite(entry.bestLapTimeMs))?.bestLapTimeMs ?? null;
+    const visibleEntries = entries.slice(0, limit);
+
+    return `
+      <div class="leaderboard-board ${wrapClass}">
+        ${visibleEntries
+          .map((entry, index) => {
+            const positionLabel =
+              finishOrderActive && Number.isFinite(entry.finishPlace)
+                ? formatOrdinal(entry.finishPlace)
+                : String(entry.position);
+            const rowToneClass =
+              entry.position === 1 ? " is-leader" : index % 2 === 1 ? " is-alt" : "";
+            const deltaLabel = finishOrderActive
+              ? Number.isFinite(entry.finishPlace)
+                ? `${formatOrdinal(entry.finishPlace)} over the line`
+                : "Awaiting finish line"
+              : formatDeltaToLeader(entry, leaderBestLapMs);
+            return `
+              <article class="leaderboard-board-row${rowToneClass}${Number.isFinite(entry.finishPlace) ? " is-finished" : ""}">
+                <div class="leaderboard-pos-stack">
+                  <span class="leaderboard-pos-label">${escapeHtml(
+                    finishOrderActive ? "Place" : "Pos"
+                  )}</span>
+                  <strong class="leaderboard-pos-value">${escapeHtml(positionLabel)}</strong>
+                </div>
+                <div class="leaderboard-car-stack">
+                  <span class="leaderboard-car-badge">${escapeHtml(entry.carNumber || "--")}</span>
+                </div>
+                <div class="leaderboard-driver-stack">
+                  <strong class="leaderboard-driver-name">${escapeHtml(entry.name)}</strong>
+                  <span class="leaderboard-driver-meta">${escapeHtml(deltaLabel)}</span>
+                </div>
+                <div class="leaderboard-time-stack">
+                  <span class="leaderboard-time-label">Best</span>
+                  <strong class="leaderboard-time-value${entry.bestLapTimeMs === leaderBestLapMs ? " is-best" : ""}">${escapeHtml(
+                    formatLap(entry.bestLapTimeMs)
+                  )}</strong>
+                </div>
+                <div class="leaderboard-time-stack leaderboard-live-stack">
+                  <span class="leaderboard-time-label">Live</span>
+                  <strong class="leaderboard-time-value">${escapeHtml(
+                    formatLap(entry.currentLapTimeMs)
+                  )}</strong>
+                </div>
+                <div class="leaderboard-lap-stack">
+                  <span class="leaderboard-time-label">Laps</span>
+                  <strong class="leaderboard-lap-value">${escapeHtml(String(entry.lapCount))}</strong>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
   function lapTrackSeed(value) {
     return String(value || "")
       .split("")
@@ -3342,7 +3419,6 @@
               ${kpiPill("State", STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state, flagMeta.tone)}
               ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
               ${kpiPill("Countdown", countdownLabel, "danger")}
-              ${kpiPill("Best Lap", leaderBestLap, "safe")}
             </div>
             <div class="leaderboard-leader-meta${finishedClass()}">
               <p class="section-kicker">${escapeHtml(
@@ -3359,7 +3435,7 @@
             </div>
           </div>
           <div class="leaderboard-table-shell">
-            ${leaderboardTable(displayEntries, {
+            ${leaderboardTimingBoard(displayEntries, {
               wrapClass: "leaderboard-scroll",
               finishOrderActive: state.raceSnapshot.finishOrderActive,
             })}
