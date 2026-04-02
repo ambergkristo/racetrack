@@ -1,4 +1,12 @@
-# Beachside Racetrack - M1 MVP Baseline
+# Racetrack info-screens
+
+## ⚠️ Important (Render cold start)
+
+The deployed backend may take up to 30 seconds to wake up after inactivity.
+
+If the app appears unresponsive:
+- wait about 30 seconds
+- refresh the page
 
 Single-host M1 setup:
 - one Node.js server
@@ -99,6 +107,72 @@ Development mode:
 Demo/testing mode without staff key prompts:
 - set `STAFF_AUTH_DISABLED=true` in `.env`
 - run `npm run dev` or `npm run build && npm start`
+
+## How to Use the System
+
+### Front Desk flow
+
+1. Start the server with `npm run dev` or `npm start`.
+2. Open `/front-desk`.
+3. Enter the Front Desk access key when prompted.
+4. Create a new race session.
+5. Add racers to the active session one by one.
+6. Check that each racer has the correct assigned car number.
+7. If another race should happen after the current one, create the next session and keep it queued.
+
+### Race Control flow
+
+1. Open `/race-control`.
+2. Enter the Race Control access key.
+3. Confirm the correct session is staged before starting.
+4. Start the race manually when the cars are ready.
+5. Use the race mode buttons during the run:
+   - `SAFE` for normal pace
+   - `HAZARD_SLOW` to slow the field
+   - `HAZARD_STOP` to stop or nearly stop the field
+6. When the race has finished, move it into `FINISHED`.
+7. End and lock the session only after the cars have completed pit return.
+
+### Lap Line Tracker usage
+
+1. Open `/lap-line-tracker`.
+2. Enter the Lap Line Tracker access key.
+3. Use the large racer cards to record each real lap-line crossing.
+4. Keep using lap entry while the race is running.
+5. If the race is already in `FINISHED`, record any final valid crossings that still happen before pit return completes.
+
+### Simulation usage
+
+1. Prepare a staged session in Front Desk with up to 8 racers.
+2. Open Race Control and start simulation for that staged session.
+3. Watch the track view in Lap Line Tracker:
+   - cars start from pit lane
+   - lap 1 starts only after each car crosses the lap line for the first time
+   - hazard phases can appear during the run
+   - after lap 5 the race enters `FINISHED`
+   - cars continue through the finish flow and then return to pit lane
+4. Monitor the public routes during the run:
+   - `/leader-board` shows live order and lap timing
+   - `/race-flags` shows the current public race mode
+   - `/next-race` shows the current and upcoming session lineup
+   - `/race-countdown` shows the live session timer
+5. Wait for pit return to complete.
+6. Confirm that the next queued session becomes staged automatically after the finished cars are back in pit/garage.
+
+### Session ending logic
+
+1. Do not treat checkered as instant session completion.
+2. Let the active session stay authoritative through finish handling and pit return.
+3. Lock the session only after the finishing flow is complete.
+4. If a next session is queued, verify it becomes the new staged session.
+
+### Public display explanation
+
+1. Use `/leader-board` for live order, lap counts, and timing.
+2. Use `/race-flags` for the current public flag state.
+3. Use `/race-countdown` for the visible session timer.
+4. Use `/next-race` to show who is on track now and who is up next.
+5. These public routes are designed for display screens and can be used in fullscreen mode.
 
 ## Health Check
 
