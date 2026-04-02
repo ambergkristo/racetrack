@@ -1,5 +1,8 @@
 # Racetrack info-screens
 
+Live app:
+- `https://racetrack-wf9v.onrender.com`
+
 ## ⚠️ Important (Render cold start)
 
 The deployed backend may take up to 30 seconds to wake up after inactivity.
