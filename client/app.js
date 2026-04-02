@@ -2142,11 +2142,20 @@
     const sessionCount = upcomingSessions.length;
     const registeredCount = managedSession ? managedSession.racers.length : 0;
     const currentSessionLabel = managedSession ? managedSession.name : "No session ready";
-    const currentSessionDetail = managedSession
-      ? currentSession && managedSession.id === currentSession.id
-        ? "This staged session is live at the desk right now."
-        : "This saved session will be ready as the next race lineup."
-      : "Create a session first, then add racers on the right.";
+    const setupFlowLabel = !managedSession
+      ? "Create session"
+      : registeredCount === 0
+        ? "Add racers"
+        : registeredCount >= 8
+          ? "Roster ready"
+          : "Keep staging";
+    const setupFlowDetail = !managedSession
+      ? "Create the next race first. The right panel stays reserved for racer standby."
+      : registeredCount === 0
+        ? "Session is saved. Add racers on the right when you are ready."
+        : registeredCount >= 8
+          ? "Standby roster is full. Review the session list below if you need a different next race."
+          : `${registeredCount} racer${registeredCount === 1 ? "" : "s"} staged. Keep building the standby roster on the right.`;
     const racerManagementBody = `
       <div class="frontdesk-card-copy">
         <strong class="frontdesk-target-session">${escapeHtml(managedSession ? managedSession.name : "Choose a session to manage")}</strong>
@@ -2195,7 +2204,7 @@
       <section class="frontdesk-inline-section frontdesk-create-section">
         <div class="frontdesk-card-copy">
           <strong class="queue-title">${formState.updateMode ? "Edit Session" : "Create Session"}</strong>
-          <p class="hint">Start by setting up the next race, then confirm the current race and control state below.</p>
+          <p class="hint">Name the next race here, then use the right panel to build the standby roster.</p>
         </div>
         <div class="frontdesk-queue-setup frontdesk-create-form">
           <div class="form-stack">
@@ -2214,16 +2223,18 @@
           </div>
         </div>
       </section>
-      <section class="frontdesk-inline-section frontdesk-fact-section">
+      <section class="frontdesk-inline-section frontdesk-fact-section frontdesk-summary-section">
         <div class="frontdesk-inline-head">
-          <p class="queue-kicker">Session Summary</p>
+          <p class="queue-kicker">Setup Summary</p>
+          <span class="chip tiny-chip">${escapeHtml(setupFlowLabel)}</span>
         </div>
         <div class="summary-stack frontdesk-truth-card">
           <strong class="frontdesk-truth-value">${escapeHtml(currentSessionLabel)}</strong>
-          <p class="compact-empty-note">${escapeHtml(currentSessionDetail)}</p>
+          <p class="compact-empty-note">${escapeHtml(setupFlowDetail)}</p>
           <div class="stack-list compact-list">
-            <div class="info-row"><span>Registered Racers</span><strong>${registeredCount}</strong></div>
+            <div class="info-row"><span>Track state</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
             <div class="info-row"><span>Current Race</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
+            <div class="info-row"><span>Standby Roster</span><strong>${escapeHtml(`${registeredCount}/8`)}</strong></div>
             <div class="info-row"><span>Saved Sessions</span><strong>${sessionCount}</strong></div>
           </div>
         </div>
@@ -2235,15 +2246,6 @@
         </div>
         <div class="frontdesk-scroll-area">
           ${queuedSessionCompactList(upcomingSessions)}
-        </div>
-      </section>
-      <section class="frontdesk-inline-section frontdesk-control-section">
-        <div class="frontdesk-inline-head">
-          <p class="queue-kicker">Control State</p>
-          <span class="chip tiny-chip">${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</span>
-        </div>
-        <div class="frontdesk-control-body">
-          ${frontDeskControlStateBody()}
         </div>
       </section>
       <div id="front-desk-guards" class="frontdesk-guard-strip">
