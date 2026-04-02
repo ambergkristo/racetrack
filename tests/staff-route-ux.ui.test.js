@@ -156,7 +156,8 @@ test("home route condenses launches into a single compact route board", async ()
   assert.equal(html.includes("compact-route-grid"), true);
   assert.equal(html.includes("Staff Routes"), true);
   assert.equal(html.includes("Public Displays"), true);
-  assert.equal(html.includes("Launch surfaces"), true);
+  assert.equal(html.includes("Launch surfaces"), false);
+  assert.equal(html.includes("connection-status"), false);
 });
 
 test("race-control renders a single primary control console", async () => {

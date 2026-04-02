@@ -1139,14 +1139,30 @@
     `;
   }
 
+  function compactConnectionTag() {
+    const meta = getConnectionMeta();
+
+    return `<span class="telemetry-tag tone-${meta.tone}">${escapeHtml(meta.label)}</span>`;
+  }
+
   function telemetryHeader() {
     const snapshot = state.raceSnapshot;
     const flagMeta = getFlagMeta(snapshot);
     const routeTone = routeConfig.public ? "warning" : routeConfig.staff ? "safe" : "idle";
     const routeLabel = route === "/" ? "Launch Surface" : routeConfig.public ? "Public Display" : "Staff Operation";
     const phaseLabel = route === "/" ? "Control Hub" : STATE_META[snapshot.state]?.label || snapshot.state;
-    const headerSubtitle = routeConfig.staff ? routeConfig.body : routeConfig.subtitle;
-    const headerCaption = routeConfig.staff ? "" : `<p class="route-caption">${routeConfig.body}</p>`;
+    const compactHomeHeader = route === "/";
+    const headerSubtitle = compactHomeHeader ? "" : routeConfig.staff ? routeConfig.body : routeConfig.subtitle;
+    const headerCaption = compactHomeHeader || routeConfig.staff ? "" : `<p class="route-caption">${routeConfig.body}</p>`;
+    const homeConnectionTag = compactHomeHeader ? compactConnectionTag() : "";
+    const headerMeta = compactHomeHeader
+      ? ""
+      : `
+        <div class="telemetry-meta">
+          ${connectionStatus()}
+          ${routeConfig.public ? fullscreenButton() : ""}
+        </div>
+      `;
 
     return `
       <header class="telemetry-header">
@@ -1157,16 +1173,14 @@
             <div class="telemetry-tags">
               <span class="telemetry-tag tone-${routeTone}">${escapeHtml(routeLabel)}</span>
               <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(phaseLabel)}</span>
+              ${homeConnectionTag}
               ${debugMode ? '<span class="telemetry-tag tone-warning">Debug View</span>' : ""}
             </div>
           </div>
-          <p class="subtitle">${headerSubtitle}</p>
+          ${headerSubtitle ? `<p class="subtitle">${headerSubtitle}</p>` : ""}
           ${headerCaption}
         </div>
-        <div class="telemetry-meta">
-          ${connectionStatus()}
-          ${routeConfig.public ? fullscreenButton() : ""}
-        </div>
+        ${headerMeta}
       </header>
     `;
   }
@@ -1358,7 +1372,6 @@
           <div class="overview-copy">
             <p class="section-kicker">Live launch hub</p>
             <strong class="overview-title">${escapeHtml(STATE_META[snapshot.state]?.label || snapshot.state)}</strong>
-            <p class="panel-copy">Open a staff surface to operate the race or a public surface to present the current live state. The hub stays intentionally concise.</p>
           </div>
           <div class="kpi-grid">
             ${kpiPill("Flag", flagMeta.label, flagMeta.tone)}
@@ -3348,11 +3361,6 @@
         "Route Launch Board",
         `
           <div class="home-launch-shell">
-            <div class="home-launch-copy">
-              <p class="section-kicker">Launch surfaces</p>
-              <strong class="summary-value">Open the right route without leaving the overview screen.</strong>
-              <p class="panel-copy">Staff routes stay operational. Public routes stay presentation-first. The hub remains compact on one screen.</p>
-            </div>
             <div class="home-route-section">
               <div class="panel-heading">
                 <h2>Staff Routes</h2>

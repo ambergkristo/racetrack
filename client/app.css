@@ -3441,42 +3441,84 @@ body {
   display: none;
 }
 
-.route-home.staff-shell {
-  padding: 10px 14px 10px;
+.route-home {
+  width: min(1680px, 100%);
+  min-height: 100dvh;
+  padding: 10px 14px 12px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
-  overflow: hidden;
 }
 
 .route-home .telemetry-header {
+  margin-bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.route-home .telemetry-copy {
+  gap: 5px;
+}
+
+.route-home .telemetry-title-row {
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.route-home .eyebrow {
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+}
+
+.route-home .telemetry-copy h1 {
+  font-size: clamp(1.45rem, 2.4vw, 2.2rem);
+  line-height: 0.98;
+}
+
+.route-home .subtitle,
+.route-home .route-caption,
+.route-home .telemetry-meta {
+  display: none;
+}
+
+.route-home .telemetry-tag {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 0.68rem;
+}
+
+.route-home .route-grid {
+  align-content: start;
   gap: 10px;
 }
 
-.route-home .home-summary-panel {
+.route-home .home-summary-panel,
+.route-home .home-launch-panel {
   padding: 10px 12px;
   overflow: hidden;
 }
 
+.route-home .panel-heading {
+  margin-bottom: 8px;
+}
+
 .route-home .overview-shell {
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
   gap: 10px;
   align-items: start;
 }
 
 .route-home .overview-copy {
   min-width: 0;
-  gap: 6px;
+  gap: 4px;
   align-content: start;
 }
 
 .route-home .overview-title {
-  font-size: clamp(1.28rem, 1.9vw, 1.78rem);
+  font-size: clamp(1.28rem, 1.9vw, 1.72rem);
   line-height: 1.02;
-}
-
-.route-home .home-summary-panel .panel-copy {
-  max-width: 48ch;
-  font-size: 0.8rem;
-  line-height: 1.24;
 }
 
 .route-home .home-summary-panel .kpi-grid {
@@ -3486,7 +3528,44 @@ body {
 }
 
 .route-home .home-summary-panel .kpi-pill {
-  min-height: 58px;
+  min-height: 52px;
+  padding: 8px 10px;
+}
+
+.route-home .home-launch-shell {
+  gap: 8px;
+}
+
+.route-home .home-route-section {
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.route-home .compact-route-grid {
+  gap: 8px;
+}
+
+.route-home .route-card {
+  padding: 10px;
+  gap: 6px;
+}
+
+.route-home .route-card-head {
+  align-items: flex-start;
+}
+
+.route-home .route-kind,
+.route-home .route-path {
+  font-size: 0.66rem;
+}
+
+.route-home .route-card-title {
+  font-size: 0.92rem;
+}
+
+.route-home .route-card-note {
+  font-size: 0.74rem;
+  line-height: 1.15;
 }
 
 .route-race-control {
