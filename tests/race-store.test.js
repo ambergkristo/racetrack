@@ -241,7 +241,7 @@ test("race store keeps duplicate car prevention behind manual assignment mode", 
   );
 });
 
-test("simulation starts racers together, auto-checkers after target laps, and records finish order", () => {
+test("simulation runs scenario phases, returns through pit lane, and locks into the next session", () => {
   let currentNow = 1_000;
   const raceStore = createRaceStore({
     raceDurationSeconds: 600,
@@ -253,14 +253,19 @@ test("simulation starts racers together, auto-checkers after target laps, and re
       jitterMsMax: 0,
       minLapDurationMs: 1,
       drainIntervalMs: 10,
+      pitReturnDurationMsMin: 20,
+      pitReturnDurationMsMax: 20,
+      pitReturnReleaseGapMs: 10,
       targetLapCount: 3,
       maxDurationMs: 10_000,
     },
   });
 
   const session = raceStore.createSession({ name: "Sim Heat" });
+  const nextSession = raceStore.createSession({ name: "Next Heat" });
   const amy = raceStore.addRacer(session.id, { name: "Amy" });
   const ben = raceStore.addRacer(session.id, { name: "Ben" });
+  raceStore.addRacer(nextSession.id, { name: "Casey" });
 
   raceStore.startSimulation({
     startedAtMs: currentNow,
@@ -272,39 +277,71 @@ test("simulation starts racers together, auto-checkers after target laps, and re
   let snapshot = raceStore.getSnapshot();
   assert.equal(snapshot.state, "RUNNING");
   assert.equal(snapshot.simulation.active, true);
+  assert.equal(snapshot.simulation.phase, "SAFE_RUN");
   assert.deepEqual(
     snapshot.simulation.racers.map((racer) => racer.progress),
     [0, 0]
   );
 
-  currentNow = 1_100;
-  raceStore.advanceSimulation({ nowMs: currentNow });
-  currentNow = 1_200;
-  raceStore.advanceSimulation({ nowMs: currentNow });
-  currentNow = 1_300;
-  raceStore.advanceSimulation({ nowMs: currentNow });
+  const phasesSeen = new Set([snapshot.simulation.phase]);
+  const lanesSeen = new Set(snapshot.simulation.racers.map((racer) => racer.lane));
+
+  while (snapshot.state !== "FINISHED" && currentNow < 3_000) {
+    currentNow += 10;
+    raceStore.advanceSimulation({ nowMs: currentNow });
+    snapshot = raceStore.getSnapshot();
+    phasesSeen.add(snapshot.simulation.phase);
+    snapshot.simulation.racers.forEach((racer) => lanesSeen.add(racer.lane));
+  }
 
   snapshot = raceStore.getSnapshot();
   assert.equal(snapshot.state, "FINISHED");
   assert.equal(snapshot.simulation.active, true);
+  assert.equal(snapshot.simulation.phase, "CHECKERED");
+  assert.equal(phasesSeen.has("HAZARD_SLOW"), true);
   assert.equal(snapshot.activeSession.racers[0].lapCount, 3);
   assert.equal(snapshot.activeSession.racers[1].lapCount, 3);
 
-  currentNow = 1_310;
-  raceStore.advanceSimulation({ nowMs: currentNow });
-  currentNow = 1_320;
-  raceStore.advanceSimulation({ nowMs: currentNow });
-  currentNow = 1_330;
-  raceStore.advanceSimulation({ nowMs: currentNow });
+  while (snapshot.simulation.phase !== "PIT_RETURN" && currentNow < 3_200) {
+    currentNow += 10;
+    raceStore.advanceSimulation({ nowMs: currentNow });
+    snapshot = raceStore.getSnapshot();
+    phasesSeen.add(snapshot.simulation.phase);
+    snapshot.simulation.racers.forEach((racer) => lanesSeen.add(racer.lane));
+  }
 
   snapshot = raceStore.getSnapshot();
-  assert.equal(snapshot.simulation.active, false);
+  assert.equal(snapshot.simulation.phase, "PIT_RETURN");
+  assert.equal(phasesSeen.has("PIT_RETURN"), true);
+  assert.equal(
+    snapshot.simulation.racers.every((racer) => ["TRACK", "PIT", "GARAGE"].includes(racer.lane)),
+    true
+  );
+
+  while (snapshot.state !== "LOCKED" && currentNow < 3_500) {
+    currentNow += 10;
+    raceStore.advanceSimulation({ nowMs: currentNow });
+    snapshot = raceStore.getSnapshot();
+    phasesSeen.add(snapshot.simulation.phase);
+    snapshot.simulation.racers.forEach((racer) => lanesSeen.add(racer.lane));
+  }
+
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "LOCKED");
+  assert.equal(snapshot.activeSessionId, nextSession.id);
+  assert.equal(snapshot.activeSession?.id, nextSession.id);
+  assert.equal(snapshot.lockedSession?.id, session.id);
   assert.equal(snapshot.simulation.status, "COMPLETED");
+  assert.equal(snapshot.simulation.phase, "COMPLETED");
+  assert.equal(snapshot.simulation.completionReason, "pit_return_complete");
   assert.equal(snapshot.finishOrderActive, true);
   assert.equal(snapshot.leaderboard[0].racerId, amy.id);
   assert.equal(snapshot.leaderboard[0].finishPlace, 1);
   assert.equal(snapshot.leaderboard[1].racerId, ben.id);
   assert.equal(snapshot.leaderboard[1].finishPlace, 2);
+  assert.equal(lanesSeen.has("TRACK"), true);
+  assert.equal(lanesSeen.has("PIT"), true);
+  assert.equal(lanesSeen.has("GARAGE"), true);
 });
 
 test("simulation defaults to an 8-car, 5-lap foundation with 20-25 second lap targets", () => {
@@ -327,17 +364,44 @@ test("simulation defaults to an 8-car, 5-lap foundation with 20-25 second lap ta
   assert.equal(snapshot.state, "RUNNING");
   assert.equal(snapshot.simulation.active, true);
   assert.equal(snapshot.simulation.targetLapCount, 5);
+  assert.equal(snapshot.simulation.phase, "SAFE_RUN");
   assert.equal(snapshot.simulation.racers.length, 8);
   assert.equal(
     snapshot.simulation.racers.every(
       (racer) =>
         racer.progress === 0 &&
+        racer.lane === "TRACK" &&
         racer.lapIndex === 1 &&
         racer.targetLapDurationMs >= 20_000 &&
         racer.targetLapDurationMs <= 25_000
     ),
     true
   );
+});
+
+test("simulation scenario plan schedules a hazard event before recovery", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 600,
+    now: () => 2_000,
+  });
+
+  const session = raceStore.createSession({ name: "Scenario Heat" });
+  raceStore.addRacer(session.id, { name: "Alex" });
+  raceStore.addRacer(session.id, { name: "Blair" });
+
+  raceStore.startSimulation({
+    startedAtMs: 2_000,
+    seed: 77,
+  });
+
+  const snapshot = raceStore.getSnapshot();
+  const phases = snapshot.simulation.racers.length > 0
+    ? raceStore.exportState().simulation.scenarioPlan.map((entry) => entry.phase)
+    : [];
+
+  assert.equal(phases.includes("HAZARD_SLOW"), true);
+  assert.equal(phases.includes("RECOVERY"), true);
+  assert.equal(phases[0], "SAFE_RUN");
 });
 
 test("simulation honors hazard stop and enforces the hard time cap", () => {

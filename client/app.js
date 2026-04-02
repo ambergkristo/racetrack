@@ -110,6 +110,54 @@
     },
   };
 
+  const SIMULATION_PHASE_META = {
+    IDLE: {
+      label: "Idle",
+      tone: "idle",
+      detail: "Simulation is standing by for a staged session.",
+    },
+    READY: {
+      label: "Ready",
+      tone: "safe",
+      detail: "Simulation can start as soon as the staged session is ready.",
+    },
+    SAFE_RUN: {
+      label: "Safe Run",
+      tone: "safe",
+      detail: "Simulation is running under green-flag conditions.",
+    },
+    HAZARD_SLOW: {
+      label: "Hazard Slow",
+      tone: "warning",
+      detail: "A simulated hazard slow is active and the field is pacing down.",
+    },
+    HAZARD_STOP: {
+      label: "Hazard Stop",
+      tone: "danger",
+      detail: "A simulated hazard stop is active and the field is holding position.",
+    },
+    RECOVERY: {
+      label: "Recovery",
+      tone: "safe",
+      detail: "The hazard window has cleared and the simulation is back to safe pace.",
+    },
+    CHECKERED: {
+      label: "Checkered",
+      tone: "warning",
+      detail: "Lap 5 is complete and the finish queue is closing under checkered.",
+    },
+    PIT_RETURN: {
+      label: "Pit Return",
+      tone: "warning",
+      detail: "Cars are peeling into the pit lane before the session fully locks.",
+    },
+    COMPLETED: {
+      label: "Complete",
+      tone: "danger",
+      detail: "Simulation finished, pit return is complete, and session progression is ready.",
+    },
+  };
+
   const STATE_META = {
     IDLE: {
       label: "Idle",
@@ -156,6 +204,7 @@
     markers: new Map(),
     geometry: null,
   };
+  const LAP_TRACK_FINISH_PROGRESS = 0.27;
   const LAP_TRACK_VIEWBOX = Object.freeze({
     width: 560,
     height: 320,
@@ -248,6 +297,7 @@
       simulation: {
         status: "IDLE",
         active: false,
+        phase: "IDLE",
         sessionId: null,
         startedAtMs: null,
         endedAtMs: null,
@@ -473,6 +523,7 @@
     return {
       status: typeof simulation.status === "string" ? simulation.status : "IDLE",
       active: Boolean(simulation.active),
+      phase: typeof simulation.phase === "string" ? simulation.phase : simulation.active ? "SAFE_RUN" : "IDLE",
       sessionId: simulation.sessionId ? String(simulation.sessionId) : null,
       startedAtMs: parseNumber(simulation.startedAtMs),
       endedAtMs: parseNumber(simulation.endedAtMs),
@@ -485,6 +536,8 @@
         ? simulation.racers.map((entry) => ({
             racerId: String(entry.racerId),
             progress: clamp(Number(entry.progress) || 0, 0, 1),
+            lane: typeof entry.lane === "string" ? entry.lane : "TRACK",
+            pitProgress: clamp(Number(entry.pitProgress) || 0, 0, 1),
             lapIndex: parseNumber(entry.lapIndex) ?? 1,
             targetLapDurationMs: parseNumber(entry.targetLapDurationMs),
             lapProgressMs: Number(entry.lapProgressMs) || 0,
@@ -492,6 +545,15 @@
             finishPlace: parseNumber(entry.finishPlace),
           }))
         : [],
+      };
+  }
+
+  function getSimulationPhaseMeta(simulation = state.raceSnapshot.simulation) {
+    const resolvedPhase = simulation?.phase || (simulation?.active ? "SAFE_RUN" : "IDLE");
+    return SIMULATION_PHASE_META[resolvedPhase] || {
+      label: resolvedPhase,
+      tone: simulation?.active ? "warning" : "idle",
+      detail: "",
     };
   }
 
@@ -665,11 +727,33 @@
 
   function getFlagMeta(snapshot = state.raceSnapshot) {
     const resolvedFlag = snapshot.flag || snapshot.mode || "SAFE";
-    return FLAG_META[resolvedFlag] || {
+    const simulationPhaseMeta = getSimulationPhaseMeta(snapshot.simulation);
+    const baseMeta = FLAG_META[resolvedFlag] || {
       label: resolvedFlag,
       tone: STATE_META[snapshot.state]?.tone || "safe",
       detail: STATE_META[snapshot.state]?.detail || "",
     };
+    if (
+      snapshot.simulation?.active &&
+      ["SAFE_RUN", "HAZARD_SLOW", "HAZARD_STOP", "RECOVERY", "CHECKERED", "PIT_RETURN"].includes(
+        snapshot.simulation.phase
+      )
+    ) {
+      return {
+        ...baseMeta,
+        tone: simulationPhaseMeta.tone || baseMeta.tone,
+        detail: simulationPhaseMeta.detail || baseMeta.detail,
+      };
+    }
+
+    if (snapshot.simulation?.status === "COMPLETED" && simulationPhaseMeta.detail) {
+      return {
+        ...baseMeta,
+        detail: simulationPhaseMeta.detail,
+      };
+    }
+
+    return baseMeta;
   }
 
   function publicStateMeaning(snapshot = state.raceSnapshot) {
@@ -1499,11 +1583,12 @@
 
   function raceControlConsoleStatusBody() {
     const activeSession = getActiveSession();
+    const simulationPhaseMeta = getSimulationPhaseMeta(getSimulationMeta());
     return `
         <div class="race-control-telemetry-strip">
           ${kpiPill("Countdown", formatTime(state.raceSnapshot.remainingSeconds), "danger")}
           ${kpiPill("Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "danger")}
-          ${kpiPill("Socket", state.connection.toUpperCase(), state.connection === "connected" ? "safe" : "danger")}
+          ${kpiPill("Scenario", simulationPhaseMeta.label, simulationPhaseMeta.tone)}
         </div>
       `;
   }
@@ -2705,7 +2790,7 @@
 
     const loopMetrics = buildLapTrackMetrics(LAP_TRACK_LAYOUT.loop, true);
     const pitMetrics = buildLapTrackMetrics(LAP_TRACK_LAYOUT.pitLane, false);
-    const finishSample = sampleLapTrackPolyline(loopMetrics, 0);
+    const finishSample = sampleLapTrackPolyline(loopMetrics, LAP_TRACK_FINISH_PROGRESS);
     const finishLength = 22;
 
     lapTrackVisualState.geometry = {
@@ -2753,6 +2838,7 @@
     }
 
     const simulation = getSimulationMeta(snapshot);
+    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
     const leaderboardEntries = getDisplayLeaderboardEntries(snapshot);
     const leaderboardByRacerId = new Map(
       leaderboardEntries.map((entry) => [entry.racerId, entry])
@@ -2847,6 +2933,11 @@
         lapProgress = clamp(0.982 + entry.finishPlace * 0.003, 0.982, 0.997);
       }
 
+      const lane = simulationEntry?.lane || "TRACK";
+      const pitProgress = lane === "GARAGE"
+        ? 1
+        : clamp(Number(simulationEntry?.pitProgress) || 0, 0, 0.999);
+
       return {
         id: racer.id,
         name: racer.name,
@@ -2856,8 +2947,12 @@
         position: entry?.position ?? index + 1,
         finishPlace: entry?.finishPlace ?? racer.finishPlace ?? null,
         simulationProgress: simulationEntry?.progress ?? null,
+        simulationPhase: simulation.phase,
+        simulationPhaseLabel: simulationPhaseMeta.label,
         markerHue: (seed * 13) % 360,
         targetLapDurationMs: simulationEntry?.targetLapDurationMs ?? estimatedLapMs,
+        lane,
+        pitProgress,
         totalProgress: lapCount + lapProgress,
       };
     });
@@ -2866,17 +2961,20 @@
   function lapTrackerVisualPanel() {
     const racers = buildLapTrackerEstimateModel();
     const simulation = getSimulationMeta();
+    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
     const simulationStatus = simulation.active ? "ACTIVE" : simulation.status;
     const geometry = getLapTrackGeometry();
     const telemetryCopy = simulation.active
-      ? `${simulation.targetLapCount || 5}-lap run · 20-25s lap targets · 8-car grid ready`
-      : state.raceSnapshot.finishOrderActive
-        ? "Finish order is frozen on the telemetry map"
-        : "Top-down telemetry loop with finish line and pit lane visible";
+      ? `${simulationPhaseMeta.label} · ${simulation.targetLapCount || 5} laps · pit return enabled`
+      : simulation.status === "COMPLETED"
+        ? "Scenario complete · pit return and session progression finished cleanly"
+        : state.raceSnapshot.finishOrderActive
+          ? "Finish order is frozen on the telemetry map"
+          : "Top-down telemetry loop with finish line and pit lane visible";
     const markerMarkup = racers
       .map(
         (racer) => `
-          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}${Number.isFinite(racer.finishPlace) ? " is-finished" : ""}" style="--marker-hue:${racer.markerHue};" data-track-marker="${escapeHtml(racer.id)}">
+          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}${Number.isFinite(racer.finishPlace) ? " is-finished" : ""}${racer.lane === "PIT" ? " is-pit" : ""}${racer.lane === "GARAGE" ? " is-garage" : ""}" style="--marker-hue:${racer.markerHue};" data-track-marker="${escapeHtml(racer.id)}">
             <circle class="lap-track-marker-halo" cx="0" cy="0" r="15"></circle>
             <circle class="lap-track-marker-dot" cx="0" cy="0" r="10"></circle>
             <text class="lap-track-marker-car" text-anchor="middle" x="0" y="4">${escapeHtml(racer.carNumber)}</text>
@@ -3068,6 +3166,7 @@
     const snapshot = state.raceSnapshot;
     const activeSession = getDisplaySession();
     const simulation = getSimulationMeta(snapshot);
+    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
     const lapAllowed = Boolean(snapshot.lapEntryAllowed);
     const flagMeta = getFlagMeta(snapshot);
     const lapReason = firstReason(
@@ -3131,6 +3230,9 @@
                     <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
                     <span class="telemetry-tag tone-${simulation.active ? "warning" : lapAllowed ? "safe" : "danger"}">${escapeHtml(
                       simulation.active ? "Simulation driving" : lapAllowed ? "Lap entry open" : "Lap entry blocked"
+                    )}</span>
+                    <span class="telemetry-tag tone-${escapeHtml(simulationPhaseMeta.tone)}">${escapeHtml(
+                      simulationPhaseMeta.label
                     )}</span>
                     <span class="telemetry-tag tone-${escapeHtml(simulationStatusTone(simulation.active ? "ACTIVE" : simulation.status))}">${escapeHtml(
                       simulation.active ? "Simulation Active" : simulation.status === "READY" ? "Simulation Ready" : simulation.status === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
@@ -3296,19 +3398,26 @@
 
   function nextRacePanels() {
     const activeSession = state.raceSnapshot.activeSession;
+    const simulation = getSimulationMeta();
+    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
     const pitLaneSession =
-      state.raceSnapshot.state !== "RUNNING" && state.raceSnapshot.lockedSession
+      (state.raceSnapshot.state !== "RUNNING" && state.raceSnapshot.lockedSession)
         ? state.raceSnapshot.lockedSession
         : null;
-    const onTrackSession = pitLaneSession || activeSession || getDisplaySession();
+    const pitReturnActive =
+      Boolean(pitLaneSession) || simulation.phase === "PIT_RETURN";
+    const onTrackSession =
+      pitLaneSession ||
+      (pitReturnActive ? activeSession || getDisplaySession() : activeSession || getDisplaySession());
     const queued = pitLaneSession
       ? activeSession || state.raceSnapshot.nextSession || getQueuedSessions()[0] || null
-      : getQueuedSessions()[0] || null;
+      : state.raceSnapshot.nextSession || getQueuedSessions()[0] || null;
     const flagMeta = getFlagMeta();
     const runningRace = state.raceSnapshot.state === "RUNNING";
-    const pitReturnActive = Boolean(pitLaneSession);
-    const topThreeEntries = runningRace ? getDisplayLeaderboardEntries().slice(0, 3) : [];
-    const topThreeMarkup = runningRace
+    const topThreeEntries = (runningRace || pitReturnActive || state.raceSnapshot.finishOrderActive)
+      ? getDisplayLeaderboardEntries().slice(0, 3)
+      : [];
+    const topThreeMarkup = (runningRace || pitReturnActive || state.raceSnapshot.finishOrderActive)
       ? topThreeEntries.length > 0
         ? `
           <div class="next-race-top-three-grid">
@@ -3340,7 +3449,9 @@
         </div>
       `;
     const trackStateCopy = pitReturnActive
-      ? "This session has finished. Drivers should proceed to the pit lane."
+      ? simulation.phase === "PIT_RETURN"
+        ? simulationPhaseMeta.detail
+        : "This session has finished. Drivers should proceed to the pit lane."
       : STATE_META[state.raceSnapshot.state]?.detail || "Waiting for the next session to be staged.";
     const nextStateCopy = pitReturnActive
       ? queued
@@ -3358,7 +3469,7 @@
             <div class="next-race-status-copy">
               <p class="section-kicker">Race board</p>
               <strong class="next-race-status-title">${escapeHtml(flagMeta.label)}</strong>
-              <span class="public-state-detail">${escapeHtml(flagMeta.detail)}</span>
+              <span class="public-state-detail">${escapeHtml(pitReturnActive ? trackStateCopy : flagMeta.detail)}</span>
             </div>
             <div class="glance-metric-grid">
               ${kpiPill("Track", activeSession ? activeSession.name : "No active session", activeSession ? "warning" : "danger")}
@@ -3401,7 +3512,7 @@
               <div>
                 <p class="section-kicker">Current race Top 3</p>
                 <strong class="next-race-top-three-title">${escapeHtml(
-                  runningRace ? "Live names and pace" : "Stand by for live race order"
+                  runningRace ? "Live names and pace" : pitReturnActive ? "Final order during pit return" : "Stand by for live race order"
                 )}</strong>
               </div>
             </div>
@@ -4262,7 +4373,10 @@
 
   function lapTrackPoint(progress, offset = 0) {
     const geometry = getLapTrackGeometry();
-    const sample = sampleLapTrackPolyline(geometry.loopMetrics, progress);
+    const sample = sampleLapTrackPolyline(
+      geometry.loopMetrics,
+      (((progress % 1) + 1) % 1) + LAP_TRACK_FINISH_PROGRESS
+    );
     return {
       x: sample.x + sample.normal.x * offset,
       y: sample.y + sample.normal.y * offset,
@@ -4331,15 +4445,28 @@
     const displayItems = model.map((item) => {
       const previous = lapTrackVisualState.markers.get(item.id) || {
         displayTotalProgress: item.totalProgress,
+        displayPitProgress: item.pitProgress || 0,
       };
       previous.displayTotalProgress += (item.totalProgress - previous.displayTotalProgress) * smoothing;
+      previous.displayPitProgress += ((item.pitProgress || 0) - previous.displayPitProgress) * smoothing;
       lapTrackVisualState.markers.set(item.id, previous);
       return {
         ...item,
         progress: ((previous.displayTotalProgress % 1) + 1) % 1,
+        pitProgress: clamp(previous.displayPitProgress, 0, 1),
       };
     });
-    const offsets = applyLapTrackOverlapOffsets(displayItems);
+    const trackOffsets = applyLapTrackOverlapOffsets(
+      displayItems.filter((item) => item.lane === "TRACK")
+    );
+    const pitOffsets = applyLapTrackOverlapOffsets(
+      displayItems
+        .filter((item) => item.lane === "PIT" || item.lane === "GARAGE")
+        .map((item) => ({
+          ...item,
+          progress: item.pitProgress,
+        }))
+    );
 
     displayItems.forEach((item) => {
       const marker = root.querySelector(`[data-track-marker=\"${item.id}\"]`);
@@ -4347,9 +4474,22 @@
         return;
       }
 
-      const point = lapTrackPoint(item.progress, offsets.get(item.id) ?? 0);
+      const point =
+        item.lane === "PIT" || item.lane === "GARAGE"
+          ? (() => {
+              const geometry = getLapTrackGeometry();
+              const sample = sampleLapTrackPolyline(geometry.pitMetrics, item.pitProgress);
+              const offset = pitOffsets.get(item.id) ?? 0;
+              return {
+                x: sample.x + sample.normal.x * offset,
+                y: sample.y + sample.normal.y * offset,
+              };
+            })()
+          : lapTrackPoint(item.progress, trackOffsets.get(item.id) ?? 0);
       marker.setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`);
       marker.classList.toggle("is-leader", item.position === 1);
+      marker.classList.toggle("is-pit", item.lane === "PIT");
+      marker.classList.toggle("is-garage", item.lane === "GARAGE");
     });
 
     lapTrackVisualState.frameId = requestAnimationFrame(frameLapTrackVisual);

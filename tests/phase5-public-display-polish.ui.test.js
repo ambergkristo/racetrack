@@ -66,6 +66,19 @@ function buildSnapshot(overrides = {}) {
     ],
     lockedSession: null,
     finalResults: null,
+    simulation: {
+      status: "IDLE",
+      active: false,
+      phase: "IDLE",
+      sessionId: null,
+      startedAtMs: null,
+      endedAtMs: null,
+      maxDurationMs: null,
+      targetLapCount: null,
+      hardCapReached: false,
+      completionReason: null,
+      racers: [],
+    },
     sessions: [
       {
         id: "session-1",
@@ -224,4 +237,56 @@ test("next-race empty state stays public-facing when no next lineup is staged", 
   assert.equal(html.includes("Front desk has not staged the next lineup yet."), true);
   assert.equal(html.includes("Queue is empty"), false);
   assert.equal(html.includes("Add and queue the next session from front desk."), false);
+});
+
+test("next-race shows pit-return guidance while simulation is routing cars off track", async () => {
+  const html = await renderRoute("/next-race", {
+    snapshot: {
+      state: "FINISHED",
+      flag: "CHECKERED",
+      lapEntryAllowed: true,
+      remainingSeconds: 0,
+      simulation: {
+        status: "ACTIVE",
+        active: true,
+        phase: "PIT_RETURN",
+        sessionId: "session-1",
+        startedAtMs: 1000,
+        endedAtMs: null,
+        maxDurationMs: 120000,
+        targetLapCount: 5,
+        hardCapReached: false,
+        completionReason: null,
+        racers: [],
+      },
+      finalResults: [
+        {
+          position: 1,
+          racerId: "racer-1",
+          name: "Alex",
+          carNumber: "7",
+          lapCount: 5,
+          currentLapTimeMs: 21999,
+          bestLapTimeMs: 21444,
+          finishPlace: 1,
+        },
+      ],
+      leaderboard: [
+        {
+          position: 1,
+          racerId: "racer-1",
+          name: "Alex",
+          carNumber: "7",
+          lapCount: 5,
+          currentLapTimeMs: 21999,
+          bestLapTimeMs: 21444,
+          finishPlace: 1,
+        },
+      ],
+    },
+  });
+
+  assert.equal(html.includes("Return to pit lane"), true);
+  assert.equal(html.includes("Cars are peeling into the pit lane before the session fully locks."), true);
+  assert.equal(html.includes("Final order during pit return"), true);
 });

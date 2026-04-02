@@ -73,10 +73,24 @@ const leaderboardEntrySchema = z.object({
 });
 
 const simulationStatusSchema = z.enum(["IDLE", "READY", "ACTIVE", "COMPLETED"]);
+const simulationPhaseSchema = z.enum([
+  "IDLE",
+  "READY",
+  "SAFE_RUN",
+  "HAZARD_SLOW",
+  "HAZARD_STOP",
+  "RECOVERY",
+  "CHECKERED",
+  "PIT_RETURN",
+  "COMPLETED",
+]);
+const simulationLaneSchema = z.enum(["TRACK", "PIT", "GARAGE"]);
 
 const simulationRacerSchema = z.object({
   racerId: z.string().min(1),
   progress: z.number().min(0).max(1),
+  lane: simulationLaneSchema,
+  pitProgress: z.number().min(0).max(1),
   lapIndex: z.number().int().positive(),
   targetLapDurationMs: z.number().int().positive().nullable(),
   lapProgressMs: z.number().min(0),
@@ -87,6 +101,7 @@ const simulationRacerSchema = z.object({
 const simulationSnapshotSchema = z.object({
   status: simulationStatusSchema,
   active: z.boolean(),
+  phase: simulationPhaseSchema,
   sessionId: z.string().min(1).nullable(),
   startedAtMs: z.number().int().nonnegative().nullable(),
   endedAtMs: z.number().int().nonnegative().nullable(),

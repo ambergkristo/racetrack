@@ -50,11 +50,29 @@ const persistedSimulationRacerSchema = z.object({
   lastAdvancedAtMs: z.number().int().nonnegative().nullable(),
   targetCompleted: z.boolean(),
   targetCompletedAtMs: z.number().int().nonnegative().nullable(),
+  lane: z.enum(["TRACK", "PIT", "GARAGE"]).optional(),
+  pitProgressMs: z.number().nonnegative().optional(),
+  pitDurationMs: z.number().int().positive().nullable().optional(),
+  pitReleaseAtMs: z.number().int().nonnegative().nullable().optional(),
+  pitCompletedAtMs: z.number().int().nonnegative().nullable().optional(),
 });
 
 const persistedSimulationSchema = z.object({
   status: z.enum(["IDLE", "READY", "ACTIVE", "COMPLETED"]),
   active: z.boolean(),
+  phase: z
+    .enum([
+      "IDLE",
+      "READY",
+      "SAFE_RUN",
+      "HAZARD_SLOW",
+      "HAZARD_STOP",
+      "RECOVERY",
+      "CHECKERED",
+      "PIT_RETURN",
+      "COMPLETED",
+    ])
+    .optional(),
   seed: z.number().int().nonnegative().nullable(),
   sessionId: z.string().min(1).nullable(),
   startedAtMs: z.number().int().nonnegative().nullable(),
@@ -66,6 +84,28 @@ const persistedSimulationSchema = z.object({
   finishQueue: z.array(z.string().min(1)),
   finishQueueNextAtMs: z.number().int().nonnegative().nullable(),
   racerOrder: z.array(z.string().min(1)),
+  scenarioPlan: z
+    .array(
+      z.object({
+        phase: z.enum([
+          "IDLE",
+          "READY",
+          "SAFE_RUN",
+          "HAZARD_SLOW",
+          "HAZARD_STOP",
+          "RECOVERY",
+          "CHECKERED",
+          "PIT_RETURN",
+          "COMPLETED",
+        ]),
+        mode: z.enum(Object.values(RACE_MODES)),
+        startsAtMs: z.number().int().nonnegative().nullable(),
+        endsAtMs: z.number().int().nonnegative().nullable(),
+        trigger: z.string().min(1),
+      })
+    )
+    .optional(),
+  pitReturnStartedAtMs: z.number().int().nonnegative().nullable().optional(),
   racers: z.array(persistedSimulationRacerSchema),
 });
 

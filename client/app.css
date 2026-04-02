@@ -4053,6 +4053,14 @@ body {
   fill: rgba(255, 212, 0, 0.95);
 }
 
+.route-lap-line-tracker .lap-track-marker.is-pit .lap-track-marker-dot {
+  fill: rgba(255, 212, 0, 0.96);
+}
+
+.route-lap-line-tracker .lap-track-marker.is-garage {
+  opacity: 0.72;
+}
+
 .route-lap-line-tracker .lap-track-marker-car {
   fill: var(--ink);
   font-size: 9px;

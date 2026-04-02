@@ -353,6 +353,9 @@ test("simulation mode runs through the canonical websocket truth layer", async (
       jitterMsMax: 0,
       minLapDurationMs: 1,
       drainIntervalMs: 20,
+      pitReturnDurationMsMin: 20,
+      pitReturnDurationMsMax: 20,
+      pitReturnReleaseGapMs: 10,
       targetLapCount: 3,
       maxDurationMs: 5_000,
     },
@@ -417,6 +420,18 @@ test("simulation mode runs through the canonical websocket truth layer", async (
     );
     assert.equal(addRacerTwo.response.status, 201);
 
+    const nextSessionResult = await postJson(
+      url,
+      "/api/sessions",
+      { name: "Next Heat" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(nextSessionResult.response.status, 201);
+    const nextSessionId = nextSessionResult.json.session.id;
+
     const simulationActiveSnapshotPromise = waitForEvent(
       socket,
       SOCKET_EVENTS.RACE_SNAPSHOT,
@@ -437,6 +452,7 @@ test("simulation mode runs through the canonical websocket truth layer", async (
     assertSchema(raceSnapshotSchema, simulationActiveSnapshot, "race:snapshot (simulation active)");
     assert.equal(simulationActiveSnapshot.simulation.active, true);
     assert.equal(simulationActiveSnapshot.simulation.status, "ACTIVE");
+    assert.equal(simulationActiveSnapshot.simulation.phase, "SAFE_RUN");
     assert.equal(simulationActiveSnapshot.simulation.racers.length, 2);
 
     const blockedManualLap = await postJson(
@@ -450,20 +466,40 @@ test("simulation mode runs through the canonical websocket truth layer", async (
     );
     assert.equal(blockedManualLap.response.status, 409);
 
-    const finishedSnapshot = await waitForEvent(
+    const checkeredSnapshot = await waitForEvent(
       socket,
       SOCKET_EVENTS.RACE_SNAPSHOT,
       (payload) =>
         payload.state === "FINISHED" &&
+        payload.flag === "CHECKERED" &&
+        payload.simulation?.active === true
+    );
+    assertSchema(raceSnapshotSchema, checkeredSnapshot, "race:snapshot (simulation checkered)");
+    assert.equal(
+      ["CHECKERED", "PIT_RETURN"].includes(checkeredSnapshot.simulation.phase),
+      true
+    );
+
+    const lockedSnapshot = await waitForEvent(
+      socket,
+      SOCKET_EVENTS.RACE_SNAPSHOT,
+      (payload) =>
+        payload.state === "LOCKED" &&
         payload.simulation?.active === false &&
         payload.finishOrderActive === true &&
-        payload.leaderboard.every((entry) => entry.finishPlace !== null)
+        payload.leaderboard.every((entry) => entry.finishPlace !== null) &&
+        payload.activeSessionId === nextSessionId
     );
-    assertSchema(raceSnapshotSchema, finishedSnapshot, "race:snapshot (simulation finished)");
-    assert.equal(finishedSnapshot.simulation.status, "COMPLETED");
-    assert.equal(finishedSnapshot.simulation.hardCapReached, false);
-    assert.equal(finishedSnapshot.leaderboard[0].finishPlace, 1);
-    assert.equal(finishedSnapshot.leaderboard[1].finishPlace, 2);
+    assertSchema(raceSnapshotSchema, lockedSnapshot, "race:snapshot (simulation locked)");
+    assert.equal(lockedSnapshot.flag, "LOCKED");
+    assert.equal(lockedSnapshot.simulation.status, "COMPLETED");
+    assert.equal(lockedSnapshot.simulation.phase, "COMPLETED");
+    assert.equal(lockedSnapshot.simulation.completionReason, "pit_return_complete");
+    assert.equal(lockedSnapshot.simulation.hardCapReached, false);
+    assert.equal(lockedSnapshot.lockedSession?.id, sessionId);
+    assert.equal(lockedSnapshot.activeSessionId, nextSessionId);
+    assert.equal(lockedSnapshot.leaderboard[0].finishPlace, 1);
+    assert.equal(lockedSnapshot.leaderboard[1].finishPlace, 2);
   } finally {
     socket.close();
     delete process.env.RACE_DURATION_SECONDS;

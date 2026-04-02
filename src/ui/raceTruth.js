@@ -94,6 +94,10 @@ function resolveFinalResults(snapshot, lockedSnapshotContext) {
     return clone(snapshot.leaderboard);
   }
 
+  if (snapshot.state === RACE_STATES.LOCKED && Array.isArray(snapshot.leaderboard)) {
+    return clone(snapshot.leaderboard);
+  }
+
   if (lockedSnapshotContext.finalResults !== null) {
     return lockedSnapshotContext.finalResults === null
       ? null
@@ -125,7 +129,7 @@ function buildRaceSnapshotViewModel(snapshot, lockedSnapshotContext = null) {
     lockedSession:
       snapshot.state === RACE_STATES.RUNNING
         ? null
-        : normalizedLockedSnapshotContext.lockedSession,
+        : snapshot.lockedSession || normalizedLockedSnapshotContext.lockedSession,
     finalResults: resolveFinalResults(snapshot, normalizedLockedSnapshotContext),
   };
 }
