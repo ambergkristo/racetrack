@@ -3040,15 +3040,6 @@ body {
   justify-content: flex-end;
 }
 
-.route-front-desk .frontdesk-guard-strip .guard-list {
-  margin-top: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.route-front-desk .frontdesk-guard-strip .guard-item {
-  margin-top: 0;
-}
-
 .route-front-desk .ops-board {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.84fr);
   gap: 10px;
@@ -3383,17 +3374,6 @@ body {
   flex-wrap: wrap;
   gap: 4px;
   justify-content: flex-end;
-}
-
-.route-front-desk .frontdesk-guard-strip .guard-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.route-front-desk .frontdesk-guard-strip {
-  margin-top: 6px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .route-front-desk .auto-assignment-note {

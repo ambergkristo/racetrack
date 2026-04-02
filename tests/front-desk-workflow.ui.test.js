@@ -173,6 +173,7 @@ test("front-desk renders current, next, and queued workflow blocks", async () =>
   assert.equal(html.includes("Racer Management"), true);
   assert.equal(html.includes("Current Race"), true);
   assert.equal(html.includes("Registered Racers"), true);
+  assert.equal(html.includes('id="front-desk-guards"'), false);
   assert.equal(
     html.includes("Read-only race state for the front-desk operator while the setup flow stays active."),
     false

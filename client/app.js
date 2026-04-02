@@ -2073,9 +2073,6 @@
                     </div>
                     ${queuedSessionCompactList(queuedLater)}
                   </div>
-                  <div id="front-desk-guards" class="frontdesk-guard-strip">
-                    ${formState.frontDeskReasons}
-                  </div>
                 </div>
                 <div class="frontdesk-block frontdesk-racer-card">
                   <div class="frontdesk-block-head">
@@ -2247,9 +2244,6 @@
           ${queuedSessionCompactList(upcomingSessions)}
         </div>
       </section>
-      <div id="front-desk-guards" class="frontdesk-guard-strip">
-        ${formState.frontDeskReasons}
-      </div>
       ${
         manualAssignmentEnabled()
           ? manualAssignmentPanel(true)
