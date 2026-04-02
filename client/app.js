@@ -2243,19 +2243,8 @@
           <p class="queue-kicker">Saved Sessions</p>
           <span class="chip tiny-chip">${sessionCount}</span>
         </div>
-        <p class="frontdesk-section-note">Pick which saved session should stay ready for the standby racer area on the right.</p>
         <div class="frontdesk-scroll-area">
           ${queuedSessionCompactList(upcomingSessions)}
-        </div>
-      </section>
-      <section class="frontdesk-inline-section frontdesk-control-section">
-        <div class="frontdesk-inline-head">
-          <p class="queue-kicker">Control State</p>
-          <span class="chip tiny-chip">${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</span>
-        </div>
-        <p class="frontdesk-section-note">Read-only race state for the front-desk operator while the setup flow stays active.</p>
-        <div class="frontdesk-control-body">
-          ${frontDeskControlStateBody()}
         </div>
       </section>
       <div id="front-desk-guards" class="frontdesk-guard-strip">
