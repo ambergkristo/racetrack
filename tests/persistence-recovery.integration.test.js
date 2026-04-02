@@ -427,7 +427,7 @@ test("RUN -> laps -> FINISH -> restart preserves finished state and checkered la
   }
 });
 
-test("LOCK -> restart preserves locked state exactly", async () => {
+test("LOCK -> restart preserves staged next-session progression and held results", async () => {
   const filePath = createPersistenceFilePath("locked");
   configurePersistenceEnv(filePath, "8");
 
@@ -478,7 +478,7 @@ test("LOCK -> restart preserves locked state exactly", async () => {
       raceControlHeaders()
     );
     assert.equal(lockedRace.status, 200);
-    assert.equal(lockedRace.json.raceSnapshot.state, "LOCKED");
+    assert.equal(lockedRace.json.raceSnapshot.state, "STAGING");
 
     await stopServer(firstBoot.server);
 
@@ -486,9 +486,10 @@ test("LOCK -> restart preserves locked state exactly", async () => {
     try {
       const restoredSnapshot = await requestJson(secondBoot.url, "/api/race", "GET");
       assert.equal(restoredSnapshot.status, 200);
-      assert.equal(restoredSnapshot.json.state, "LOCKED");
-      assert.equal(restoredSnapshot.json.flag, "LOCKED");
+      assert.equal(restoredSnapshot.json.state, "STAGING");
+      assert.equal(restoredSnapshot.json.flag, "SAFE");
       assert.equal(restoredSnapshot.json.lapEntryAllowed, false);
+      assert.equal(restoredSnapshot.json.resultsFinalized, true);
       assert.equal(restoredSnapshot.json.activeSessionId, nextSessionId);
       assert.equal(restoredSnapshot.json.activeSession.id, nextSessionId);
       assert.equal(restoredSnapshot.json.currentSessionId, nextSessionId);
@@ -507,6 +508,18 @@ test("LOCK -> restart preserves locked state exactly", async () => {
       );
       assert.equal(blockedLap.status, 409);
       assert.equal(blockedLap.json.code, "LAP_INPUT_BLOCKED");
+
+      const restartRace = await requestJson(
+        secondBoot.url,
+        "/api/race/start",
+        "POST",
+        {},
+        raceControlHeaders()
+      );
+      assert.equal(restartRace.status, 200);
+      assert.equal(restartRace.json.raceSnapshot.state, "RUNNING");
+      assert.equal(restartRace.json.raceSnapshot.activeSessionId, nextSessionId);
+      assert.equal(restartRace.json.raceSnapshot.lockedSession, null);
     } finally {
       await stopServer(secondBoot.server);
     }

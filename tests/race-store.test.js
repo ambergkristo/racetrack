@@ -154,6 +154,41 @@ test("derived state truth keeps FINISHED distinct from LOCKED", () => {
   assert.equal(lockedTruth.resultsFinalized, true);
 });
 
+test("manual lock promotes the next queued session to staging and allows the next run to start", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 60,
+    now: () => 2_500,
+  });
+
+  const heat1 = raceStore.createSession({ name: "Heat 1" });
+  const heat2 = raceStore.createSession({ name: "Heat 2" });
+  const amy = raceStore.addRacer(heat1.id, { name: "Amy" });
+  raceStore.addRacer(heat2.id, { name: "Ben" });
+
+  raceStore.startRace();
+  raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 10_000 });
+  raceStore.finishRace();
+  raceStore.lockRace();
+
+  let snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "STAGING");
+  assert.equal(snapshot.activeSessionId, heat2.id);
+  assert.equal(snapshot.currentSessionId, heat2.id);
+  assert.equal(snapshot.lockedSession?.id, heat1.id);
+  assert.equal(snapshot.resultsFinalized, true);
+  assert.equal(snapshot.finishOrderActive, true);
+  assert.equal(snapshot.finalResults?.length, 1);
+
+  raceStore.startSimulation({ startedAtMs: 2_500, seed: 7, targetLapCount: 2 });
+
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "RUNNING");
+  assert.equal(snapshot.activeSessionId, heat2.id);
+  assert.equal(snapshot.simulation.active, true);
+  assert.equal(snapshot.lockedSession, null);
+  assert.equal(snapshot.finalResults, null);
+});
+
 test("race store exposes canonical current, next, and queued session truth", () => {
   const raceStore = createRaceStore({
     raceDurationSeconds: 60,
@@ -187,11 +222,16 @@ test("race store exposes canonical current, next, and queued session truth", () 
   raceStore.lockRace();
 
   snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "STAGING");
   assert.equal(snapshot.currentSessionId, heat2.id);
   assert.equal(snapshot.currentSession?.id, heat2.id);
   assert.equal(snapshot.activeSessionId, heat2.id);
   assert.equal(snapshot.nextSessionId, null);
   assert.deepEqual(snapshot.queuedSessionIds, []);
+  assert.equal(snapshot.lockedSession?.id, heat3.id);
+  assert.equal(snapshot.resultsFinalized, true);
+  assert.equal(snapshot.finishOrderActive, true);
+  assert.equal(snapshot.finalResults?.length, 0);
 });
 
 test("race store auto-assigns cars from the authoritative 1-8 pool by default", () => {
@@ -241,7 +281,7 @@ test("race store keeps duplicate car prevention behind manual assignment mode", 
   );
 });
 
-test("simulation runs scenario phases, returns through pit lane, and locks into the next session", () => {
+test("simulation runs scenario phases, returns through pit lane, and stages the next session", () => {
   let currentNow = 1_000;
   const raceStore = createRaceStore({
     raceDurationSeconds: 600,
@@ -265,7 +305,7 @@ test("simulation runs scenario phases, returns through pit lane, and locks into 
   const nextSession = raceStore.createSession({ name: "Next Heat" });
   const amy = raceStore.addRacer(session.id, { name: "Amy" });
   const ben = raceStore.addRacer(session.id, { name: "Ben" });
-  raceStore.addRacer(nextSession.id, { name: "Casey" });
+  const casey = raceStore.addRacer(nextSession.id, { name: "Casey" });
 
   raceStore.startSimulation({
     startedAtMs: currentNow,
@@ -318,7 +358,7 @@ test("simulation runs scenario phases, returns through pit lane, and locks into 
     true
   );
 
-  while (snapshot.state !== "LOCKED" && currentNow < 3_500) {
+  while (snapshot.state !== "STAGING" && currentNow < 3_500) {
     currentNow += 10;
     raceStore.advanceSimulation({ nowMs: currentNow });
     snapshot = raceStore.getSnapshot();
@@ -327,21 +367,30 @@ test("simulation runs scenario phases, returns through pit lane, and locks into 
   }
 
   snapshot = raceStore.getSnapshot();
-  assert.equal(snapshot.state, "LOCKED");
+  assert.equal(snapshot.state, "STAGING");
   assert.equal(snapshot.activeSessionId, nextSession.id);
   assert.equal(snapshot.activeSession?.id, nextSession.id);
   assert.equal(snapshot.lockedSession?.id, session.id);
+  assert.equal(snapshot.resultsFinalized, true);
   assert.equal(snapshot.simulation.status, "COMPLETED");
   assert.equal(snapshot.simulation.phase, "COMPLETED");
   assert.equal(snapshot.simulation.completionReason, "pit_return_complete");
   assert.equal(snapshot.finishOrderActive, true);
-  assert.equal(snapshot.leaderboard[0].racerId, amy.id);
-  assert.equal(snapshot.leaderboard[0].finishPlace, 1);
-  assert.equal(snapshot.leaderboard[1].racerId, ben.id);
-  assert.equal(snapshot.leaderboard[1].finishPlace, 2);
+  assert.equal(snapshot.finalResults[0].racerId, amy.id);
+  assert.equal(snapshot.finalResults[0].finishPlace, 1);
+  assert.equal(snapshot.finalResults[1].racerId, ben.id);
+  assert.equal(snapshot.finalResults[1].finishPlace, 2);
+  assert.equal(snapshot.leaderboard[0].racerId, casey.id);
   assert.equal(lanesSeen.has("TRACK"), true);
   assert.equal(lanesSeen.has("PIT"), true);
   assert.equal(lanesSeen.has("GARAGE"), true);
+
+  raceStore.startRace();
+  snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "RUNNING");
+  assert.equal(snapshot.activeSessionId, nextSession.id);
+  assert.equal(snapshot.lockedSession, null);
+  assert.equal(snapshot.finalResults, null);
 });
 
 test("simulation defaults to an 8-car, 5-lap foundation with 20-25 second lap targets", () => {

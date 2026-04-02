@@ -1157,7 +1157,12 @@ function createRaceStore({
     state.sessions = state.sessions.filter((session) => session.id !== activeSession.id);
     state.activeSessionId = state.sessions[0]?.id || null;
     resetRaceClock();
-    state.raceMode = RACE_MODES.HAZARD_STOP;
+    if (state.activeSessionId) {
+      transitionTo(RACE_STATES.STAGING, "LOCK_BLOCKED");
+      state.raceMode = RACE_MODES.SAFE;
+    } else {
+      state.raceMode = RACE_MODES.HAZARD_STOP;
+    }
     syncFlagFromState();
     clearSimulation({ preserveCompletion: preserveSimulationCompletion });
 
@@ -1409,12 +1414,19 @@ function createRaceStore({
       ? state.sessions.find((session) => session.id === state.activeSessionId)
       : null;
     const queueView = buildQueueView(state.sessions, state.activeSessionId);
+    const heldResults =
+      state.raceState === RACE_STATES.FINISHED
+        ? buildLeaderboard()
+        : state.lockedSession
+          ? clone(state.lockedLeaderboard)
+          : null;
 
     return {
       state: state.raceState,
       mode: state.raceMode,
       flag: state.raceFlag,
       lapEntryAllowed: canAcceptLapInput(state.raceState),
+      resultsFinalized: state.raceState === RACE_STATES.LOCKED || state.lockedSession !== null,
       raceDurationSeconds,
       remainingSeconds: state.remainingSeconds,
       endsAt: state.timerEndsAt,
@@ -1427,9 +1439,12 @@ function createRaceStore({
       queuedSessionIds: queueView.queuedSessionIds,
       queuedSessions: queueView.queuedSessions,
       finishOrderActive:
-        state.raceState === RACE_STATES.FINISHED || state.raceState === RACE_STATES.LOCKED,
+        state.raceState === RACE_STATES.FINISHED ||
+        state.raceState === RACE_STATES.LOCKED ||
+        state.lockedSession !== null,
       simulation: buildSimulationSnapshot(),
       lockedSession: state.lockedSession ? clone(state.lockedSession) : null,
+      finalResults: heldResults,
       sessions: clone(state.sessions),
       leaderboard: buildLeaderboard(),
     };

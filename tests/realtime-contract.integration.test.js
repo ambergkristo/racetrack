@@ -297,10 +297,10 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     assert.equal(finishedSnapshotPayload.finalResults?.length, 1);
     assert.equal(finishedSnapshotPayload.finishOrderActive, true);
 
-    const lockedSnapshotPromise = waitForEvent(
+    const stagedSnapshotPromise = waitForEvent(
       socket,
       SOCKET_EVENTS.RACE_SNAPSHOT,
-      (payload) => payload.state === "LOCKED"
+      (payload) => payload.state === "STAGING" && payload.activeSessionId === nextSessionId
     );
     const lockResult = await postJson(
       url,
@@ -312,21 +312,42 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
       }
     );
     assert.equal(lockResult.response.status, 200);
-    const lockedSnapshotPayload = await lockedSnapshotPromise;
-    assertSchema(raceSnapshotSchema, lockedSnapshotPayload, "race:snapshot (LOCKED)");
-    assert.equal(lockedSnapshotPayload.stateLabel, "Locked");
-    assert.equal(lockedSnapshotPayload.flag, "LOCKED");
-    assert.equal(lockedSnapshotPayload.lapEntryAllowed, false);
-    assert.equal(lockedSnapshotPayload.resultsFinalized, true);
-    assert.equal(lockedSnapshotPayload.activeSessionId, nextSessionId);
-    assert.equal(lockedSnapshotPayload.activeSession?.id, nextSessionId);
-    assert.equal(lockedSnapshotPayload.currentSessionId, nextSessionId);
-    assert.equal(lockedSnapshotPayload.nextSessionId, null);
-    assert.deepEqual(lockedSnapshotPayload.queuedSessionIds, []);
-    assert.equal(lockedSnapshotPayload.nextSession, null);
-    assert.equal(lockedSnapshotPayload.lockedSession?.id, sessionId);
-    assert.equal(lockedSnapshotPayload.finalResults?.length, 1);
-    assert.equal(lockedSnapshotPayload.finishOrderActive, true);
+    const stagedSnapshotPayload = await stagedSnapshotPromise;
+    assertSchema(raceSnapshotSchema, stagedSnapshotPayload, "race:snapshot (STAGING after lock)");
+    assert.equal(stagedSnapshotPayload.stateLabel, "Staging");
+    assert.equal(stagedSnapshotPayload.flag, "SAFE");
+    assert.equal(stagedSnapshotPayload.lapEntryAllowed, false);
+    assert.equal(stagedSnapshotPayload.resultsFinalized, true);
+    assert.equal(stagedSnapshotPayload.activeSessionId, nextSessionId);
+    assert.equal(stagedSnapshotPayload.activeSession?.id, nextSessionId);
+    assert.equal(stagedSnapshotPayload.currentSessionId, nextSessionId);
+    assert.equal(stagedSnapshotPayload.nextSessionId, null);
+    assert.deepEqual(stagedSnapshotPayload.queuedSessionIds, []);
+    assert.equal(stagedSnapshotPayload.nextSession, null);
+    assert.equal(stagedSnapshotPayload.lockedSession?.id, sessionId);
+    assert.equal(stagedSnapshotPayload.finalResults?.length, 1);
+    assert.equal(stagedSnapshotPayload.finishOrderActive, true);
+
+    const restartSnapshotPromise = waitForEvent(
+      socket,
+      SOCKET_EVENTS.RACE_SNAPSHOT,
+      (payload) => payload.state === "RUNNING" && payload.activeSessionId === nextSessionId
+    );
+    const restartResult = await postJson(
+      url,
+      "/api/race/start",
+      {},
+      {
+        "x-staff-route": "/race-control",
+        "x-staff-key": process.env.RACE_CONTROL_KEY,
+      }
+    );
+    assert.equal(restartResult.response.status, 200);
+    const restartSnapshotPayload = await restartSnapshotPromise;
+    assert.equal(restartSnapshotPayload.state, "RUNNING");
+    assert.equal(restartSnapshotPayload.activeSessionId, nextSessionId);
+    assert.equal(restartSnapshotPayload.lockedSession, null);
+    assert.equal(restartSnapshotPayload.finalResults, null);
 
     assert.equal(unexpectedServerError, null, "server:error was emitted in happy path");
   } finally {
@@ -480,26 +501,25 @@ test("simulation mode runs through the canonical websocket truth layer", async (
       true
     );
 
-    const lockedSnapshot = await waitForEvent(
+    const stagedSnapshot = await waitForEvent(
       socket,
       SOCKET_EVENTS.RACE_SNAPSHOT,
       (payload) =>
-        payload.state === "LOCKED" &&
+        payload.state === "STAGING" &&
         payload.simulation?.active === false &&
         payload.finishOrderActive === true &&
-        payload.leaderboard.every((entry) => entry.finishPlace !== null) &&
         payload.activeSessionId === nextSessionId
     );
-    assertSchema(raceSnapshotSchema, lockedSnapshot, "race:snapshot (simulation locked)");
-    assert.equal(lockedSnapshot.flag, "LOCKED");
-    assert.equal(lockedSnapshot.simulation.status, "COMPLETED");
-    assert.equal(lockedSnapshot.simulation.phase, "COMPLETED");
-    assert.equal(lockedSnapshot.simulation.completionReason, "pit_return_complete");
-    assert.equal(lockedSnapshot.simulation.hardCapReached, false);
-    assert.equal(lockedSnapshot.lockedSession?.id, sessionId);
-    assert.equal(lockedSnapshot.activeSessionId, nextSessionId);
-    assert.equal(lockedSnapshot.leaderboard[0].finishPlace, 1);
-    assert.equal(lockedSnapshot.leaderboard[1].finishPlace, 2);
+    assertSchema(raceSnapshotSchema, stagedSnapshot, "race:snapshot (simulation staged)");
+    assert.equal(stagedSnapshot.flag, "SAFE");
+    assert.equal(stagedSnapshot.simulation.status, "COMPLETED");
+    assert.equal(stagedSnapshot.simulation.phase, "COMPLETED");
+    assert.equal(stagedSnapshot.simulation.completionReason, "pit_return_complete");
+    assert.equal(stagedSnapshot.simulation.hardCapReached, false);
+    assert.equal(stagedSnapshot.lockedSession?.id, sessionId);
+    assert.equal(stagedSnapshot.activeSessionId, nextSessionId);
+    assert.equal(stagedSnapshot.finalResults[0].finishPlace, 1);
+    assert.equal(stagedSnapshot.finalResults[1].finishPlace, 2);
   } finally {
     socket.close();
     delete process.env.RACE_DURATION_SECONDS;

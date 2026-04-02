@@ -56,7 +56,10 @@ function buildRaceStateTruth(snapshot) {
   return {
     flag: resolveFlag(snapshot),
     lapEntryAllowed: canAcceptLapInput(snapshot.state),
-    resultsFinalized: snapshot.state === RACE_STATES.LOCKED,
+    resultsFinalized:
+      snapshot.resultsFinalized === undefined
+        ? snapshot.state === RACE_STATES.LOCKED || Boolean(snapshot.lockedSession)
+        : Boolean(snapshot.resultsFinalized),
     stateLabel: STATE_LABELS[snapshot.state],
     stateDescription: STATE_DESCRIPTIONS[snapshot.state],
   };

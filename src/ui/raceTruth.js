@@ -90,6 +90,10 @@ function resolveFinalResults(snapshot, lockedSnapshotContext) {
     return null;
   }
 
+  if (Array.isArray(snapshot.finalResults)) {
+    return clone(snapshot.finalResults);
+  }
+
   if (snapshot.state === RACE_STATES.FINISHED) {
     return clone(snapshot.leaderboard);
   }
@@ -118,7 +122,11 @@ function buildRaceSnapshotViewModel(snapshot, lockedSnapshotContext = null) {
     stateDescription: STATE_DESCRIPTIONS[snapshot.state],
     flag: resolveFlag(snapshot),
     lapEntryAllowed: canAcceptLapInput(snapshot.state),
-    resultsFinalized: snapshot.state === RACE_STATES.LOCKED,
+    resultsFinalized:
+      snapshot.resultsFinalized === undefined
+        ? snapshot.state === RACE_STATES.LOCKED ||
+          Boolean(snapshot.lockedSession || normalizedLockedSnapshotContext.lockedSession)
+        : Boolean(snapshot.resultsFinalized),
     finishOrderActive: Boolean(snapshot.finishOrderActive),
     currentSessionId: queueView.currentSessionId,
     currentSession: queueView.currentSession,
