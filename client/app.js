@@ -2953,16 +2953,12 @@
   function lapTrackerVisualPanel() {
     const racers = buildLapTrackerEstimateModel();
     const simulation = getSimulationMeta();
-    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
-    const simulationStatus = simulation.active ? "ACTIVE" : simulation.status;
     const geometry = getLapTrackGeometry();
-    const telemetryCopy = simulation.active
-      ? `${simulationPhaseMeta.label} · ${simulation.targetLapCount || 5} laps · pit return enabled`
-      : simulation.status === "COMPLETED"
-        ? "Scenario complete · pit return and session progression finished cleanly"
-        : state.raceSnapshot.finishOrderActive
-          ? "Finish order is frozen on the telemetry map"
-          : "Top-down telemetry loop with finish line and pit lane visible";
+    const trackLabel = simulation.active
+      ? "Simulation track"
+      : state.raceSnapshot.finishOrderActive
+        ? "Finish map"
+        : "Estimated track";
     const markerMarkup = racers
       .map(
         (racer) => `
@@ -2983,20 +2979,7 @@
     return `
       <div class="lap-track-visual" id="lap-track-estimate">
         <div class="lap-track-visual-head">
-          <div>
-            <p class="section-kicker">${escapeHtml(simulation.active ? "Simulation track" : "Estimated track")}</p>
-            <strong class="lap-track-visual-title">${escapeHtml(
-              simulation.active
-                ? "Telemetry simulation map"
-                : state.raceSnapshot.finishOrderActive
-                  ? "Telemetry finish map"
-                  : "Telemetry estimate"
-            )}</strong>
-            <p class="lap-track-visual-copy">${escapeHtml(telemetryCopy)}</p>
-          </div>
-          <span class="chip tiny-chip tone-${escapeHtml(simulationStatusTone(simulationStatus))}">${escapeHtml(
-            simulation.active ? "Simulation Active" : simulationStatus === "READY" ? "Simulation Ready" : simulationStatus === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
-          )}</span>
+          <span class="lap-track-visual-label">${escapeHtml(trackLabel)}</span>
         </div>
         <svg class="lap-track-svg" viewBox="0 0 ${geometry.viewBox.width} ${geometry.viewBox.height}" role="img" aria-label="Telemetry simulation track map">
           <rect class="lap-track-frame" x="22" y="24" width="516" height="272" rx="24"></rect>
@@ -3009,10 +2992,10 @@
           <path class="lap-track-lane lap-track-center-line" d="${geometry.loopPath}"></path>
           <g class="lap-track-finish-line">
             <line x1="${geometry.finishLine.x1.toFixed(2)}" y1="${geometry.finishLine.y1.toFixed(2)}" x2="${geometry.finishLine.x2.toFixed(2)}" y2="${geometry.finishLine.y2.toFixed(2)}"></line>
-            <text x="${(geometry.finishLine.x1 + 18).toFixed(2)}" y="${(geometry.finishLine.y1 - 4).toFixed(2)}">Finish</text>
+            <text x="${(geometry.finishLine.x1 + 10).toFixed(2)}" y="${(geometry.finishLine.y1 - 8).toFixed(2)}">F</text>
           </g>
           <path class="lap-track-pit-lane" d="${geometry.pitLanePath}"></path>
-          <text class="lap-track-pit-label" x="414" y="102">Pit Lane</text>
+          <text class="lap-track-pit-label" x="426" y="98">PIT</text>
           <g class="lap-track-marker-layer">
             ${markerMarkup}
           </g>

@@ -186,8 +186,11 @@ test("lap-line-tracker keeps lap entry and tap targets in one console", async ()
   assert.equal(html.includes("Authoritative entry"), false);
   assert.equal(html.includes("Tap the racer crossing the line."), false);
   assert.equal(html.includes("Estimated track"), true);
-  assert.equal(html.includes("Finish"), true);
-  assert.equal(html.includes("Pit Lane"), true);
+  assert.equal(html.includes("Telemetry estimate"), false);
+  assert.equal(html.includes("Top-down telemetry loop with finish line and pit lane visible"), false);
+  assert.equal(html.includes(">F</text>"), true);
+  assert.equal(html.includes(">PIT</text>"), true);
+  assert.equal(html.includes("Pit Lane"), false);
   assert.equal(html.includes("Crossing Console"), false);
   assert.equal(html.includes("staff-chip-row"), false);
   assert.equal(html.includes("Gate Bypassed"), false);
