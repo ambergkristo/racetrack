@@ -38,6 +38,9 @@ const DEFAULT_SIMULATION_CONFIG = Object.freeze({
   minLapDurationMs: 6_000,
   drainIntervalMs: 650,
   hazardSlowFactor: 0.45,
+  pitLaunchDurationMsMin: 2_600,
+  pitLaunchDurationMsMax: 3_800,
+  pitLaunchReleaseGapMs: 420,
   pitReturnDurationMsMin: 6_000,
   pitReturnDurationMsMax: 9_200,
   pitReturnReleaseGapMs: 650,
@@ -71,6 +74,9 @@ const SIMULATION_LANES = Object.freeze({
   PIT: "PIT",
   GARAGE: "GARAGE",
 });
+
+const PIT_EXIT_TRACK_START_PROGRESS = 0.82;
+const PIT_EXIT_TRACK_SPAN = 0.18;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -165,18 +171,21 @@ function normalizeRestoredRacer(racer) {
 function normalizeRestoredSimulationRacer(racer) {
   return {
     ...racer,
+    carNumber: normalizeOptionalString(racer?.carNumber),
     seed: Number.isFinite(racer?.seed) ? racer.seed : null,
     baselineLapMs: Number.isFinite(racer?.baselineLapMs) ? racer.baselineLapMs : null,
     jitterMs: Number.isFinite(racer?.jitterMs) ? racer.jitterMs : null,
     consistencyFactor: Number.isFinite(racer?.consistencyFactor)
       ? racer.consistencyFactor
       : 1,
-    lapIndex: Number.isFinite(racer?.lapIndex) ? racer.lapIndex : 1,
+    lapIndex: Number.isFinite(racer?.lapIndex) ? racer.lapIndex : 0,
     targetLapDurationMs: Number.isFinite(racer?.targetLapDurationMs)
       ? racer.targetLapDurationMs
       : null,
     lapProgressMs: Number.isFinite(racer?.lapProgressMs) ? racer.lapProgressMs : 0,
     lastAdvancedAtMs: Number.isFinite(racer?.lastAdvancedAtMs) ? racer.lastAdvancedAtMs : null,
+    timedLapStarted: Boolean(racer?.timedLapStarted),
+    crossingCount: Number.isFinite(racer?.crossingCount) ? racer.crossingCount : 0,
     targetCompleted: Boolean(racer?.targetCompleted),
     targetCompletedAtMs: Number.isFinite(racer?.targetCompletedAtMs)
       ? racer.targetCompletedAtMs
@@ -397,24 +406,26 @@ function createRaceStore({
       completionReason: state.simulation.completionReason,
       racers: state.simulation.racers.map((meta) => {
         const racer = session?.racers.find((item) => item.id === meta.racerId) || null;
-        const targetDuration = Number.isFinite(meta.targetLapDurationMs)
-          ? meta.targetLapDurationMs
-          : 1;
-        const progress = meta.targetCompleted
-          ? 1
-          : clamp(meta.lapProgressMs / targetDuration, 0, 0.999);
+        const progress = meta.lane === SIMULATION_LANES.TRACK
+          ? resolveSimulationTrackProgress(meta)
+          : 0;
         const pitDuration = Number.isFinite(meta.pitDurationMs) ? meta.pitDurationMs : 1;
         const pitProgress = meta.lane === SIMULATION_LANES.GARAGE
           ? 1
           : clamp(meta.pitProgressMs / pitDuration, 0, 0.999);
         return {
           racerId: meta.racerId,
+          carNumber: racer?.carNumber || meta.carNumber || null,
           progress,
           lane: meta.lane,
           pitProgress,
           lapIndex: meta.lapIndex,
           targetLapDurationMs: meta.targetLapDurationMs,
           lapProgressMs: meta.lapProgressMs,
+          timedLapStarted: Boolean(meta.timedLapStarted),
+          crossingCount: Number.isFinite(meta.crossingCount)
+            ? meta.crossingCount
+            : racer?.lapCount || 0,
           targetCompleted: Boolean(meta.targetCompleted),
           finishPlace: Number.isFinite(racer?.finishPlace) ? racer.finishPlace : null,
         };
@@ -493,11 +504,54 @@ function createRaceStore({
     );
   }
 
+  function simulationPitLaunchDuration(meta) {
+    return Math.max(
+      20,
+      Math.round(
+        simConfig.pitLaunchDurationMsMin +
+          seededUnit(meta.seed + 17) *
+            (simConfig.pitLaunchDurationMsMax - simConfig.pitLaunchDurationMsMin)
+      )
+    );
+  }
+
+  function simulationPrestartDuration(meta) {
+    return Math.max(
+      40,
+      Math.round(meta.baselineLapMs * (0.18 + seededUnit(meta.seed + 19) * 0.06))
+    );
+  }
+
+  function resolveSimulationTrackProgress(meta) {
+    const targetDuration = Math.max(1, meta.targetLapDurationMs || 1);
+    const segmentProgress = clamp(meta.lapProgressMs / targetDuration, 0, 0.999);
+    if (!meta.timedLapStarted) {
+      return clamp(
+        PIT_EXIT_TRACK_START_PROGRESS + segmentProgress * PIT_EXIT_TRACK_SPAN,
+        PIT_EXIT_TRACK_START_PROGRESS,
+        0.999
+      );
+    }
+
+    return segmentProgress;
+  }
+
   function buildSimulationScenarioPlan({ seed, startedAtMs, targetLapCount, racers }) {
     const averageLapDurationMs = Math.max(
       simConfig.minLapDurationMs,
       Math.round(
-        racers.reduce((sum, racer) => sum + racer.targetLapDurationMs, 0) /
+        racers.reduce(
+          (sum, racer) =>
+            sum +
+            simulationLapDuration(
+              {
+                ...racer,
+                lapIndex: 1,
+              },
+              1
+            ),
+          0
+        ) /
           Math.max(racers.length, 1)
       )
     );
@@ -590,7 +644,7 @@ function createRaceStore({
   }
 
   function applySimulationScenarioPhase(nextPhase, nextMode) {
-    if (state.simulation.phase === nextPhase && state.raceMode === nextMode) {
+    if (state.simulation.phase === nextPhase) {
       return false;
     }
 
@@ -630,15 +684,6 @@ function createRaceStore({
         lastAdvancedAtMs: nowMs,
       };
     });
-  }
-
-  function prepareSimulationFinishQueue({ nowMs, racerIds = [] }) {
-    const queue = racerIds.filter((racerId) => {
-      const racer = getActiveSession().racers.find((item) => item.id === racerId);
-      return racer && !Number.isFinite(racer.finishPlace);
-    });
-    state.simulation.finishQueue = queue;
-    state.simulation.finishQueueNextAtMs = queue.length > 0 ? nowMs + simConfig.drainIntervalMs : null;
   }
 
   function completeSimulation({ reason, endedAtMs = now(), hardCapReached = false }) {
@@ -952,6 +997,15 @@ function createRaceStore({
     );
   }
 
+  function assignFinishPlace(session, racer, timestampMs) {
+    if (Number.isFinite(racer.finishPlace)) {
+      return;
+    }
+
+    racer.finishPlace = getRecordedFinishCount(session) + 1;
+    racer.finishRecordedAtMs = timestampMs;
+  }
+
   function sortCompetitiveEntries(left, right) {
     if (left.bestLapTimeMs === null && right.bestLapTimeMs === null) {
       return left.name.localeCompare(right.name);
@@ -1051,33 +1105,38 @@ function createRaceStore({
             seededUnit(racerSeed + 1) * (simConfig.jitterMsMax - simConfig.jitterMsMin)
         );
         const consistencyFactor = 0.84 + seededUnit(racerSeed + 2) * 0.16;
-        const lapIndex = 1;
-        const targetLapDurationMs = simulationLapDuration(
+        const targetLapDurationMs = simulationPrestartDuration(
           {
             seed: racerSeed,
             baselineLapMs,
             jitterMs,
             consistencyFactor,
-          },
-          lapIndex
+          }
         );
+        const pitDurationMs = simulationPitLaunchDuration({
+          seed: racerSeed,
+          baselineLapMs,
+        });
 
         return {
           racerId: racer.id,
+          carNumber: racer.carNumber,
           seed: racerSeed,
           baselineLapMs,
           jitterMs,
           consistencyFactor,
-          lapIndex,
+          lapIndex: 0,
           targetLapDurationMs,
           lapProgressMs: 0,
           lastAdvancedAtMs: startedAtMs,
+          timedLapStarted: false,
+          crossingCount: 0,
           targetCompleted: false,
           targetCompletedAtMs: null,
-          lane: SIMULATION_LANES.TRACK,
+          lane: SIMULATION_LANES.PIT,
           pitProgressMs: 0,
-          pitDurationMs: null,
-          pitReleaseAtMs: null,
+          pitDurationMs,
+          pitReleaseAtMs: startedAtMs + index * simConfig.pitLaunchReleaseGapMs,
           pitCompletedAtMs: null,
         };
       }),
@@ -1132,11 +1191,8 @@ function createRaceStore({
 
     if (state.simulation.active) {
       state.simulation.phase = SIMULATION_PHASES.CHECKERED;
-      const orderedRacerIds =
-        reason === "simulation_target_laps" && state.simulation.racerOrder.length > 0
-          ? state.simulation.racerOrder
-          : buildLeaderboard().map((entry) => entry.racerId);
-      prepareSimulationFinishQueue({ nowMs: now(), racerIds: orderedRacerIds });
+      state.simulation.finishQueue = [];
+      state.simulation.finishQueueNextAtMs = null;
     }
 
     return { reason };
@@ -1211,9 +1267,8 @@ function createRaceStore({
     if (racer.lastCrossingTimestampMs === null || timestampMs > racer.lastCrossingTimestampMs) {
       racer.lastCrossingTimestampMs = timestampMs;
     }
-    if (state.raceState === RACE_STATES.FINISHED && !Number.isFinite(racer.finishPlace)) {
-      racer.finishPlace = getRecordedFinishCount(activeSession) + 1;
-      racer.finishRecordedAtMs = timestampMs;
+    if (state.raceState === RACE_STATES.FINISHED) {
+      assignFinishPlace(activeSession, racer, timestampMs);
     }
     racer.updatedAt = new Date(now()).toISOString();
     activeSession.updatedAt = new Date(now()).toISOString();
@@ -1259,43 +1314,76 @@ function createRaceStore({
           : state.raceMode === RACE_MODES.HAZARD_SLOW
             ? simConfig.hazardSlowFactor
             : 1;
+      let finishTriggered = false;
 
       for (const meta of state.simulation.racers) {
+        const deltaMs = Math.max(0, nowMs - (meta.lastAdvancedAtMs ?? nowMs));
+        meta.lastAdvancedAtMs = nowMs;
         if (meta.targetCompleted) {
-          meta.lastAdvancedAtMs = nowMs;
           continue;
         }
 
-        const deltaMs = Math.max(0, nowMs - (meta.lastAdvancedAtMs ?? nowMs));
-        meta.lastAdvancedAtMs = nowMs;
+        if (meta.lane === SIMULATION_LANES.PIT) {
+          if (meta.pitReleaseAtMs !== null && nowMs < meta.pitReleaseAtMs) {
+            continue;
+          }
+
+          meta.pitProgressMs += deltaMs * modeFactor;
+          changed = changed || deltaMs > 0;
+
+          if (meta.pitProgressMs >= meta.pitDurationMs) {
+            meta.pitProgressMs = meta.pitDurationMs;
+            meta.pitCompletedAtMs = nowMs;
+            meta.lane = SIMULATION_LANES.TRACK;
+            meta.lapProgressMs = 0;
+          }
+          continue;
+        }
+
         meta.lapProgressMs += deltaMs * modeFactor;
         changed = changed || deltaMs > 0;
 
         while (!meta.targetCompleted && meta.lapProgressMs >= meta.targetLapDurationMs) {
           meta.lapProgressMs -= meta.targetLapDurationMs;
-          recordLapCrossing({ racerId: meta.racerId, timestampMs: nowMs, source: "simulation" });
+          const racer = recordLapCrossing({
+            racerId: meta.racerId,
+            timestampMs: nowMs,
+            source: "simulation",
+          });
+          meta.crossingCount = racer.lapCount;
           shouldPersist = true;
           changed = true;
-          const racer = getActiveSession().racers.find((item) => item.id === meta.racerId);
+
+          if (!meta.timedLapStarted) {
+            meta.timedLapStarted = true;
+            meta.lapIndex = 1;
+            meta.targetLapDurationMs = simulationLapDuration(meta, meta.lapIndex);
+            meta.lapProgressMs = 0;
+            continue;
+          }
+
           if (racer && racer.lapCount >= state.simulation.targetLapCount) {
             meta.targetCompleted = true;
             meta.targetCompletedAtMs = nowMs;
-            meta.lapProgressMs = meta.targetLapDurationMs;
+            meta.lapProgressMs = 0;
             if (!state.simulation.racerOrder.includes(meta.racerId)) {
               state.simulation.racerOrder.push(meta.racerId);
             }
+            finishRace({ reason: "simulation_target_laps" });
+            assignFinishPlace(getActiveSession(), racer, nowMs);
+            finishTriggered = true;
             break;
           }
           meta.lapIndex += 1;
           meta.targetLapDurationMs = simulationLapDuration(meta, meta.lapIndex);
         }
+
+        if (finishTriggered) {
+          break;
+        }
       }
 
-      const everyoneComplete =
-        state.simulation.racers.length > 0 &&
-        state.simulation.racers.every((meta) => meta.targetCompleted);
-      if (everyoneComplete) {
-        finishRace({ reason: "simulation_target_laps" });
+      if (finishTriggered) {
         changed = true;
         shouldPersist = true;
       }
@@ -1303,22 +1391,41 @@ function createRaceStore({
 
     if (state.raceState === RACE_STATES.FINISHED && state.simulation.active) {
       if (state.simulation.phase === SIMULATION_PHASES.CHECKERED) {
-        if (
-          state.simulation.finishQueue.length > 0 &&
-          state.simulation.finishQueueNextAtMs !== null &&
-          nowMs >= state.simulation.finishQueueNextAtMs
-        ) {
-          const racerId = state.simulation.finishQueue.shift();
-          if (racerId) {
-            recordLapCrossing({ racerId, timestampMs: nowMs, source: "simulation" });
+        for (const meta of state.simulation.racers) {
+          const racer = getActiveSession().racers.find((item) => item.id === meta.racerId);
+          if (!racer || Number.isFinite(racer.finishPlace) || meta.lane !== SIMULATION_LANES.TRACK) {
+            meta.lastAdvancedAtMs = nowMs;
+            continue;
+          }
+
+          const deltaMs = Math.max(0, nowMs - (meta.lastAdvancedAtMs ?? nowMs));
+          meta.lastAdvancedAtMs = nowMs;
+          meta.lapProgressMs += deltaMs;
+          changed = changed || deltaMs > 0;
+
+          while (meta.lapProgressMs >= meta.targetLapDurationMs && !Number.isFinite(racer.finishPlace)) {
+            meta.lapProgressMs -= meta.targetLapDurationMs;
+            const updatedRacer = recordLapCrossing({
+              racerId: meta.racerId,
+              timestampMs: nowMs,
+              source: "simulation",
+            });
+            meta.crossingCount = updatedRacer.lapCount;
+            meta.targetCompleted = true;
+            meta.targetCompletedAtMs = nowMs;
+            meta.lapProgressMs = 0;
+            if (!state.simulation.racerOrder.includes(meta.racerId)) {
+              state.simulation.racerOrder.push(meta.racerId);
+            }
             changed = true;
             shouldPersist = true;
           }
-          state.simulation.finishQueueNextAtMs =
-            state.simulation.finishQueue.length > 0 ? nowMs + simConfig.drainIntervalMs : null;
         }
 
-        if (state.simulation.finishQueue.length === 0) {
+        const everyoneFinished = getActiveSession().racers.every((racer) =>
+          Number.isFinite(racer.finishPlace)
+        );
+        if (everyoneFinished) {
           startPitReturn(nowMs);
           changed = true;
           shouldPersist = true;

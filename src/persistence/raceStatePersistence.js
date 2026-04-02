@@ -40,14 +40,17 @@ const persistedLeaderboardEntrySchema = z.object({
 
 const persistedSimulationRacerSchema = z.object({
   racerId: z.string().min(1),
+  carNumber: z.string().min(1).nullable().optional(),
   seed: z.number().int().nonnegative().nullable(),
   baselineLapMs: z.number().int().positive().nullable(),
   jitterMs: z.number().int().positive().nullable(),
   consistencyFactor: z.number().positive(),
-  lapIndex: z.number().int().positive(),
+  lapIndex: z.number().int().nonnegative(),
   targetLapDurationMs: z.number().int().positive().nullable(),
   lapProgressMs: z.number().nonnegative(),
   lastAdvancedAtMs: z.number().int().nonnegative().nullable(),
+  timedLapStarted: z.boolean().optional(),
+  crossingCount: z.number().int().nonnegative().optional(),
   targetCompleted: z.boolean(),
   targetCompletedAtMs: z.number().int().nonnegative().nullable(),
   lane: z.enum(["TRACK", "PIT", "GARAGE"]).optional(),

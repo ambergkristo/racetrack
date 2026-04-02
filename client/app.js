@@ -535,12 +535,18 @@
       racers: Array.isArray(simulation.racers)
         ? simulation.racers.map((entry) => ({
             racerId: String(entry.racerId),
+            carNumber:
+              typeof entry.carNumber === "string" && entry.carNumber.trim() !== ""
+                ? entry.carNumber
+                : null,
             progress: clamp(Number(entry.progress) || 0, 0, 1),
             lane: typeof entry.lane === "string" ? entry.lane : "TRACK",
             pitProgress: clamp(Number(entry.pitProgress) || 0, 0, 1),
-            lapIndex: parseNumber(entry.lapIndex) ?? 1,
+            lapIndex: parseNumber(entry.lapIndex) ?? 0,
             targetLapDurationMs: parseNumber(entry.targetLapDurationMs),
             lapProgressMs: Number(entry.lapProgressMs) || 0,
+            timedLapStarted: Boolean(entry.timedLapStarted),
+            crossingCount: parseNumber(entry.crossingCount) ?? 0,
             targetCompleted: Boolean(entry.targetCompleted),
             finishPlace: parseNumber(entry.finishPlace),
           }))
@@ -2998,7 +3004,11 @@
             ? clamp(elapsedFromCrossingMs / estimatedLapMs, 0.04, 0.985)
             : sparseDriftProgress;
 
-      if ((snapshot.finishOrderActive || simulation.status === "COMPLETED") && Number.isFinite(entry?.finishPlace)) {
+      if (
+        !simulationEntry &&
+        (snapshot.finishOrderActive || simulation.status === "COMPLETED") &&
+        Number.isFinite(entry?.finishPlace)
+      ) {
         lapProgress = clamp(0.982 + entry.finishPlace * 0.003, 0.982, 0.997);
       }
 
@@ -3010,7 +3020,7 @@
       return {
         id: racer.id,
         name: racer.name,
-        carNumber: racer.carNumber || "--",
+        carNumber: simulationEntry?.carNumber || racer.carNumber || "--",
         lapCount,
         orderIndex: index,
         position: entry?.position ?? index + 1,

@@ -373,7 +373,9 @@ test("simulation mode runs through the canonical websocket truth layer", async (
       jitterMsMin: 0,
       jitterMsMax: 0,
       minLapDurationMs: 1,
-      drainIntervalMs: 20,
+      pitLaunchDurationMsMin: 20,
+      pitLaunchDurationMsMax: 20,
+      pitLaunchReleaseGapMs: 0,
       pitReturnDurationMsMin: 20,
       pitReturnDurationMsMax: 20,
       pitReturnReleaseGapMs: 10,
@@ -475,6 +477,17 @@ test("simulation mode runs through the canonical websocket truth layer", async (
     assert.equal(simulationActiveSnapshot.simulation.status, "ACTIVE");
     assert.equal(simulationActiveSnapshot.simulation.phase, "SAFE_RUN");
     assert.equal(simulationActiveSnapshot.simulation.racers.length, 2);
+    assert.equal(
+      simulationActiveSnapshot.simulation.racers.every(
+        (racer) =>
+          racer.lane === "PIT" &&
+          racer.lapIndex === 0 &&
+          racer.timedLapStarted === false &&
+          racer.crossingCount === 0 &&
+          racer.carNumber !== null
+      ),
+      true
+    );
 
     const blockedManualLap = await postJson(
       url,
@@ -520,6 +533,7 @@ test("simulation mode runs through the canonical websocket truth layer", async (
     assert.equal(stagedSnapshot.activeSessionId, nextSessionId);
     assert.equal(stagedSnapshot.finalResults[0].finishPlace, 1);
     assert.equal(stagedSnapshot.finalResults[1].finishPlace, 2);
+    assert.equal(stagedSnapshot.simulation.racers.every((racer) => racer.carNumber !== null), true);
   } finally {
     socket.close();
     delete process.env.RACE_DURATION_SECONDS;

@@ -88,12 +88,15 @@ const simulationLaneSchema = z.enum(["TRACK", "PIT", "GARAGE"]);
 
 const simulationRacerSchema = z.object({
   racerId: z.string().min(1),
+  carNumber: z.string().min(1).nullable(),
   progress: z.number().min(0).max(1),
   lane: simulationLaneSchema,
   pitProgress: z.number().min(0).max(1),
-  lapIndex: z.number().int().positive(),
+  lapIndex: z.number().int().nonnegative(),
   targetLapDurationMs: z.number().int().positive().nullable(),
   lapProgressMs: z.number().min(0),
+  timedLapStarted: z.boolean(),
+  crossingCount: z.number().int().nonnegative(),
   targetCompleted: z.boolean(),
   finishPlace: z.number().int().positive().nullable(),
 });
