@@ -30,11 +30,11 @@ function normalizeOptionalString(value) {
 
 const DEFAULT_SIMULATION_CONFIG = Object.freeze({
   maxDurationMs: 600_000,
-  targetLapCount: 3,
-  baselineLapMsMin: 22_000,
-  baselineLapMsMax: 30_000,
-  jitterMsMin: 450,
-  jitterMsMax: 1_250,
+  targetLapCount: 5,
+  baselineLapMsMin: 20_800,
+  baselineLapMsMax: 24_200,
+  jitterMsMin: 220,
+  jitterMsMax: 420,
   minLapDurationMs: 6_000,
   drainIntervalMs: 650,
   hazardSlowFactor: 0.45,

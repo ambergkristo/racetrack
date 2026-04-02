@@ -154,7 +154,38 @@
     frameId: 0,
     lastFrameTs: 0,
     markers: new Map(),
+    geometry: null,
   };
+  const LAP_TRACK_VIEWBOX = Object.freeze({
+    width: 560,
+    height: 320,
+  });
+  const LAP_TRACK_LAYOUT = Object.freeze({
+    loop: Object.freeze([
+      Object.freeze({ x: 114, y: 160 }),
+      Object.freeze({ x: 132, y: 108 }),
+      Object.freeze({ x: 182, y: 76 }),
+      Object.freeze({ x: 252, y: 62 }),
+      Object.freeze({ x: 340, y: 68 }),
+      Object.freeze({ x: 420, y: 92 }),
+      Object.freeze({ x: 474, y: 134 }),
+      Object.freeze({ x: 490, y: 184 }),
+      Object.freeze({ x: 466, y: 230 }),
+      Object.freeze({ x: 408, y: 258 }),
+      Object.freeze({ x: 324, y: 266 }),
+      Object.freeze({ x: 252, y: 252 }),
+      Object.freeze({ x: 194, y: 230 }),
+      Object.freeze({ x: 148, y: 238 }),
+      Object.freeze({ x: 118, y: 208 }),
+    ]),
+    pitLane: Object.freeze([
+      Object.freeze({ x: 382, y: 110 }),
+      Object.freeze({ x: 430, y: 126 }),
+      Object.freeze({ x: 460, y: 164 }),
+      Object.freeze({ x: 454, y: 210 }),
+      Object.freeze({ x: 406, y: 228 }),
+    ]),
+  });
   let state = {
     bootstrap: null,
     bootstrapStatus: "loading",
@@ -2563,19 +2594,135 @@
     );
   }
 
-  function lapTrackShortName(name) {
-    const firstToken = String(name || "").trim().split(/\s+/)[0] || "";
-    if (firstToken.length <= 10) {
-      return firstToken;
-    }
-
-    return `${firstToken.slice(0, 9)}...`;
-  }
-
   function lapTrackSeed(value) {
     return String(value || "")
       .split("")
       .reduce((hash, character) => ((hash * 33 + character.charCodeAt(0)) % 9973), 17);
+  }
+
+  function buildLapTrackPath(points, closed = true) {
+    if (!Array.isArray(points) || points.length === 0) {
+      return "";
+    }
+
+    const commands = [`M ${points[0].x} ${points[0].y}`];
+    for (let index = 1; index < points.length; index += 1) {
+      commands.push(`L ${points[index].x} ${points[index].y}`);
+    }
+    if (closed) {
+      commands.push("Z");
+    }
+    return commands.join(" ");
+  }
+
+  function buildLapTrackMetrics(points, closed = true) {
+    const segments = [];
+    let totalLength = 0;
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const length = Math.hypot(dx, dy);
+      segments.push({
+        start,
+        end,
+        dx,
+        dy,
+        length,
+        startLength: totalLength,
+      });
+      totalLength += length;
+    }
+
+    if (closed && points.length > 1) {
+      const start = points[points.length - 1];
+      const end = points[0];
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const length = Math.hypot(dx, dy);
+      segments.push({
+        start,
+        end,
+        dx,
+        dy,
+        length,
+        startLength: totalLength,
+      });
+      totalLength += length;
+    }
+
+    return {
+      points,
+      segments,
+      totalLength,
+    };
+  }
+
+  function sampleLapTrackPolyline(metrics, progress) {
+    if (!metrics || !metrics.segments.length || metrics.totalLength <= 0) {
+      return {
+        x: 0,
+        y: 0,
+        tangent: { x: 1, y: 0 },
+        normal: { x: 0, y: -1 },
+      };
+    }
+
+    const normalized = ((progress % 1) + 1) % 1;
+    const targetLength = normalized * metrics.totalLength;
+    const segment =
+      metrics.segments.find(
+        (candidate) => targetLength <= candidate.startLength + candidate.length
+      ) || metrics.segments[metrics.segments.length - 1];
+    const ratio = segment.length > 0
+      ? (targetLength - segment.startLength) / segment.length
+      : 0;
+    const x = segment.start.x + segment.dx * ratio;
+    const y = segment.start.y + segment.dy * ratio;
+    const tangentLength = Math.max(Math.hypot(segment.dx, segment.dy), 1);
+    const tangent = {
+      x: segment.dx / tangentLength,
+      y: segment.dy / tangentLength,
+    };
+
+    return {
+      x,
+      y,
+      tangent,
+      normal: {
+        x: -tangent.y,
+        y: tangent.x,
+      },
+    };
+  }
+
+  function getLapTrackGeometry() {
+    if (lapTrackVisualState.geometry) {
+      return lapTrackVisualState.geometry;
+    }
+
+    const loopMetrics = buildLapTrackMetrics(LAP_TRACK_LAYOUT.loop, true);
+    const pitMetrics = buildLapTrackMetrics(LAP_TRACK_LAYOUT.pitLane, false);
+    const finishSample = sampleLapTrackPolyline(loopMetrics, 0);
+    const finishLength = 22;
+
+    lapTrackVisualState.geometry = {
+      viewBox: LAP_TRACK_VIEWBOX,
+      loopPath: buildLapTrackPath(LAP_TRACK_LAYOUT.loop, true),
+      pitLanePath: buildLapTrackPath(LAP_TRACK_LAYOUT.pitLane, false),
+      loopMetrics,
+      pitMetrics,
+      finishLine: {
+        x1: finishSample.x + finishSample.normal.x * finishLength,
+        y1: finishSample.y + finishSample.normal.y * finishLength,
+        x2: finishSample.x - finishSample.normal.x * finishLength,
+        y2: finishSample.y - finishSample.normal.y * finishLength,
+      },
+    };
+
+    return lapTrackVisualState.geometry;
   }
 
   function getSimulationMeta(snapshot = state.raceSnapshot) {
@@ -2703,13 +2850,14 @@
       return {
         id: racer.id,
         name: racer.name,
-        shortName: lapTrackShortName(racer.name),
         carNumber: racer.carNumber || "--",
         lapCount,
         orderIndex: index,
         position: entry?.position ?? index + 1,
         finishPlace: entry?.finishPlace ?? racer.finishPlace ?? null,
         simulationProgress: simulationEntry?.progress ?? null,
+        markerHue: (seed * 13) % 360,
+        targetLapDurationMs: simulationEntry?.targetLapDurationMs ?? estimatedLapMs,
         totalProgress: lapCount + lapProgress,
       };
     });
@@ -2719,16 +2867,22 @@
     const racers = buildLapTrackerEstimateModel();
     const simulation = getSimulationMeta();
     const simulationStatus = simulation.active ? "ACTIVE" : simulation.status;
+    const geometry = getLapTrackGeometry();
+    const telemetryCopy = simulation.active
+      ? `${simulation.targetLapCount || 5}-lap run · 20-25s lap targets · 8-car grid ready`
+      : state.raceSnapshot.finishOrderActive
+        ? "Finish order is frozen on the telemetry map"
+        : "Top-down telemetry loop with finish line and pit lane visible";
     const markerMarkup = racers
       .map(
         (racer) => `
-          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}${Number.isFinite(racer.finishPlace) ? " is-finished" : ""}" data-track-marker="${escapeHtml(racer.id)}">
-            <circle class="lap-track-marker-dot" cx="0" cy="0" r="18"></circle>
-            <text class="lap-track-marker-car" text-anchor="middle" x="0" y="6">${escapeHtml(racer.carNumber)}</text>
-            <text class="lap-track-marker-name" text-anchor="middle" x="0" y="34">${escapeHtml(racer.shortName)}</text>
+          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}${Number.isFinite(racer.finishPlace) ? " is-finished" : ""}" style="--marker-hue:${racer.markerHue};" data-track-marker="${escapeHtml(racer.id)}">
+            <circle class="lap-track-marker-halo" cx="0" cy="0" r="15"></circle>
+            <circle class="lap-track-marker-dot" cx="0" cy="0" r="10"></circle>
+            <text class="lap-track-marker-car" text-anchor="middle" x="0" y="4">${escapeHtml(racer.carNumber)}</text>
             ${
               Number.isFinite(racer.finishPlace)
-                ? `<text class="lap-track-marker-place" text-anchor="middle" x="0" y="-26">${escapeHtml(formatOrdinal(racer.finishPlace))}</text>`
+                ? `<text class="lap-track-marker-place" text-anchor="middle" x="0" y="-20">${escapeHtml(formatOrdinal(racer.finishPlace))}</text>`
                 : ""
             }
           </g>
@@ -2743,28 +2897,32 @@
             <p class="section-kicker">${escapeHtml(simulation.active ? "Simulation track" : "Estimated track")}</p>
             <strong class="lap-track-visual-title">${escapeHtml(
               simulation.active
-                ? "Truth-driven live simulation"
+                ? "Telemetry simulation map"
                 : state.raceSnapshot.finishOrderActive
-                  ? "Estimated live finish"
-                  : "Live estimate"
+                  ? "Telemetry finish map"
+                  : "Telemetry estimate"
             )}</strong>
+            <p class="lap-track-visual-copy">${escapeHtml(telemetryCopy)}</p>
           </div>
           <span class="chip tiny-chip tone-${escapeHtml(simulationStatusTone(simulationStatus))}">${escapeHtml(
             simulation.active ? "Simulation Active" : simulationStatus === "READY" ? "Simulation Ready" : simulationStatus === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
           )}</span>
         </div>
-        <svg class="lap-track-svg" viewBox="0 0 560 320" role="img" aria-label="Estimated live track view">
-          <ellipse class="lap-track-lane lap-track-lane-outer" cx="280" cy="160" rx="226" ry="116"></ellipse>
-          <ellipse class="lap-track-lane lap-track-lane-inner" cx="280" cy="160" rx="154" ry="58"></ellipse>
-          <ellipse class="lap-track-center-line" cx="280" cy="160" rx="190" ry="88"></ellipse>
+        <svg class="lap-track-svg" viewBox="0 0 ${geometry.viewBox.width} ${geometry.viewBox.height}" role="img" aria-label="Telemetry simulation track map">
+          <rect class="lap-track-frame" x="22" y="24" width="516" height="272" rx="24"></rect>
+          <path class="lap-track-gridline" d="M 40 88 H 520"></path>
+          <path class="lap-track-gridline" d="M 40 160 H 520"></path>
+          <path class="lap-track-gridline" d="M 40 232 H 520"></path>
+          <path class="lap-track-glow" d="${geometry.loopPath}"></path>
+          <path class="lap-track-lane lap-track-lane-shell" d="${geometry.loopPath}"></path>
+          <path class="lap-track-lane lap-track-lane-core" d="${geometry.loopPath}"></path>
+          <path class="lap-track-lane lap-track-center-line" d="${geometry.loopPath}"></path>
           <g class="lap-track-finish-line">
-            <line x1="280" y1="42" x2="280" y2="102"></line>
-            <text x="292" y="50">Finish</text>
+            <line x1="${geometry.finishLine.x1.toFixed(2)}" y1="${geometry.finishLine.y1.toFixed(2)}" x2="${geometry.finishLine.x2.toFixed(2)}" y2="${geometry.finishLine.y2.toFixed(2)}"></line>
+            <text x="${(geometry.finishLine.x1 + 18).toFixed(2)}" y="${(geometry.finishLine.y1 - 4).toFixed(2)}">Finish</text>
           </g>
-          <g class="lap-track-pit-lane">
-            <line x1="422" y1="226" x2="506" y2="286"></line>
-            <text x="430" y="220">Pit Lane</text>
-          </g>
+          <path class="lap-track-pit-lane" d="${geometry.pitLanePath}"></path>
+          <text class="lap-track-pit-label" x="414" y="102">Pit Lane</text>
           <g class="lap-track-marker-layer">
             ${markerMarkup}
           </g>
@@ -4103,15 +4261,11 @@
   }
 
   function lapTrackPoint(progress, offset = 0) {
-    const normalized = ((progress % 1) + 1) % 1;
-    const angle = (-Math.PI / 2) + (Math.PI * 2 * normalized);
-    const centerX = 280;
-    const centerY = 160;
-    const radiusX = 190 + offset;
-    const radiusY = 88 + (offset * 0.58);
+    const geometry = getLapTrackGeometry();
+    const sample = sampleLapTrackPolyline(geometry.loopMetrics, progress);
     return {
-      x: centerX + Math.cos(angle) * radiusX,
-      y: centerY + Math.sin(angle) * radiusY,
+      x: sample.x + sample.normal.x * offset,
+      y: sample.y + sample.normal.y * offset,
     };
   }
 
@@ -4143,7 +4297,7 @@
     }
 
     const offsets = new Map();
-    const pattern = [0, 18, -18, 30, -30, 42, -42, 54];
+    const pattern = [0, 12, -12, 22, -22, 30, -30, 38];
     clusters.forEach((group) => {
       group.forEach((item, index) => {
         offsets.set(item.id, pattern[index] ?? 0);

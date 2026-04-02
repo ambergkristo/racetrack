@@ -307,6 +307,39 @@ test("simulation starts racers together, auto-checkers after target laps, and re
   assert.equal(snapshot.leaderboard[1].finishPlace, 2);
 });
 
+test("simulation defaults to an 8-car, 5-lap foundation with 20-25 second lap targets", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 600,
+    now: () => 1_000,
+  });
+
+  const session = raceStore.createSession({ name: "Sprint 1 Sim Heat" });
+  Array.from({ length: 8 }, (_unused, index) =>
+    raceStore.addRacer(session.id, { name: `Racer ${index + 1}` })
+  );
+
+  raceStore.startSimulation({
+    startedAtMs: 1_000,
+    seed: 1234,
+  });
+
+  const snapshot = raceStore.getSnapshot();
+  assert.equal(snapshot.state, "RUNNING");
+  assert.equal(snapshot.simulation.active, true);
+  assert.equal(snapshot.simulation.targetLapCount, 5);
+  assert.equal(snapshot.simulation.racers.length, 8);
+  assert.equal(
+    snapshot.simulation.racers.every(
+      (racer) =>
+        racer.progress === 0 &&
+        racer.lapIndex === 1 &&
+        racer.targetLapDurationMs >= 20_000 &&
+        racer.targetLapDurationMs <= 25_000
+    ),
+    true
+  );
+});
+
 test("simulation honors hazard stop and enforces the hard time cap", () => {
   let currentNow = 5_000;
   const raceStore = createRaceStore({
