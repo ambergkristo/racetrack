@@ -5,8 +5,6 @@ https://github.com/ambergkristo/racetrack
 
 This folder defines the developer workflow for the Racetrack realtime system.
 
-All Codex agents must read this file before starting development.
-
 The project follows a milestone-driven workflow with strict ownership boundaries.
 
 Developer roles
@@ -218,17 +216,7 @@ Dev-D-Kevin
 
 Each folder contains:
 
-CODEX-M{milestone}.md
 KES-MA-OLEN.md
-
-Example:
-
-CODEX-M0.md
-CODEX-M1.md
-CODEX-M2.md
-CODEX-M3.md
-
-These files contain the exact instructions for Codex agents.
 `KES-MA-OLEN.md` contains the fixed role description and milestone ownership for each developer.
 
 Pull request rules
@@ -265,13 +253,13 @@ Feature flags must not change default behaviour
 
 Summary
 
-This folder contains the Codex prompts used by each developer agent.
+This folder contains the developer role notes and historical workflow context for the project.
 
 Workflow:
 
 read README
 open developer folder
-execute milestone prompt
+review role scope
 create feature branch
 implement milestone scope
 open pull request
