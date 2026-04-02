@@ -2225,17 +2225,16 @@
       </section>
       <section class="frontdesk-inline-section frontdesk-fact-section frontdesk-summary-section">
         <div class="frontdesk-inline-head">
-          <p class="queue-kicker">Setup Summary</p>
+          <p class="queue-kicker">Session Summary</p>
           <span class="chip tiny-chip">${escapeHtml(setupFlowLabel)}</span>
         </div>
         <div class="summary-stack frontdesk-truth-card">
           <strong class="frontdesk-truth-value">${escapeHtml(currentSessionLabel)}</strong>
           <p class="compact-empty-note">${escapeHtml(setupFlowDetail)}</p>
-          <div class="stack-list compact-list">
-            <div class="info-row"><span>Track state</span><strong>${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</strong></div>
-            <div class="info-row"><span>Current Race</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
-            <div class="info-row"><span>Standby Roster</span><strong>${escapeHtml(`${registeredCount}/8`)}</strong></div>
-            <div class="info-row"><span>Saved Sessions</span><strong>${sessionCount}</strong></div>
+          <div class="stack-list compact-list frontdesk-summary-list">
+            <div class="info-row frontdesk-summary-row"><span>Current Race</span><strong>${escapeHtml(currentSession ? currentSession.name : "None")}</strong></div>
+            <div class="info-row frontdesk-summary-row"><span>Registered Racers</span><strong>${registeredCount}</strong></div>
+            <div class="info-row frontdesk-summary-row"><span>Saved Sessions</span><strong>${sessionCount}</strong></div>
           </div>
         </div>
       </section>
@@ -2244,8 +2243,19 @@
           <p class="queue-kicker">Saved Sessions</p>
           <span class="chip tiny-chip">${sessionCount}</span>
         </div>
+        <p class="frontdesk-section-note">Pick which saved session should stay ready for the standby racer area on the right.</p>
         <div class="frontdesk-scroll-area">
           ${queuedSessionCompactList(upcomingSessions)}
+        </div>
+      </section>
+      <section class="frontdesk-inline-section frontdesk-control-section">
+        <div class="frontdesk-inline-head">
+          <p class="queue-kicker">Control State</p>
+          <span class="chip tiny-chip">${escapeHtml(STATE_META[state.raceSnapshot.state]?.label || state.raceSnapshot.state)}</span>
+        </div>
+        <p class="frontdesk-section-note">Read-only race state for the front-desk operator while the setup flow stays active.</p>
+        <div class="frontdesk-control-body">
+          ${frontDeskControlStateBody()}
         </div>
       </section>
       <div id="front-desk-guards" class="frontdesk-guard-strip">

@@ -3205,7 +3205,7 @@ body {
 .route-front-desk .frontdesk-setup-body {
   min-height: 0;
   display: grid;
-  gap: 8px;
+  gap: 12px;
   align-content: start;
   overflow: auto;
   padding-right: 0;
@@ -3242,8 +3242,8 @@ body {
 .route-front-desk .frontdesk-inline-section {
   min-height: 0;
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  padding: 12px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.02);
@@ -3252,13 +3252,20 @@ body {
 .route-front-desk .frontdesk-inline-head {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  align-items: center;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.route-front-desk .frontdesk-section-note {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.3;
 }
 
 .route-front-desk .frontdesk-summary-section .frontdesk-truth-card {
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.015);
 }
 
@@ -3270,7 +3277,19 @@ body {
 }
 
 .route-front-desk .frontdesk-summary-section .compact-list {
-  gap: 8px;
+  gap: 10px;
+}
+
+.route-front-desk .frontdesk-summary-row {
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.route-front-desk .frontdesk-summary-row strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.9rem;
 }
 
 .route-front-desk .frontdesk-roster-preview .queue-racer-row {
@@ -3313,7 +3332,8 @@ body {
 }
 
 .route-front-desk .frontdesk-fact-section,
-.route-front-desk .frontdesk-schedule-section {
+.route-front-desk .frontdesk-schedule-section,
+.route-front-desk .frontdesk-control-section {
   align-content: start;
 }
 
@@ -3342,6 +3362,7 @@ body {
 .route-front-desk .frontdesk-scroll-area {
   min-height: 0;
   overflow: auto;
+  padding-top: 2px;
   padding-right: 0;
   display: grid;
   align-content: start;
@@ -3376,6 +3397,44 @@ body {
 .route-front-desk .frontdesk-guard-strip .guard-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.route-front-desk .frontdesk-control-section {
+  margin-top: 4px;
+}
+
+.route-front-desk .frontdesk-control-body {
+  overflow: hidden;
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.route-front-desk .frontdesk-control-body .status-marquee {
+  grid-template-columns: minmax(0, 1fr) minmax(188px, 0.72fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.route-front-desk .frontdesk-control-body .status-marquee-title {
+  font-size: clamp(1rem, 1.35vw, 1.28rem);
+}
+
+.route-front-desk .frontdesk-control-body .status-marquee-detail {
+  font-size: 0.78rem;
+  line-height: 1.28;
+}
+
+.route-front-desk .frontdesk-control-body .kpi-pill {
+  min-height: 54px;
+  padding: 8px 10px;
+}
+
+.route-front-desk .frontdesk-guard-strip {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .route-front-desk .auto-assignment-note {
