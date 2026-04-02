@@ -2,6 +2,7 @@ require("./session-racer-crud.integration.test");
 require("./feature-flags.integration.test");
 require("./front-desk-feature-flag.ui.test");
 require("./front-desk-workflow.ui.test");
+require("./staff-auth-focus.ui.test");
 require("./staff-route-ux.ui.test");
 require("./race-control-clarity.ui.test");
 require("./race-control-regression.integration.test");

@@ -326,6 +326,50 @@
     render();
   }
 
+  function captureGateFocusState() {
+    const activeElement = document.activeElement;
+    if (!activeElement || activeElement.id !== "staff-key") {
+      return null;
+    }
+
+    return {
+      selectionStart:
+        typeof activeElement.selectionStart === "number" ? activeElement.selectionStart : null,
+      selectionEnd:
+        typeof activeElement.selectionEnd === "number" ? activeElement.selectionEnd : null,
+      selectionDirection: activeElement.selectionDirection || "none",
+    };
+  }
+
+  function restoreGateFocusState(focusState) {
+    if (!focusState || !staffGateRequired() || state.gateStatus === "success") {
+      return;
+    }
+
+    const keyInput = document.getElementById("staff-key");
+    if (!keyInput || keyInput.disabled) {
+      return;
+    }
+
+    if (typeof keyInput.focus === "function") {
+      keyInput.focus();
+    }
+
+    if (
+      typeof keyInput.setSelectionRange === "function" &&
+      focusState.selectionStart !== null &&
+      focusState.selectionEnd !== null
+    ) {
+      try {
+        keyInput.setSelectionRange(
+          focusState.selectionStart,
+          focusState.selectionEnd,
+          focusState.selectionDirection
+        );
+      } catch {}
+    }
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -4572,6 +4616,7 @@
   }
 
   function render() {
+    const gateFocusState = captureGateFocusState();
     appEl.innerHTML = appShell(buildContent());
 
     bindSharedEvents();
@@ -4604,6 +4649,8 @@
       staffBypassConnectStarted = true;
       connectSocket(undefined);
     }
+
+    restoreGateFocusState(gateFocusState);
   }
 
   document.addEventListener("fullscreenchange", render);
