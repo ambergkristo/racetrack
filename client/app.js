@@ -14,7 +14,7 @@
       staff: true,
       public: false,
       accent: "safe",
-      body: "Set up the next race, manage the active roster, and keep start-line operations clear.",
+      body: "",
     },
     "/race-control": {
       title: "Race Control",
