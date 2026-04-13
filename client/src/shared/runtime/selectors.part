@@ -1,0 +1,543 @@
+  function getActiveSession() {
+    return state.raceSnapshot.activeSession;
+  }
+
+  function resolveFrontDeskSessionId(snapshot = state.raceSnapshot) {
+    const sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
+    if (sessions.length === 0) {
+      return null;
+    }
+
+    const preferredIds = [
+      state.frontDeskSessionId,
+      state.sessionForm.id,
+      snapshot.nextSessionId,
+      snapshot.activeSessionId,
+    ];
+
+    for (const sessionId of preferredIds) {
+      if (sessionId && sessions.some((session) => session.id === sessionId)) {
+        return sessionId;
+      }
+    }
+
+    return sessions[0].id;
+  }
+
+  function getFrontDeskManagedSession(snapshot = state.raceSnapshot) {
+    const sessionId = resolveFrontDeskSessionId(snapshot);
+    return sessionId
+      ? snapshot.sessions.find((session) => session.id === sessionId) || null
+      : null;
+  }
+
+  function getDisplaySession() {
+    return state.raceSnapshot.activeSession || state.raceSnapshot.lockedSession;
+  }
+
+  function hasHeldResults(snapshot = state.raceSnapshot) {
+    return Boolean(
+      snapshot.state !== "RUNNING" &&
+        Array.isArray(snapshot.finalResults) &&
+        snapshot.finalResults.length > 0
+    );
+  }
+
+  function getQueuedSessions() {
+    if (state.raceSnapshot.queuedSessions.length > 0) {
+      return state.raceSnapshot.queuedSessions;
+    }
+
+    return state.raceSnapshot.sessions.filter(
+      (session) => session.id !== (state.raceSnapshot.currentSessionId || state.raceSnapshot.activeSessionId)
+    );
+  }
+
+  function getDisplayLeaderboardEntries(snapshot = state.raceSnapshot) {
+    if (hasHeldResults(snapshot)) {
+      return snapshot.finalResults;
+    }
+
+    return snapshot.leaderboard;
+  }
+
+  function publicRouteQuestion(pathname = route) {
+    if (pathname === "/leader-board") {
+      return "Who is leading right now?";
+    }
+
+    if (pathname === "/next-race") {
+      return "Who is on track now, and who is up next?";
+    }
+
+    if (pathname === "/race-countdown") {
+      return "How much time is left in this race?";
+    }
+
+    if (pathname === "/race-flags") {
+      return "What is the track state right now?";
+    }
+
+    return "";
+  }
+
+  function getFlagMeta(snapshot = state.raceSnapshot) {
+    const resolvedFlag = snapshot.flag || snapshot.mode || "SAFE";
+    const simulationPhaseMeta = getSimulationPhaseMeta(snapshot.simulation);
+    const baseMeta = FLAG_META[resolvedFlag] || {
+      label: resolvedFlag,
+      tone: STATE_META[snapshot.state]?.tone || "safe",
+      detail: STATE_META[snapshot.state]?.detail || "",
+    };
+    if (
+      snapshot.simulation?.active &&
+      ["SAFE_RUN", "HAZARD_SLOW", "HAZARD_STOP", "RECOVERY", "CHECKERED", "PIT_RETURN"].includes(
+        snapshot.simulation.phase
+      )
+    ) {
+      return {
+        ...baseMeta,
+        tone: simulationPhaseMeta.tone || baseMeta.tone,
+        detail: simulationPhaseMeta.detail || baseMeta.detail,
+      };
+    }
+
+    if (snapshot.simulation?.status === "COMPLETED" && simulationPhaseMeta.detail) {
+      return {
+        ...baseMeta,
+        detail: simulationPhaseMeta.detail,
+      };
+    }
+
+    return baseMeta;
+  }
+
+  function publicStateMeaning(snapshot = state.raceSnapshot) {
+    return getFlagMeta(snapshot).detail || STATE_META[snapshot.state]?.detail || "";
+  }
+
+  function hasRaceData() {
+    return Boolean(state.lastSyncAt);
+  }
+
+  function isInitialPublicLoad() {
+    return routeConfig.public && state.bootstrapStatus === "loading" && !hasRaceData();
+  }
+
+  function isFinishedState(snapshot = state.raceSnapshot) {
+    return snapshot.flag === "CHECKERED";
+  }
+
+  function finishedClass(snapshot = state.raceSnapshot) {
+    return isFinishedState(snapshot) ? " finished-pattern" : "";
+  }
+
+  function formatDeltaToLeader(entry, leaderBestLapMs) {
+    if (!Number.isFinite(entry?.bestLapTimeMs) || !Number.isFinite(leaderBestLapMs)) {
+      return "Benchmark pending";
+    }
+
+    const deltaMs = entry.bestLapTimeMs - leaderBestLapMs;
+    if (deltaMs <= 0) {
+      return "Benchmark lap";
+    }
+
+    return `+${(deltaMs / 1000).toFixed(3)}s`;
+  }
+
+  function routeTypeLabel(pathname) {
+    if (pathname === "/") {
+      return "Hub";
+    }
+
+    return ROUTES[pathname].staff ? "Staff" : "Public";
+  }
+
+  function routeCard(pathname) {
+    const config = ROUTES[pathname];
+    const tone = pathname === "/" ? "warning" : config.accent;
+
+    return `
+      <a class="route-card tone-${tone}" href="${escapeHtml(pathname)}">
+        <div class="route-card-head">
+          <span class="route-kind">${escapeHtml(routeTypeLabel(pathname))}</span>
+          <span class="route-path">${escapeHtml(pathname)}</span>
+        </div>
+        <strong class="route-card-title">${escapeHtml(config.title)}</strong>
+        <span class="route-card-note">${escapeHtml(config.subtitle)}</span>
+        <p class="route-card-body">${escapeHtml(config.body)}</p>
+      </a>
+    `;
+  }
+
+  function routeDeck(title, detail, tone, paths, extraClass = "") {
+    return panel(
+      title,
+      `
+        <p class="panel-copy">${escapeHtml(detail)}</p>
+        <div class="route-card-grid ${extraClass}">
+          ${paths.map((pathname) => routeCard(pathname)).join("")}
+        </div>
+      `,
+      tone
+    );
+  }
+
+  function markSync(timestamp) {
+    return timestamp || new Date().toISOString();
+  }
+
+  function applyCanonicalSnapshot(snapshot) {
+    const normalized = normalizeSnapshot(snapshot);
+    const nextFrontDeskSessionId = resolveFrontDeskSessionId(normalized);
+    const nextSessionForm = normalized.sessions.some(
+      (session) => session.id === state.sessionForm.id
+    )
+      ? state.sessionForm
+      : { id: null, name: "" };
+    const activeSession = normalized.activeSession;
+    const managedSession = nextFrontDeskSessionId
+      ? normalized.sessions.find((session) => session.id === nextFrontDeskSessionId) || null
+      : null;
+    const nextManualAssignmentForm =
+      activeSession &&
+      activeSession.racers.some((racer) => racer.id === state.manualAssignmentForm.racerId)
+        ? state.manualAssignmentForm
+        : { racerId: null, carNumber: "" };
+    const nextRacerForm =
+      managedSession && managedSession.racers.some((racer) => racer.id === state.racerForm.id)
+        ? state.racerForm
+        : { id: null, name: "", carNumber: "" };
+    const recoveredPublicFeed =
+      routeConfig.public && state.socketConnectedOnce && state.awaitingLiveResync;
+
+    setState({
+      bootstrapStatus: "ready",
+      bootstrapError: "",
+      connection: socket?.connected ? "connected" : state.connection,
+      lastSyncAt: markSync(snapshot?.serverTime ?? normalized.serverTime),
+      socketConnectedOnce: socket?.connected ? true : state.socketConnectedOnce,
+      awaitingLiveResync: false,
+      raceSnapshot: normalized,
+      sessionForm: nextSessionForm,
+      frontDeskSessionId: nextFrontDeskSessionId,
+      manualAssignmentForm: nextManualAssignmentForm,
+      racerForm: nextRacerForm,
+    });
+
+    if (recoveredPublicFeed) {
+      setNotice("success", "Live feed restored. Board is back on the canonical snapshot.", 2200);
+    }
+  }
+
+  function applyLeaderboardUpdate(payload) {
+    if (!isObject(payload) || !Array.isArray(payload.leaderboard)) {
+      return;
+    }
+
+    setState({
+      lastSyncAt: markSync(payload.serverTime),
+      raceSnapshot: {
+        ...state.raceSnapshot,
+        state: payload.state || state.raceSnapshot.state,
+        flag: payload.flag || state.raceSnapshot.flag,
+        lapEntryAllowed:
+          payload.lapEntryAllowed === undefined
+            ? state.raceSnapshot.lapEntryAllowed
+            : Boolean(payload.lapEntryAllowed),
+        finishOrderActive:
+          payload.finishOrderActive === undefined
+            ? state.raceSnapshot.finishOrderActive
+            : Boolean(payload.finishOrderActive),
+        activeSessionId:
+          payload.activeSessionId === undefined
+            ? state.raceSnapshot.activeSessionId
+            : payload.activeSessionId === null
+              ? null
+              : String(payload.activeSessionId),
+        simulation:
+          payload.simulation === undefined
+            ? state.raceSnapshot.simulation
+            : normalizeSimulation(payload.simulation),
+        leaderboard: sortLeaderboard(payload.leaderboard.map(normalizeLeaderboardEntry)),
+      },
+    });
+  }
+
+  function applyRaceTick(payload) {
+    if (!isObject(payload)) {
+      return;
+    }
+
+    const remainingSeconds = parseNumber(payload.remainingSeconds);
+    setState({
+      lastSyncAt: markSync(payload.serverTime),
+      raceSnapshot: {
+        ...state.raceSnapshot,
+        state: payload.state || state.raceSnapshot.state,
+        flag: payload.flag || state.raceSnapshot.flag,
+        lapEntryAllowed:
+          payload.lapEntryAllowed === undefined
+            ? state.raceSnapshot.lapEntryAllowed
+            : Boolean(payload.lapEntryAllowed),
+        remainingSeconds:
+          remainingSeconds === null ? state.raceSnapshot.remainingSeconds : remainingSeconds,
+        endsAt: payload.endsAt ?? state.raceSnapshot.endsAt,
+        serverTime: payload.serverTime ?? state.raceSnapshot.serverTime,
+        simulation:
+          payload.simulation === undefined
+            ? state.raceSnapshot.simulation
+            : normalizeSimulation(payload.simulation),
+      },
+    });
+  }
+
+  function setNotice(tone, text, holdMs = 3200) {
+    if (noticeTimer) {
+      clearTimeout(noticeTimer);
+      noticeTimer = null;
+    }
+
+    setState({ opNotice: { tone, text } });
+    if (holdMs > 0) {
+      noticeTimer = setTimeout(() => {
+        state = { ...state, opNotice: null };
+        render();
+      }, holdMs);
+    }
+  }
+
+  async function loadBootstrap() {
+    try {
+      const res = await fetch("/api/bootstrap");
+      const data = await res.json();
+      const nextState = {
+        bootstrap: data,
+        bootstrapStatus: "ready",
+        bootstrapError: "",
+        staffAuthDisabled: Boolean(data.staffAuthDisabled),
+        featureFlags: normalizeFeatureFlags(data.featureFlags),
+        lastSyncAt: markSync(data.serverTime || data.raceSnapshot?.serverTime),
+      };
+      if (routeConfig.staff && data.staffAuthDisabled) {
+        nextState.gateStatus = "success";
+        nextState.gateError = "";
+      }
+      if (data.raceSnapshot) {
+        nextState.raceSnapshot = normalizeSnapshot(data.raceSnapshot);
+      }
+      setState(nextState);
+    } catch {
+      setNotice("danger", "Bootstrap request failed.", 4000);
+      setState({
+        bootstrapStatus: "error",
+        bootstrapError: "Bootstrap request failed.",
+        error: "Bootstrap request failed.",
+      });
+    }
+  }
+
+  function getConnectionMeta() {
+    if (staffGateRequired() && state.gateStatus !== "success") {
+      if (state.gateStatus === "verifying") {
+        return {
+          label: "Awaiting key verification",
+          detail: "The staff gate must succeed before the websocket can open.",
+          tone: "warning",
+        };
+      }
+
+      return {
+        label: "Socket locked behind key gate",
+        detail: "Realtime control stays blocked until the route key is verified.",
+        tone: "idle",
+      };
+    }
+
+    if (isInitialPublicLoad()) {
+      return {
+        label: "Loading race state",
+        detail: "Fetching the first canonical board snapshot from the server.",
+        tone: "connecting",
+      };
+    }
+
+    if (state.connection === "connected" && state.awaitingLiveResync) {
+      return {
+        label: state.socketConnectedOnce ? "Resyncing live board" : "Syncing live board",
+        detail:
+          state.connectionDetail ||
+          (state.socketConnectedOnce
+            ? "Signal recovered. Confirming the latest canonical race snapshot now."
+            : "Websocket connected. Confirming the live board snapshot now."),
+        tone: "warning",
+      };
+    }
+
+    if (state.connection === "connected") {
+      return {
+        label: "Live feed healthy",
+        detail: routeConfig.public
+          ? "Public screen is following server updates with websocket-only live data."
+          : "Socket connected and staff controls are in sync.",
+        tone: "safe",
+      };
+    }
+
+    if (state.connection === "reconnecting") {
+      return {
+        label: `Reconnecting live feed${state.reconnectAttempt ? ` (${state.reconnectAttempt})` : ""}`,
+        detail:
+          state.connectionDetail ||
+          (routeConfig.public
+            ? "Holding the last confirmed race state while the websocket reconnects."
+            : "Trying to restore the websocket session."),
+        tone: "warning",
+      };
+    }
+
+    if (state.connection === "connecting") {
+      return {
+        label: "Connecting live feed",
+        detail: state.connectionDetail || "Opening the websocket channel for realtime race updates.",
+        tone: "connecting",
+      };
+    }
+
+    if (state.connection === "error") {
+      return {
+        label: "Live feed unavailable",
+        detail:
+          state.connectionDetail ||
+          state.error ||
+          "The websocket failed and could not recover automatically.",
+        tone: "danger",
+      };
+    }
+
+    return {
+      label: "Socket idle",
+      detail: "Waiting for the live connection to start.",
+      tone: "idle",
+    };
+  }
+
+  function staffGateRequired() {
+    return routeConfig.staff && !state.staffAuthDisabled;
+  }
+
+  function staffReady() {
+    if (!routeConfig.staff) {
+      return false;
+    }
+
+    if (state.staffAuthDisabled) {
+      return true;
+    }
+
+    return state.gateStatus === "success" && state.gateKey.trim() !== "";
+  }
+
+  function firstReason(...reasons) {
+    return reasons.find((reason) => typeof reason === "string" && reason.trim() !== "") || "";
+  }
+
+  function manualAssignmentEnabled() {
+    return route === "/front-desk" && Boolean(state.featureFlags.FF_MANUAL_CAR_ASSIGNMENT);
+  }
+
+  function activeSessionEditable(session = getActiveSession()) {
+    return Boolean(
+      session &&
+        (session.id !== state.raceSnapshot.activeSessionId ||
+          (state.raceSnapshot.state !== "RUNNING" && state.raceSnapshot.state !== "FINISHED"))
+    );
+  }
+
+  function getManualAssignmentState() {
+    if (!manualAssignmentEnabled()) {
+      return null;
+    }
+
+    const activeSession = getActiveSession();
+    const selectedRacer =
+      activeSession?.racers.find((racer) => racer.id === state.manualAssignmentForm.racerId) || null;
+    const carNumber = state.manualAssignmentForm.carNumber.trim();
+    const duplicateRacer =
+      carNumber && activeSession
+        ? activeSession.racers.find((racer) => {
+            if (selectedRacer && racer.id === selectedRacer.id) {
+              return false;
+            }
+
+            return (racer.carNumber || "").trim().toLowerCase() === carNumber.toLowerCase();
+          }) || null
+        : null;
+    const accessReason = staffAccessReason();
+    const selectionReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before assigning cars.",
+      activeSessionEditable(activeSession) ? "" : "Assignments lock once the race is RUNNING or FINISHED."
+    );
+    const saveReason = firstReason(
+      selectionReason,
+      selectedRacer ? "" : "Choose a racer to assign.",
+      carNumber ? "" : "Enter a car number.",
+      duplicateRacer
+        ? `Car ${carNumber} is already assigned to ${duplicateRacer.name}.`
+        : ""
+    );
+    const clearReason = firstReason(
+      selectionReason,
+      selectedRacer ? "" : "Choose a racer to clear.",
+      selectedRacer?.carNumber ? "" : "Selected racer does not have a car assignment."
+    );
+
+    return {
+      activeSession,
+      selectedRacer,
+      carNumber,
+      duplicateRacer,
+      selectionReason,
+      saveReason,
+      clearReason,
+    };
+  }
+
+  function staffAccessReason() {
+    if (!routeConfig.staff) {
+      return "Only staff routes can send commands.";
+    }
+
+    if (staffGateRequired() && state.gateStatus === "verifying") {
+      return "Finish staff key verification before sending commands.";
+    }
+
+    if (staffGateRequired() && (state.gateStatus !== "success" || state.gateKey.trim() === "")) {
+      return state.gateError || "Verify the staff key before sending commands.";
+    }
+
+    if (state.connection === "connecting") {
+      return "Socket is still connecting.";
+    }
+
+    if (state.connection === "reconnecting") {
+      return "Socket is reconnecting. Commands stay blocked until live sync returns.";
+    }
+
+    if (state.connection === "error") {
+      return state.connectionDetail || state.error || "Socket connection failed.";
+    }
+
+    if (state.connection !== "connected" || !socket) {
+      return "Socket is not connected.";
+    }
+
+    if (state.awaitingLiveResync) {
+      return "Live controls are waiting for the next canonical snapshot.";
+    }
+
+    return "";
+  }
+

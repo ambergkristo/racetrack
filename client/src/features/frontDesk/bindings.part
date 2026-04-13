@@ -1,0 +1,347 @@
+  function bindFrontDeskEvents() {
+    const managedSession = getFrontDeskManagedSession();
+    const sessionInput = document.getElementById("session-name-input");
+    const manualCarInput = document.getElementById("manual-car-number-input");
+    const assignCarBtn = document.getElementById("assign-car-btn");
+    const clearCarBtn = document.getElementById("clear-car-btn");
+    const racerInput = document.getElementById("racer-name-input");
+    const carInput = document.getElementById("car-number-input");
+    const saveSessionBtn = document.getElementById("save-session-btn");
+    const cancelSessionEditBtn = document.getElementById("cancel-session-edit-btn");
+    const saveRacerBtn = document.getElementById("save-racer-btn");
+    const cancelRacerEditBtn = document.getElementById("cancel-racer-edit-btn");
+
+    if (sessionInput) {
+      sessionInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          sessionForm: {
+            ...state.sessionForm,
+            name: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (racerInput) {
+      racerInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          racerForm: {
+            ...state.racerForm,
+            name: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (carInput) {
+      carInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          racerForm: {
+            ...state.racerForm,
+            carNumber: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (manualCarInput) {
+      manualCarInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          manualAssignmentForm: {
+            ...state.manualAssignmentForm,
+            carNumber: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (saveSessionBtn) {
+      saveSessionBtn.addEventListener("click", () => {
+        const name = state.sessionForm.name.trim();
+        if (!name) {
+          setNotice("danger", "Session name is required.", 4000);
+          return;
+        }
+
+        runAction(
+          () => {
+            if (state.sessionForm.id) {
+              return apiRequest(`/api/sessions/${state.sessionForm.id}`, {
+                method: "PATCH",
+                body: { name },
+              });
+            }
+
+            return apiRequest("/api/sessions", {
+              method: "POST",
+              body: { name },
+            });
+          },
+          state.sessionForm.id ? "Session updated." : "Session created.",
+          (payload) => {
+            const savedSessionId = payload?.session?.id ? String(payload.session.id) : state.frontDeskSessionId;
+            setState({
+              sessionForm: {
+                id: null,
+                name: "",
+              },
+              frontDeskSessionId: savedSessionId || state.frontDeskSessionId,
+              racerForm: {
+                id: null,
+                name: "",
+                carNumber: "",
+              },
+            });
+          }
+        );
+      });
+    }
+
+    if (cancelSessionEditBtn) {
+      cancelSessionEditBtn.addEventListener("click", () => {
+        setState({
+          sessionForm: {
+            id: null,
+            name: "",
+          },
+        });
+      });
+    }
+
+    if (saveRacerBtn) {
+      saveRacerBtn.addEventListener("click", () => {
+        if (!managedSession) {
+          setNotice("danger", "Create or choose a saved session before adding racers.", 4000);
+          return;
+        }
+
+        const formState = getFrontDeskFormState();
+        if (formState.duplicateCarRacer) {
+          setNotice(
+            "danger",
+            `Car ${state.racerForm.carNumber.trim()} is already assigned to ${formState.duplicateCarRacer.name}.`,
+            4000
+          );
+          return;
+        }
+
+        const name = state.racerForm.name.trim();
+        if (!name) {
+          setNotice("danger", "Racer name is required.", 4000);
+          return;
+        }
+
+        const autoAssignmentMode = !manualAssignmentEnabled();
+        const carNumber = state.racerForm.carNumber.trim();
+        const body = autoAssignmentMode
+          ? { name }
+          : {
+              name,
+              carNumber: carNumber === "" ? null : carNumber,
+            };
+
+        runAction(
+          () => {
+            if (state.racerForm.id) {
+              return apiRequest(
+                `/api/sessions/${managedSession.id}/racers/${state.racerForm.id}`,
+                {
+                  method: "PATCH",
+                  body,
+                }
+              );
+            }
+
+            return apiRequest(`/api/sessions/${managedSession.id}/racers`, {
+              method: "POST",
+              body,
+            });
+          },
+          state.racerForm.id ? "Racer updated." : "Racer added.",
+          () => {
+            setState({
+              racerForm: {
+                id: null,
+                name: "",
+                carNumber: "",
+              },
+            });
+          }
+        );
+      });
+    }
+
+    if (cancelRacerEditBtn) {
+      cancelRacerEditBtn.addEventListener("click", () => {
+        setState({
+          racerForm: {
+            id: null,
+            name: "",
+            carNumber: "",
+          },
+        });
+      });
+    }
+
+    if (assignCarBtn) {
+      assignCarBtn.addEventListener("click", () => {
+        const assignmentState = getManualAssignmentState();
+        if (!assignmentState?.activeSession || !assignmentState.selectedRacer) {
+          setNotice("danger", "Choose a staged racer before assigning a car.", 4000);
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(
+              `/api/sessions/${assignmentState.activeSession.id}/racers/${assignmentState.selectedRacer.id}`,
+              {
+                method: "PATCH",
+                body: { carNumber: assignmentState.carNumber },
+              }
+            ),
+          `Car ${assignmentState.carNumber} assigned to ${assignmentState.selectedRacer.name}.`,
+          () => {
+            setState({
+              manualAssignmentForm: {
+                racerId: assignmentState.selectedRacer.id,
+                carNumber: assignmentState.carNumber,
+              },
+            });
+          }
+        );
+      });
+    }
+
+    if (clearCarBtn) {
+      clearCarBtn.addEventListener("click", () => {
+        const assignmentState = getManualAssignmentState();
+        if (!assignmentState?.activeSession || !assignmentState.selectedRacer) {
+          setNotice("danger", "Choose a staged racer before clearing an assignment.", 4000);
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(
+              `/api/sessions/${assignmentState.activeSession.id}/racers/${assignmentState.selectedRacer.id}`,
+              {
+                method: "PATCH",
+                body: { carNumber: null },
+              }
+            ),
+          `Car assignment cleared for ${assignmentState.selectedRacer.name}.`,
+          () => {
+            setState({
+              manualAssignmentForm: {
+                racerId: assignmentState.selectedRacer.id,
+                carNumber: "",
+              },
+            });
+          }
+        );
+      });
+    }
+
+    document.querySelectorAll("[data-action='stage-session']").forEach((node) => {
+      node.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/session/select", {
+              method: "POST",
+              body: { sessionId: node.dataset.sessionId },
+            }),
+          "Session staged."
+        );
+      });
+    });
+
+    document.querySelectorAll("[data-action='edit-session']").forEach((node) => {
+      node.addEventListener("click", () => {
+        const session = state.raceSnapshot.sessions.find(
+          (item) => item.id === node.dataset.sessionId
+        );
+        if (!session) {
+          return;
+        }
+
+        setState({
+          frontDeskSessionId: session.id,
+          sessionForm: {
+            id: session.id,
+            name: session.name,
+          },
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-action='delete-session']").forEach((node) => {
+      node.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest(`/api/sessions/${node.dataset.sessionId}`, {
+              method: "DELETE",
+            }),
+          "Session deleted."
+        );
+      });
+    });
+
+    document.querySelectorAll("[data-action='edit-racer']").forEach((node) => {
+      node.addEventListener("click", () => {
+        const racer = managedSession?.racers.find((item) => item.id === node.dataset.racerId);
+        if (!racer) {
+          return;
+        }
+
+        setState({
+          racerForm: {
+            id: racer.id,
+            name: racer.name,
+            carNumber: racer.carNumber || "",
+          },
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-action='delete-racer']").forEach((node) => {
+      node.addEventListener("click", () => {
+        if (!managedSession) {
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(`/api/sessions/${managedSession.id}/racers/${node.dataset.racerId}`, {
+              method: "DELETE",
+            }),
+          "Racer removed."
+        );
+      });
+    });
+
+    document.querySelectorAll("[data-action='select-manual-racer']").forEach((node) => {
+      node.addEventListener("click", () => {
+        const racer = activeSession?.racers.find((item) => item.id === node.dataset.racerId);
+        if (!racer) {
+          return;
+        }
+
+        setState({
+          manualAssignmentForm: {
+            racerId: racer.id,
+            carNumber: racer.carNumber || "",
+          },
+        });
+      });
+    });
+  }
+

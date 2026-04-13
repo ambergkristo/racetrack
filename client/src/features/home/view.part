@@ -1,0 +1,81 @@
+  function homePanels() {
+    return [
+      summaryPanel(),
+      panel(
+        "Route Launch Board",
+        `
+          <div class="home-launch-shell">
+            <div class="home-route-section">
+              <div class="panel-heading">
+                <h2>Staff Routes</h2>
+              </div>
+              <div class="route-card-grid compact-route-grid">
+                ${["/front-desk", "/race-control", "/lap-line-tracker"].map((pathname) => routeCard(pathname)).join("")}
+              </div>
+            </div>
+            <div class="home-route-section">
+              <div class="panel-heading">
+                <h2>Public Displays</h2>
+              </div>
+              <div class="route-card-grid compact-route-grid">
+                ${["/leader-board", "/next-race", "/race-countdown", "/race-flags"].map((pathname) => routeCard(pathname)).join("")}
+              </div>
+            </div>
+          </div>
+        `,
+        "warning",
+        "home-launch-panel"
+      ),
+    ].join("");
+  }
+
+  function buildContent() {
+    if (routeConfig.public && state.bootstrapStatus === "error" && !hasRaceData()) {
+      return panel(
+        "Live Feed Unavailable",
+        `
+          ${inlineAlert({
+            tone: "danger",
+            title: "The public board could not load",
+            detail: state.bootstrapError || state.error || "No bootstrap or websocket data is available yet.",
+          })}
+          ${emptyState(
+            "Waiting for a usable race snapshot",
+            "Keep this screen open. As soon as bootstrap or websocket state becomes available, the board will recover without polling."
+          )}
+        `,
+        "danger",
+        "panel-wide"
+      );
+    }
+
+    if (route === "/front-desk") {
+      return [frontDeskHotfixPanel(), debugMode ? runtimePanel() : ""].join("");
+    }
+
+    if (route === "/race-control") {
+      return [raceControlPanel(), debugMode ? runtimePanel() : ""].join("");
+    }
+
+    if (route === "/lap-line-tracker") {
+      return [staffStatusPanel(), lapTrackerPanel(), debugMode ? runtimePanel() : ""].join("");
+    }
+
+    if (route === "/leader-board") {
+      return leaderBoardPanels();
+    }
+
+    if (route === "/next-race") {
+      return nextRacePanels();
+    }
+
+    if (route === "/race-countdown") {
+      return countdownPanels();
+    }
+
+    if (route === "/race-flags") {
+      return flagPanels();
+    }
+
+    return homePanels();
+  }

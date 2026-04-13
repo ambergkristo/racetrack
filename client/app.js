@@ -1,3 +1,4 @@
+// Generated from client/src. Run `npm run sync:client` after editing source modules.
 (() => {
   const ROUTES = {
     "/": {
@@ -677,7 +678,6 @@
         : [],
     };
   }
-
   function getActiveSession() {
     return state.raceSnapshot.activeSession;
   }
@@ -1220,7 +1220,6 @@
 
     return "";
   }
-
   function buttonMarkup({
     id = "",
     label = "",
@@ -1691,7 +1690,6 @@
       setState({ pending: false });
     }
   }
-
   function sessionRows() {
     if (state.raceSnapshot.sessions.length === 0) {
       return '<tr><td colspan="4" class="hint">No sessions created yet.</td></tr>';
@@ -2646,7 +2644,6 @@
       }
     }
   }
-
   function leaderboardTable(
     entries,
     {
@@ -2767,7 +2764,6 @@
       </div>
     `;
   }
-
   function lapTrackSeed(value) {
     return String(value || "")
       .split("")
@@ -3131,6 +3127,104 @@
     `;
   }
 
+  function lapTrackerPanel() {
+    const snapshot = state.raceSnapshot;
+    const activeSession = getDisplaySession();
+    const simulation = getSimulationMeta(snapshot);
+    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
+    const lapAllowed = Boolean(snapshot.lapEntryAllowed);
+    const flagMeta = getFlagMeta(snapshot);
+    const lapReason = firstReason(
+      staffAccessReason(),
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before lap entry.",
+      simulation.active ? "Simulation is driving lap truth right now." : "",
+      lapAllowed ? "" : "Lap entry is only available while RUNNING or FINISHED."
+    );
+    const simulateReason = firstReason(
+      staffAccessReason(),
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before starting simulation.",
+      snapshot.state === "STAGING" ? "" : "Simulation can only start from STAGING.",
+      activeSession && activeSession.racers.length > 0 ? "" : "Simulation needs staged racers.",
+      simulation.active ? "Simulation is already active." : "",
+      snapshot.state === "LOCKED" ? "Simulation is unavailable once the race is locked." : ""
+    );
+    const racers = activeSession ? activeSession.racers : [];
+
+    const buttons = racers.length
+      ? racers
+          .map(
+            (racer) => `
+              ${buttonMarkup({
+                variant: "ghost",
+                size: "huge-touch",
+                disabled: Boolean(lapReason),
+                attrs: `data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}"`,
+                innerHtml: `
+                <span class="lap-entry-car">${escapeHtml(racer.carNumber ? `Car ${racer.carNumber}` : "Car --")}</span>
+                <strong class="lap-entry-name">${escapeHtml(racer.name)}</strong>
+                <em class="lap-entry-laps">${escapeHtml(`${racer.lapCount} laps`)}</em>
+                `,
+              })}
+            `
+          )
+          .join("")
+      : emptyState(
+          "No staged racers available",
+          "Stage a session first, then lap tracker buttons will appear here."
+        );
+
+    const overlay =
+      snapshot.state === "LOCKED"
+        ? '<div class="session-overlay">Session is LOCKED. Lap input is blocked.</div>'
+        : "";
+
+    return [
+      panel(
+        "Lap Entry Console",
+        `
+          <div class="lap-tracker-shell">
+            <div class="lap-stage tone-${flagMeta.tone}">
+              <div class="lap-entry-shell">
+                <div class="lap-entry-head">
+                  <div class="lap-stage-copy">
+                    <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
+                  </div>
+                  <div class="telemetry-tags lap-tracker-head-tags">
+                    <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
+                    <span class="telemetry-tag tone-${simulation.active ? "warning" : lapAllowed ? "safe" : "danger"}">${escapeHtml(
+                      simulation.active ? "Simulation driving" : lapAllowed ? "Lap entry open" : "Lap entry blocked"
+                    )}</span>
+                    <span class="telemetry-tag tone-${escapeHtml(simulationPhaseMeta.tone)}">${escapeHtml(
+                      simulationPhaseMeta.label
+                    )}</span>
+                    <span class="telemetry-tag tone-${escapeHtml(simulationStatusTone(simulation.active ? "ACTIVE" : simulation.status))}">${escapeHtml(
+                      simulation.active ? "Simulation Active" : simulation.status === "READY" ? "Simulation Ready" : simulation.status === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
+                    )}</span>
+                    ${buttonMarkup({
+                      id: "simulate-race-btn",
+                      label: "Simulate Race",
+                      variant: "warning",
+                      size: "mini",
+                      disabled: Boolean(simulateReason),
+                    })}
+                  </div>
+                </div>
+                <div class="car-grid lap-grid lap-entry-grid">${buttons}</div>
+              </div>
+            </div>
+            <div class="lap-tracker-sidecar">
+              ${lapTrackerVisualPanel()}
+            </div>
+          </div>
+          ${overlay}
+        `,
+        "danger",
+        "staff-main-panel lap-tracker-panel"
+      ),
+    ].join("");
+  }
   function raceControlPanel() {
     const snapshot = state.raceSnapshot;
     const activeSession = getActiveSession();
@@ -3237,106 +3331,6 @@
       "staff-main-panel race-control-panel"
     );
   }
-
-  function lapTrackerPanel() {
-    const snapshot = state.raceSnapshot;
-    const activeSession = getDisplaySession();
-    const simulation = getSimulationMeta(snapshot);
-    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
-    const lapAllowed = Boolean(snapshot.lapEntryAllowed);
-    const flagMeta = getFlagMeta(snapshot);
-    const lapReason = firstReason(
-      staffAccessReason(),
-      state.pending ? "Wait for the current request to finish." : "",
-      activeSession ? "" : "Stage a session before lap entry.",
-      simulation.active ? "Simulation is driving lap truth right now." : "",
-      lapAllowed ? "" : "Lap entry is only available while RUNNING or FINISHED."
-    );
-    const simulateReason = firstReason(
-      staffAccessReason(),
-      state.pending ? "Wait for the current request to finish." : "",
-      activeSession ? "" : "Stage a session before starting simulation.",
-      snapshot.state === "STAGING" ? "" : "Simulation can only start from STAGING.",
-      activeSession && activeSession.racers.length > 0 ? "" : "Simulation needs staged racers.",
-      simulation.active ? "Simulation is already active." : "",
-      snapshot.state === "LOCKED" ? "Simulation is unavailable once the race is locked." : ""
-    );
-    const racers = activeSession ? activeSession.racers : [];
-
-    const buttons = racers.length
-      ? racers
-          .map(
-            (racer) => `
-              ${buttonMarkup({
-                variant: "ghost",
-                size: "huge-touch",
-                disabled: Boolean(lapReason),
-                attrs: `data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}"`,
-                innerHtml: `
-                <span class="lap-entry-car">${escapeHtml(racer.carNumber ? `Car ${racer.carNumber}` : "Car --")}</span>
-                <strong class="lap-entry-name">${escapeHtml(racer.name)}</strong>
-                <em class="lap-entry-laps">${escapeHtml(`${racer.lapCount} laps`)}</em>
-                `,
-              })}
-            `
-          )
-          .join("")
-      : emptyState(
-          "No staged racers available",
-          "Stage a session first, then lap tracker buttons will appear here."
-        );
-
-    const overlay =
-      snapshot.state === "LOCKED"
-        ? '<div class="session-overlay">Session is LOCKED. Lap input is blocked.</div>'
-        : "";
-
-    return [
-      panel(
-        "Lap Entry Console",
-        `
-          <div class="lap-tracker-shell">
-            <div class="lap-stage tone-${flagMeta.tone}">
-              <div class="lap-entry-shell">
-                <div class="lap-entry-head">
-                  <div class="lap-stage-copy">
-                    <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
-                  </div>
-                  <div class="telemetry-tags lap-tracker-head-tags">
-                    <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
-                    <span class="telemetry-tag tone-${simulation.active ? "warning" : lapAllowed ? "safe" : "danger"}">${escapeHtml(
-                      simulation.active ? "Simulation driving" : lapAllowed ? "Lap entry open" : "Lap entry blocked"
-                    )}</span>
-                    <span class="telemetry-tag tone-${escapeHtml(simulationPhaseMeta.tone)}">${escapeHtml(
-                      simulationPhaseMeta.label
-                    )}</span>
-                    <span class="telemetry-tag tone-${escapeHtml(simulationStatusTone(simulation.active ? "ACTIVE" : simulation.status))}">${escapeHtml(
-                      simulation.active ? "Simulation Active" : simulation.status === "READY" ? "Simulation Ready" : simulation.status === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
-                    )}</span>
-                    ${buttonMarkup({
-                      id: "simulate-race-btn",
-                      label: "Simulate Race",
-                      variant: "warning",
-                      size: "mini",
-                      disabled: Boolean(simulateReason),
-                    })}
-                  </div>
-                </div>
-                <div class="car-grid lap-grid lap-entry-grid">${buttons}</div>
-              </div>
-            </div>
-            <div class="lap-tracker-sidecar">
-              ${lapTrackerVisualPanel()}
-            </div>
-          </div>
-          ${overlay}
-        `,
-        "danger",
-        "staff-main-panel lap-tracker-panel"
-      ),
-    ].join("");
-  }
-
   function publicStatusPanel() {
     const snapshot = state.raceSnapshot;
     const flagMeta = getFlagMeta(snapshot);
@@ -3675,7 +3669,6 @@
       ),
     ].join("");
   }
-
   function homePanels() {
     return [
       summaryPanel(),
@@ -3757,7 +3750,6 @@
 
     return homePanels();
   }
-
   function bindSharedEvents() {
     document.querySelectorAll("#fullscreen-btn").forEach((node) => {
       node.addEventListener("click", async () => {
@@ -3988,7 +3980,6 @@
       }
     });
   }
-
   function bindFrontDeskEvents() {
     const managedSession = getFrontDeskManagedSession();
     const sessionInput = document.getElementById("session-name-input");
@@ -4335,7 +4326,6 @@
       });
     });
   }
-
   function bindRaceControlEvents() {
     const startBtn = document.getElementById("race-start-btn");
     const finishBtn = document.getElementById("race-finish-btn");
@@ -4393,7 +4383,6 @@
       });
     });
   }
-
   function bindLapTrackerEvents() {
     const simulateBtn = document.getElementById("simulate-race-btn");
 
@@ -4583,7 +4572,6 @@
       lapTrackVisualState.frameId = requestAnimationFrame(frameLapTrackVisual);
     }
   }
-
   function render() {
     const gateFocusState = captureGateFocusState();
     appEl.innerHTML = appShell(buildContent());

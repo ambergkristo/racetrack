@@ -1,0 +1,236 @@
+  const ROUTES = {
+    "/": {
+      title: "Beachside Racetrack",
+      subtitle: "M1 control hub",
+      staff: false,
+      public: false,
+      accent: "safe",
+      body: "Use the dedicated staff and public routes to run the live race flow.",
+    },
+    "/front-desk": {
+      title: "Front Desk",
+      subtitle: "Session and racer operations",
+      staff: true,
+      public: false,
+      accent: "safe",
+      body: "",
+    },
+    "/race-control": {
+      title: "Race Control",
+      subtitle: "Lifecycle and mode controls",
+      staff: true,
+      public: false,
+      accent: "warning",
+      body: "Call the race state quickly and keep the active mode visible at a glance.",
+    },
+    "/lap-line-tracker": {
+      title: "Lap Line Tracker",
+      subtitle: "Authoritative lap entry",
+      staff: true,
+      public: false,
+      accent: "danger",
+      body: "Record crossings fast with large touch targets and only the state that matters.",
+    },
+    "/leader-board": {
+      title: "Leader Board",
+      subtitle: "Who is leading right now?",
+      staff: false,
+      public: true,
+      accent: "safe",
+      body: "Fast timing tower for guests and racers, focused on position, leader pace, and live race state.",
+    },
+    "/next-race": {
+      title: "Next Race",
+      subtitle: "Who is on track now, and who is up next?",
+      staff: false,
+      public: true,
+      accent: "warning",
+      body: "Information board for the current heat and the next lineup waiting to take the track.",
+    },
+    "/race-countdown": {
+      title: "Race Countdown",
+      subtitle: "How much time is left in this race?",
+      staff: false,
+      public: true,
+      accent: "danger",
+      body: "Distance-readable clock driven by the canonical timer and the current lifecycle state.",
+    },
+    "/race-flags": {
+      title: "Race Flags",
+      subtitle: "What is the track state right now?",
+      staff: false,
+      public: true,
+      accent: "warning",
+      body: "Ultra-minimal state board for fullscreen flag and color communication.",
+    },
+  };
+
+  const MODE_META = {
+    SAFE: {
+      label: "Safe",
+      tone: "safe",
+      detail: "Track is operating under normal conditions.",
+    },
+    HAZARD_SLOW: {
+      label: "Hazard Slow",
+      tone: "warning",
+      detail: "Drivers must reduce pace and follow marshal guidance.",
+    },
+    HAZARD_STOP: {
+      label: "Hazard Stop",
+      tone: "danger",
+      detail: "Drivers must stop. No further racing pace is allowed.",
+    },
+  };
+
+  const FLAG_META = {
+    IDLE: {
+      label: "Idle",
+      tone: "safe",
+      detail: "No session is staged yet.",
+    },
+    STAGING: {
+      label: "Staging",
+      tone: "warning",
+      detail: "The active session is staged and ready to start.",
+    },
+    SAFE: MODE_META.SAFE,
+    HAZARD_SLOW: MODE_META.HAZARD_SLOW,
+    HAZARD_STOP: MODE_META.HAZARD_STOP,
+    CHECKERED: {
+      label: "Checkered",
+      tone: "warning",
+      detail: "Finish has been called. Post-finish laps are still accepted until lock.",
+    },
+    LOCKED: {
+      label: "Locked",
+      tone: "danger",
+      detail: "Race is locked. Results are final and lap input is blocked.",
+    },
+  };
+
+  const SIMULATION_PHASE_META = {
+    IDLE: {
+      label: "Idle",
+      tone: "idle",
+      detail: "Simulation is standing by for a staged session.",
+    },
+    READY: {
+      label: "Ready",
+      tone: "safe",
+      detail: "Simulation can start as soon as the staged session is ready.",
+    },
+    SAFE_RUN: {
+      label: "Safe Run",
+      tone: "safe",
+      detail: "Simulation is running under green-flag conditions.",
+    },
+    HAZARD_SLOW: {
+      label: "Hazard Slow",
+      tone: "warning",
+      detail: "A simulated hazard slow is active and the field is pacing down.",
+    },
+    HAZARD_STOP: {
+      label: "Hazard Stop",
+      tone: "danger",
+      detail: "A simulated hazard stop is active and the field is holding position.",
+    },
+    RECOVERY: {
+      label: "Recovery",
+      tone: "safe",
+      detail: "The hazard window has cleared and the simulation is back to safe pace.",
+    },
+    CHECKERED: {
+      label: "Checkered",
+      tone: "warning",
+      detail: "Lap 5 is complete and the finish queue is closing under checkered.",
+    },
+    PIT_RETURN: {
+      label: "Pit Return",
+      tone: "warning",
+      detail: "Cars are peeling into the pit lane before the session fully locks.",
+    },
+    COMPLETED: {
+      label: "Complete",
+      tone: "danger",
+      detail: "Simulation finished, pit return is complete, and session progression is ready.",
+    },
+  };
+
+  const STATE_META = {
+    IDLE: {
+      label: "Idle",
+      tone: "safe",
+      detail: "No session is staged yet.",
+    },
+    STAGING: {
+      label: "Staging",
+      tone: "warning",
+      detail: "The active session is staged and ready to start.",
+    },
+    RUNNING: {
+      label: "Running",
+      tone: "safe",
+      detail: "Race is live and lap input is accepted.",
+    },
+    FINISHED: {
+      label: "Finished",
+      tone: "warning",
+      detail: "Finish has been called. Post-finish laps are still accepted until lock.",
+    },
+    LOCKED: {
+      label: "Locked",
+      tone: "danger",
+      detail: "Race is locked. Results are final and lap input is blocked.",
+    },
+  };
+
+  const RACE_CONTROL_MODES = ["SAFE", "HAZARD_SLOW", "HAZARD_STOP"];
+
+  const appEl = document.getElementById("app");
+  const route = ROUTES[window.location.pathname] ? window.location.pathname : "/";
+  const routeConfig = ROUTES[route];
+  const debugMode = new URLSearchParams(window.location.search).get("debug") === "1";
+  const fullscreenEnabled = Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+
+  let socket = null;
+  let publicConnectStarted = false;
+  let staffBypassConnectStarted = false;
+  let noticeTimer = null;
+  const lapTrackVisualState = {
+    frameId: 0,
+    lastFrameTs: 0,
+    markers: new Map(),
+    geometry: null,
+  };
+  const LAP_TRACK_FINISH_PROGRESS = 0.27;
+  const LAP_TRACK_VIEWBOX = Object.freeze({
+    width: 560,
+    height: 320,
+  });
+  const LAP_TRACK_LAYOUT = Object.freeze({
+    loop: Object.freeze([
+      Object.freeze({ x: 114, y: 160 }),
+      Object.freeze({ x: 132, y: 108 }),
+      Object.freeze({ x: 182, y: 76 }),
+      Object.freeze({ x: 252, y: 62 }),
+      Object.freeze({ x: 340, y: 68 }),
+      Object.freeze({ x: 420, y: 92 }),
+      Object.freeze({ x: 474, y: 134 }),
+      Object.freeze({ x: 490, y: 184 }),
+      Object.freeze({ x: 466, y: 230 }),
+      Object.freeze({ x: 408, y: 258 }),
+      Object.freeze({ x: 324, y: 266 }),
+      Object.freeze({ x: 252, y: 252 }),
+      Object.freeze({ x: 194, y: 230 }),
+      Object.freeze({ x: 148, y: 238 }),
+      Object.freeze({ x: 118, y: 208 }),
+    ]),
+    pitLane: Object.freeze([
+      Object.freeze({ x: 382, y: 110 }),
+      Object.freeze({ x: 430, y: 126 }),
+      Object.freeze({ x: 460, y: 164 }),
+      Object.freeze({ x: 454, y: 210 }),
+      Object.freeze({ x: 406, y: 228 }),
+    ]),
+  });

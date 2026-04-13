@@ -1,0 +1,231 @@
+  function bindSharedEvents() {
+    document.querySelectorAll("#fullscreen-btn").forEach((node) => {
+      node.addEventListener("click", async () => {
+        if (!fullscreenEnabled) {
+          setState({ fullscreenError: "Fullscreen is not supported in this browser." });
+          setNotice("danger", "Fullscreen is not supported in this browser.", 3200);
+          return;
+        }
+
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else {
+            await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+          }
+          setState({ fullscreenError: "" });
+        } catch {
+          setState({
+            fullscreenError: "Fullscreen request was blocked by the browser.",
+          });
+          setNotice(
+            "danger",
+            "Fullscreen request was blocked. Retry from a direct tap or click.",
+            3600
+          );
+        }
+      });
+    });
+  }
+
+  function connectSocket(key) {
+    if (socket) {
+      socket.disconnect();
+      socket = null;
+    }
+
+    setState({
+      connection: state.socketConnectedOnce ? "reconnecting" : "connecting",
+      connectionDetail: routeConfig.staff
+        ? "Opening the staff realtime channel."
+        : "Opening the public realtime channel.",
+      reconnectAttempt: 0,
+      error: "",
+      awaitingLiveResync: false,
+    });
+    socket = window.io({
+      auth: { route, key },
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 600,
+      reconnectionDelayMax: 1600,
+    });
+
+    socket.on("connect", () => {
+      setState({
+        connection: "connected",
+        connectionDetail: routeConfig.staff
+          ? "Socket restored. Waiting for the next canonical snapshot."
+          : "",
+        reconnectAttempt: 0,
+        error: "",
+        awaitingLiveResync: true,
+      });
+      socket.emit("client:hello", {
+        route,
+        role: routeConfig.public ? "public" : "staff",
+      });
+    });
+
+    socket.on("server:hello", (payload) => {
+      setState({ serverHello: payload });
+    });
+
+    socket.on("race:snapshot", (payload) => {
+      applyCanonicalSnapshot(payload);
+    });
+
+    socket.on("leaderboard:update", (payload) => {
+      applyLeaderboardUpdate(payload);
+    });
+
+    socket.on("race:tick", (payload) => {
+      applyRaceTick(payload);
+    });
+
+    socket.on("server:error", (payload) => {
+      setNotice("danger", payload?.message || "Server rejected the request.", 4200);
+    });
+
+    socket.on("connect_error", (err) => {
+      const message = err?.message || "Socket connection failed.";
+      if (routeConfig.staff && message === "AUTH_INVALID") {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+
+        setState({
+          connection: "idle",
+          connectionDetail: "",
+          reconnectAttempt: 0,
+          error: "",
+          gateStatus: "error",
+          gateKey: "",
+          gateError: "Stored staff key was rejected. Verify again to reconnect.",
+          awaitingLiveResync: false,
+        });
+        setNotice("danger", "Staff route locked again. Re-verify the access key.", 4200);
+        return;
+      }
+
+      const nextConnection = socket?.active ? "reconnecting" : "error";
+      setState({
+        connection: nextConnection,
+        connectionDetail:
+          nextConnection === "reconnecting"
+            ? "Socket could not reconnect cleanly yet."
+            : "Socket could not reconnect cleanly.",
+        error: message,
+        awaitingLiveResync: false,
+      });
+    });
+
+    socket.on("disconnect", (reason) => {
+      if (routeConfig.staff && staffReady() && reason !== "io client disconnect") {
+        setState({
+          connection: "reconnecting",
+          connectionDetail:
+            "Connection dropped. Waiting for automatic reconnect and fresh sync.",
+          error: "",
+          awaitingLiveResync: false,
+        });
+        return;
+      }
+
+      setState({
+        connection: routeConfig.public || state.socketConnectedOnce ? "reconnecting" : "idle",
+        connectionDetail:
+          routeConfig.public || state.socketConnectedOnce
+            ? "Holding the last confirmed race state while the websocket reconnects."
+            : "",
+        error:
+          reason === "io server disconnect"
+            ? "Server closed the live feed."
+            : "Signal dropped. Trying to reconnect.",
+        awaitingLiveResync: false,
+      });
+    });
+
+    socket.io.on("reconnect_attempt", (attempt) => {
+      setState({
+        connection: "reconnecting",
+        connectionDetail:
+          routeConfig.staff
+            ? `Reconnect attempt ${attempt} in progress.`
+            : "Holding the last confirmed race state while the websocket reconnects.",
+        reconnectAttempt: attempt,
+        awaitingLiveResync: false,
+      });
+    });
+
+    socket.io.on("reconnect_failed", () => {
+      setState({
+        connection: "error",
+        connectionDetail: "Automatic reconnect stopped after repeated failures.",
+        error: "Live feed could not reconnect after multiple attempts.",
+        awaitingLiveResync: false,
+      });
+    });
+  }
+
+  function bindStaffGate() {
+    const verifyBtn = document.getElementById("verify-btn");
+    const keyInput = document.getElementById("staff-key");
+    if (!verifyBtn || !keyInput) {
+      return;
+    }
+
+    keyInput.addEventListener("input", (event) => {
+      setState({
+        gateKey: event.target.value,
+        gateError: "",
+        gateStatus: state.gateStatus === "error" ? "idle" : state.gateStatus,
+      });
+    });
+
+    keyInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        verifyBtn.click();
+      }
+    });
+
+    verifyBtn.addEventListener("click", async () => {
+      const key = keyInput.value.trim();
+      if (!key) {
+        setState({ gateError: "Access key is required.", gateStatus: "error" });
+        return;
+      }
+
+      setState({ gateStatus: "verifying", gateError: "", error: "" });
+      try {
+        const result = await verifyStaffKey(key);
+        if (!result.ok) {
+          setState({
+            connection: "idle",
+            error: "",
+            gateStatus: "error",
+            gateError: "Invalid access key.",
+          });
+          return;
+        }
+
+        setState({
+          gateStatus: "success",
+          gateError: "",
+          gateKey: key,
+        });
+        connectSocket(key);
+      } catch {
+        setState({
+          connection: "error",
+          error: "Verification failed.",
+          gateStatus: "error",
+          gateError: "Verification failed.",
+        });
+      }
+    });
+  }
+

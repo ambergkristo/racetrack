@@ -1,0 +1,58 @@
+  function bindRaceControlEvents() {
+    const startBtn = document.getElementById("race-start-btn");
+    const finishBtn = document.getElementById("race-finish-btn");
+    const lockBtn = document.getElementById("race-lock-btn");
+
+    if (startBtn) {
+      startBtn.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/start", {
+              method: "POST",
+              body: {},
+            }),
+          "Race started."
+        );
+      });
+    }
+
+    if (finishBtn) {
+      finishBtn.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/finish", {
+              method: "POST",
+              body: {},
+            }),
+          "Race finished."
+        );
+      });
+    }
+
+    if (lockBtn) {
+      lockBtn.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/lock", {
+              method: "POST",
+              body: {},
+            }),
+          "Session locked."
+        );
+      });
+    }
+
+    document.querySelectorAll("[data-action='set-mode']").forEach((node) => {
+      node.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/mode", {
+              method: "POST",
+              body: { mode: node.dataset.mode },
+            }),
+          `${MODE_META[node.dataset.mode]?.label || node.dataset.mode} applied.`
+        );
+      });
+    });
+  }
+

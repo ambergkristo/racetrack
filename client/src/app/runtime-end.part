@@ -1,0 +1,54 @@
+  function render() {
+    const gateFocusState = captureGateFocusState();
+    appEl.innerHTML = appShell(buildContent());
+
+    bindSharedEvents();
+
+    if (staffGateRequired()) {
+      bindStaffGate();
+    }
+
+    if (route === "/front-desk") {
+      bindFrontDeskEvents();
+    }
+
+    if (route === "/race-control") {
+      bindRaceControlEvents();
+    }
+
+    if (route === "/lap-line-tracker") {
+      bindLapTrackerEvents();
+      ensureLapTrackAnimation();
+    } else {
+      stopLapTrackAnimation();
+    }
+
+    if (routeConfig.public && !publicConnectStarted) {
+      publicConnectStarted = true;
+      connectSocket(undefined);
+    }
+
+    if (routeConfig.staff && state.staffAuthDisabled && !staffBypassConnectStarted) {
+      staffBypassConnectStarted = true;
+      connectSocket(undefined);
+    }
+
+    restoreGateFocusState(gateFocusState);
+  }
+
+  document.addEventListener("fullscreenchange", render);
+  document.addEventListener("fullscreenerror", () => {
+    setState({
+      fullscreenError: "Fullscreen failed to change state.",
+    });
+  });
+
+  loadBootstrap();
+  render();
+
+  window.RacetrackUI = {
+    fullscreenButton,
+    panel,
+    telemetryHeader,
+  };
+})();

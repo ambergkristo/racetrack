@@ -5,6 +5,12 @@
   "description": "Beachside Racetrack M0 skeleton: single-host Node + Socket.IO + SPA routes.",
   "main": "server.js",
   "scripts": {
+    "sync:client": "node scripts/sync-client-app.mjs",
+    "prebuild": "npm run sync:client",
+    "predev": "npm run sync:client",
+    "prelint": "npm run sync:client",
+    "prestart": "npm run sync:client",
+    "pretest": "npm run sync:client",
     "build": "node scripts/build.mjs",
     "dev": "cross-env NODE_ENV=development nodemon server.js",
     "start": "node server.js",

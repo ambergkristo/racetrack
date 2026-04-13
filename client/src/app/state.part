@@ -1,0 +1,443 @@
+  let state = {
+    bootstrap: null,
+    bootstrapStatus: "loading",
+    bootstrapError: "",
+    staffAuthDisabled: false,
+    featureFlags: {
+      FF_PERSISTENCE: false,
+      FF_MANUAL_CAR_ASSIGNMENT: false,
+    },
+    connection: "idle",
+    connectionDetail: "",
+    reconnectAttempt: 0,
+    error: "",
+    serverHello: null,
+    lastSyncAt: null,
+    socketConnectedOnce: false,
+    awaitingLiveResync: false,
+    fullscreenError: "",
+    gateStatus: routeConfig.staff ? "idle" : "success",
+    gateKey: "",
+    gateError: "",
+    pending: false,
+    opNotice: null,
+    sessionForm: {
+      id: null,
+      name: "",
+    },
+    frontDeskSessionId: null,
+    manualAssignmentForm: {
+      racerId: null,
+      carNumber: "",
+    },
+    racerForm: {
+      id: null,
+      name: "",
+      carNumber: "",
+    },
+    raceSnapshot: createEmptyRaceSnapshot(),
+  };
+
+  function createEmptyRaceSnapshot() {
+    return {
+      serverTime: null,
+      state: "IDLE",
+      mode: "SAFE",
+      flag: "IDLE",
+      lapEntryAllowed: false,
+      finishOrderActive: false,
+      raceDurationSeconds: 60,
+      remainingSeconds: 60,
+      endsAt: null,
+      activeSessionId: null,
+      activeSession: null,
+      currentSessionId: null,
+      currentSession: null,
+      nextSessionId: null,
+      nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
+      simulation: {
+        status: "IDLE",
+        active: false,
+        phase: "IDLE",
+        sessionId: null,
+        startedAtMs: null,
+        endedAtMs: null,
+        maxDurationMs: null,
+        targetLapCount: null,
+        hardCapReached: false,
+        completionReason: null,
+        racers: [],
+      },
+      lockedSession: null,
+      finalResults: null,
+      sessions: [],
+      leaderboard: [],
+    };
+  }
+
+  function normalizeFeatureFlags(flags) {
+    return {
+      FF_PERSISTENCE: Boolean(flags?.FF_PERSISTENCE),
+      FF_MANUAL_CAR_ASSIGNMENT: Boolean(flags?.FF_MANUAL_CAR_ASSIGNMENT),
+    };
+  }
+
+  function setState(patch) {
+    state = { ...state, ...patch };
+    render();
+  }
+
+  function captureGateFocusState() {
+    const activeElement = document.activeElement;
+    if (!activeElement || activeElement.id !== "staff-key") {
+      return null;
+    }
+
+    return {
+      selectionStart:
+        typeof activeElement.selectionStart === "number" ? activeElement.selectionStart : null,
+      selectionEnd:
+        typeof activeElement.selectionEnd === "number" ? activeElement.selectionEnd : null,
+      selectionDirection: activeElement.selectionDirection || "none",
+    };
+  }
+
+  function restoreGateFocusState(focusState) {
+    if (!focusState || !staffGateRequired() || state.gateStatus === "success") {
+      return;
+    }
+
+    const keyInput = document.getElementById("staff-key");
+    if (!keyInput || keyInput.disabled) {
+      return;
+    }
+
+    if (typeof keyInput.focus === "function") {
+      keyInput.focus();
+    }
+
+    if (
+      typeof keyInput.setSelectionRange === "function" &&
+      focusState.selectionStart !== null &&
+      focusState.selectionEnd !== null
+    ) {
+      try {
+        keyInput.setSelectionRange(
+          focusState.selectionStart,
+          focusState.selectionEnd,
+          focusState.selectionDirection
+        );
+      } catch {}
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function isObject(value) {
+    return typeof value === "object" && value !== null;
+  }
+
+  function parseNumber(value) {
+    const parsed = Number.parseInt(value ?? "", 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function parseTimestampMs(value) {
+    if (Number.isFinite(value)) {
+      return value;
+    }
+
+    const parsed = Date.parse(value ?? "");
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function formatTime(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return "--:--";
+    }
+
+    const minutes = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const secs = Math.floor(seconds % 60)
+      .toString()
+      .padStart(2, "0");
+    return `${minutes}:${secs}`;
+  }
+
+  function formatLap(milliseconds) {
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
+      return "--";
+    }
+
+    const seconds = (milliseconds / 1000).toFixed(3);
+    return `${seconds}s`;
+  }
+
+  function formatOrdinal(value) {
+    if (!Number.isFinite(value) || value <= 0) {
+      return "--";
+    }
+
+    const mod100 = value % 100;
+    if (mod100 >= 11 && mod100 <= 13) {
+      return `${value}th`;
+    }
+
+    const mod10 = value % 10;
+    if (mod10 === 1) {
+      return `${value}st`;
+    }
+    if (mod10 === 2) {
+      return `${value}nd`;
+    }
+    if (mod10 === 3) {
+      return `${value}rd`;
+    }
+
+    return `${value}th`;
+  }
+
+  function formatTimestamp(timestamp) {
+    if (!timestamp) {
+      return "Awaiting live sync";
+    }
+
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return "Awaiting live sync";
+    }
+
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
+
+  function sortLeaderboard(entries) {
+    return entries
+      .slice()
+      .sort((left, right) => {
+        if (left.bestLapTimeMs === null && right.bestLapTimeMs === null) {
+          return left.name.localeCompare(right.name);
+        }
+
+        if (left.bestLapTimeMs === null) {
+          return 1;
+        }
+
+        if (right.bestLapTimeMs === null) {
+          return -1;
+        }
+
+        if (left.bestLapTimeMs !== right.bestLapTimeMs) {
+          return left.bestLapTimeMs - right.bestLapTimeMs;
+        }
+
+        return right.lapCount - left.lapCount;
+      })
+      .map((entry, index) => ({
+        ...entry,
+        position: index + 1,
+      }));
+  }
+
+  function normalizeRacer(racer) {
+    return {
+      id: String(racer.id),
+      name: String(racer.name),
+      carNumber: racer.carNumber === null ? null : String(racer.carNumber ?? ""),
+      lapCount: parseNumber(racer.lapCount) ?? 0,
+      currentLapTimeMs: parseNumber(racer.currentLapTimeMs),
+      bestLapTimeMs: parseNumber(racer.bestLapTimeMs),
+      lastCrossingTimestampMs: parseNumber(racer.lastCrossingTimestampMs),
+      finishPlace: parseNumber(racer.finishPlace),
+      finishRecordedAtMs: parseNumber(racer.finishRecordedAtMs),
+      createdAt: racer.createdAt ?? null,
+      updatedAt: racer.updatedAt ?? null,
+    };
+  }
+
+  function compareRacers(left, right) {
+    const leftCar = left.carNumber === null ? Number.MAX_SAFE_INTEGER : parseNumber(left.carNumber);
+    const rightCar =
+      right.carNumber === null ? Number.MAX_SAFE_INTEGER : parseNumber(right.carNumber);
+
+    if (leftCar !== rightCar) {
+      return leftCar - rightCar;
+    }
+
+    return left.name.localeCompare(right.name);
+  }
+
+  function normalizeSession(session) {
+    return {
+      id: String(session.id),
+      name: String(session.name),
+      racers: Array.isArray(session.racers)
+        ? session.racers.map(normalizeRacer).sort(compareRacers)
+        : [],
+      createdAt: session.createdAt ?? null,
+      updatedAt: session.updatedAt ?? null,
+    };
+  }
+
+  function normalizeLeaderboardEntry(entry) {
+    return {
+      position: parseNumber(entry.position) ?? 0,
+      racerId: String(entry.racerId),
+      name: String(entry.name),
+      carNumber: entry.carNumber === null ? null : String(entry.carNumber ?? ""),
+      lapCount: parseNumber(entry.lapCount) ?? 0,
+      currentLapTimeMs: parseNumber(entry.currentLapTimeMs),
+      bestLapTimeMs: parseNumber(entry.bestLapTimeMs),
+      finishPlace: parseNumber(entry.finishPlace),
+    };
+  }
+
+  function normalizeSimulation(simulation) {
+    if (!isObject(simulation)) {
+      return state.raceSnapshot.simulation;
+    }
+
+    return {
+      status: typeof simulation.status === "string" ? simulation.status : "IDLE",
+      active: Boolean(simulation.active),
+      phase: typeof simulation.phase === "string" ? simulation.phase : simulation.active ? "SAFE_RUN" : "IDLE",
+      sessionId: simulation.sessionId ? String(simulation.sessionId) : null,
+      startedAtMs: parseNumber(simulation.startedAtMs),
+      endedAtMs: parseNumber(simulation.endedAtMs),
+      maxDurationMs: parseNumber(simulation.maxDurationMs),
+      targetLapCount: parseNumber(simulation.targetLapCount),
+      hardCapReached: Boolean(simulation.hardCapReached),
+      completionReason:
+        typeof simulation.completionReason === "string" ? simulation.completionReason : null,
+      racers: Array.isArray(simulation.racers)
+        ? simulation.racers.map((entry) => ({
+            racerId: String(entry.racerId),
+            carNumber:
+              typeof entry.carNumber === "string" && entry.carNumber.trim() !== ""
+                ? entry.carNumber
+                : null,
+            progress: clamp(Number(entry.progress) || 0, 0, 1),
+            lane: typeof entry.lane === "string" ? entry.lane : "TRACK",
+            pitProgress: clamp(Number(entry.pitProgress) || 0, 0, 1),
+            lapIndex: parseNumber(entry.lapIndex) ?? 0,
+            targetLapDurationMs: parseNumber(entry.targetLapDurationMs),
+            lapProgressMs: Number(entry.lapProgressMs) || 0,
+            timedLapStarted: Boolean(entry.timedLapStarted),
+            crossingCount: parseNumber(entry.crossingCount) ?? 0,
+            targetCompleted: Boolean(entry.targetCompleted),
+            finishPlace: parseNumber(entry.finishPlace),
+          }))
+        : [],
+      };
+  }
+
+  function getSimulationPhaseMeta(simulation = state.raceSnapshot.simulation) {
+    const resolvedPhase = simulation?.phase || (simulation?.active ? "SAFE_RUN" : "IDLE");
+    return SIMULATION_PHASE_META[resolvedPhase] || {
+      label: resolvedPhase,
+      tone: simulation?.active ? "warning" : "idle",
+      detail: "",
+    };
+  }
+
+  function normalizeSnapshot(snapshot) {
+    if (!isObject(snapshot)) {
+      return state.raceSnapshot;
+    }
+
+    const sessions = Array.isArray(snapshot.sessions)
+      ? snapshot.sessions.map(normalizeSession)
+      : [];
+    const activeSessionId = snapshot.activeSessionId ? String(snapshot.activeSessionId) : null;
+    const activeSession =
+      isObject(snapshot.activeSession) && snapshot.activeSession !== null
+        ? normalizeSession(snapshot.activeSession)
+        : sessions.find((session) => session.id === activeSessionId) || null;
+    const currentSessionId = snapshot.currentSessionId ? String(snapshot.currentSessionId) : null;
+    const currentSession =
+      isObject(snapshot.currentSession) && snapshot.currentSession !== null
+        ? normalizeSession(snapshot.currentSession)
+        : currentSessionId
+          ? sessions.find((session) => session.id === currentSessionId) || null
+          : activeSession;
+    const nextSessionId = snapshot.nextSessionId ? String(snapshot.nextSessionId) : null;
+    const nextSession =
+      isObject(snapshot.nextSession) && snapshot.nextSession !== null
+        ? normalizeSession(snapshot.nextSession)
+        : nextSessionId
+          ? sessions.find((session) => session.id === nextSessionId) || null
+          : sessions.find((session) => session.id !== (currentSessionId || activeSessionId)) || null;
+    const queuedSessions = Array.isArray(snapshot.queuedSessions)
+      ? snapshot.queuedSessions.map(normalizeSession)
+      : sessions.filter((session) => session.id !== (currentSessionId || activeSessionId));
+    const queuedSessionIds = Array.isArray(snapshot.queuedSessionIds)
+      ? snapshot.queuedSessionIds.map((sessionId) => String(sessionId))
+      : queuedSessions.map((session) => session.id);
+    const lockedSession =
+      isObject(snapshot.lockedSession) && snapshot.lockedSession !== null
+        ? normalizeSession(snapshot.lockedSession)
+        : null;
+    const finalResults = Array.isArray(snapshot.finalResults)
+      ? sortLeaderboard(snapshot.finalResults.map(normalizeLeaderboardEntry))
+      : null;
+    const stateCode = snapshot.state || "IDLE";
+
+    return {
+      serverTime: snapshot.serverTime ?? null,
+      state: stateCode,
+      mode: snapshot.mode || "SAFE",
+      flag:
+        typeof snapshot.flag === "string" && snapshot.flag.trim() !== ""
+          ? snapshot.flag
+          : stateCode === "IDLE"
+            ? "IDLE"
+            : stateCode === "STAGING"
+              ? "STAGING"
+              : snapshot.mode || "SAFE",
+      lapEntryAllowed:
+        snapshot.lapEntryAllowed === undefined
+          ? state.raceSnapshot.lapEntryAllowed
+          : Boolean(snapshot.lapEntryAllowed),
+      finishOrderActive:
+        snapshot.finishOrderActive === undefined
+          ? state.raceSnapshot.finishOrderActive
+          : Boolean(snapshot.finishOrderActive),
+      raceDurationSeconds:
+        parseNumber(snapshot.raceDurationSeconds) ?? state.raceSnapshot.raceDurationSeconds,
+      remainingSeconds:
+        parseNumber(snapshot.remainingSeconds) ?? state.raceSnapshot.remainingSeconds,
+      endsAt: snapshot.endsAt ?? null,
+      activeSessionId,
+      activeSession,
+      currentSessionId,
+      currentSession,
+      nextSessionId,
+      nextSession,
+      queuedSessionIds,
+      queuedSessions,
+      simulation: normalizeSimulation(snapshot.simulation),
+      lockedSession,
+      finalResults,
+      sessions,
+      leaderboard: Array.isArray(snapshot.leaderboard)
+        ? sortLeaderboard(snapshot.leaderboard.map(normalizeLeaderboardEntry))
+        : [],
+    };
+  }
+
