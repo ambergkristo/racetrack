@@ -82,6 +82,15 @@ These keys are required unless `STAFF_AUTH_DISABLED=true`:
 - `DOTENV_PATH`
   Optional override for the `.env` file location
 
+## Access Keys (for testing)
+
+For evaluation and demo use, the default testing keys are:
+- Front Desk: `erkinool`
+- Race Control: `erkinool`
+- Lap Line Tracker: `erkinool`
+
+These values can be changed through environment variables, but they are intended only as testing defaults and not as production-grade security secrets.
+
 ## Local run
 
 ### Development
