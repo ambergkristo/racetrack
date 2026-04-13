@@ -93,26 +93,56 @@ These values can be changed through environment variables, but they are intended
 
 ## Local run
 
-### Development
+Run all commands from the project root folder, the folder that contains `package.json`, `README.md`, `client/`, and `server/`.
+
+1. Install dependencies if you have not already:
+
+```bash
+npm install
+```
+
+2. Create your local env file:
+
+```bash
+cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+3. Start the app:
+
+```bash
+npm start
+```
+
+Use development mode only if you want auto-restart while editing:
 
 ```bash
 npm run dev
 ```
 
-This starts the server with:
+`npm run dev` starts `nodemon` with `NODE_ENV=development`. `npm start` runs the normal local server. Both commands automatically run `npm run sync:client` first, so you do not need to run that manually for a normal local start.
 
-- `NODE_ENV=development`
-- `nodemon`
-- frontend sync from `client/src/` into `client/app.js` before startup
+4. After startup, open `http://localhost:3000`.
 
-### Production-style local run
+You should see:
 
-```bash
-npm run build
-npm start
-```
+- `Racetrack M1 server listening on port 3000 ...` in the terminal
+- `http://localhost:3000/healthz` returning JSON with `"status":"ok"`
+- the staff and public routes loading from `http://localhost:3000`
 
-`npm run build` copies `client/` to `server/public/`. `npm start` then serves the built assets from there.
+Optional:
+
+- Run `npm run build` only if you want to generate `server/public/` from `client/` before starting. It is not required for a normal local run.
+
+Most common setup mistakes:
+
+- If `npm` cannot find `package.json`, you are not in the project root.
+- If startup fails with missing environment variables, `.env` is missing, in the wrong folder, or missing the required staff keys.
 
 ## Local routes
 
