@@ -3234,7 +3234,15 @@ body {
 }
 
 .route-front-desk .frontdesk-racer-body {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.route-front-desk .frontdesk-racer-control-zone {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  flex-shrink: 0;
 }
 
 .route-front-desk .frontdesk-setup-body {
@@ -3338,6 +3346,7 @@ body {
 .route-front-desk .frontdesk-racer-table {
   min-height: 0;
   display: flex;
+  overflow: hidden;
 }
 
 .route-front-desk .frontdesk-racer-table .table-wrap {
@@ -3443,6 +3452,65 @@ body {
   color: var(--muted);
   font-size: 0.76rem;
   line-height: 1.2;
+}
+
+.route-front-desk .frontdesk-car-adjust-section {
+  align-content: start;
+  border-color: rgba(255, 212, 0, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 212, 0, 0.06), rgba(255, 212, 0, 0.02)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.route-front-desk .frontdesk-car-adjust-controls {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.route-front-desk .frontdesk-car-adjust-controls .action-btn {
+  flex: 1 1 160px;
+}
+
+.route-front-desk .frontdesk-car-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 36px 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(255, 212, 0, 0.7) 50%) calc(100% - 16px) calc(50% - 2px) / 7px 7px no-repeat,
+    linear-gradient(135deg, rgba(255, 212, 0, 0.7) 50%, transparent 50%) calc(100% - 11px) calc(50% - 2px) / 7px 7px no-repeat,
+    rgba(9, 11, 18, 0.94);
+  color: var(--ink);
+  font: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.route-front-desk .frontdesk-car-select:hover {
+  border-color: rgba(255, 212, 0, 0.22);
+  background-color: rgba(14, 16, 24, 0.98);
+}
+
+.route-front-desk .frontdesk-car-select:focus {
+  outline: 2px solid rgba(0, 255, 123, 0.24);
+  outline-offset: 1px;
+  border-color: rgba(0, 255, 123, 0.32);
+}
+
+.route-front-desk .frontdesk-car-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.route-front-desk .frontdesk-car-select option {
+  background: rgba(9, 11, 18, 0.98);
+  color: var(--ink);
 }
 
 .route-front-desk .field input,
@@ -4507,6 +4575,7 @@ body {
   }
 
   .route-front-desk .frontdesk-racer-form,
+  .route-front-desk .frontdesk-car-adjust-controls,
   .route-front-desk .frontdesk-queue-setup,
   .route-front-desk .frontdesk-summary-strip,
   .route-front-desk .frontdesk-control-body .status-marquee,
