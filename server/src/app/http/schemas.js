@@ -52,11 +52,31 @@ const simulateRaceSchema = z.object({
   requestId: requestIdSchema.optional(),
 });
 
+const sessionCarAssignmentSchema = z.object({
+  racerId: z.string().min(1),
+  carNumber: z.string().min(1).max(20),
+});
+
+const updateSessionCarAssignmentsSchema = z
+  .object({
+    assignments: z.array(sessionCarAssignmentSchema).min(1),
+    requestId: requestIdSchema.optional(),
+  })
+  .strict();
+
+const resetSessionCarAssignmentsSchema = z
+  .object({
+    requestId: requestIdSchema.optional(),
+  })
+  .strict();
+
 module.exports = {
   createSessionSchema,
   updateSessionSchema,
   createRacerSchema,
   updateRacerSchema,
+  updateSessionCarAssignmentsSchema,
+  resetSessionCarAssignmentsSchema,
   selectSessionSchema,
   raceModeSchema,
   lapCrossingSchema,

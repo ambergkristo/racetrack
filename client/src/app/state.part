@@ -26,6 +26,11 @@
       name: "",
     },
     frontDeskSessionId: null,
+    carAssignmentEditor: {
+      active: false,
+      sessionId: null,
+      draftValues: {},
+    },
     manualAssignmentForm: {
       racerId: null,
       carNumber: "",

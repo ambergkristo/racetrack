@@ -158,7 +158,7 @@ test("session and racer CRUD stay live against the canonical backend", async () 
       url,
       `/api/sessions/${queuedSessionId}/racers/${racerId}`,
       "PATCH",
-      { name: "Amy Prime", carNumber: "17" },
+      { name: "Amy Prime" },
       frontDeskHeaders()
     );
     assert.equal(updateRacer.status, 200);
@@ -176,15 +176,65 @@ test("session and racer CRUD stay live against the canonical backend", async () 
     assert.equal(secondRacer.status, 201);
     assert.equal(secondRacer.json.racer.carNumber, "3");
 
-    const duplicateCarUpdate = await requestJson(
+    const saveAssignments = await requestJson(
       url,
-      `/api/sessions/${queuedSessionId}/racers/${secondRacer.json.racer.id}`,
-      "PATCH",
-      { carNumber: "17" },
+      `/api/sessions/${queuedSessionId}/car-assignments`,
+      "PUT",
+      {
+        assignments: [
+          { racerId, carNumber: "2" },
+          { racerId: duplicateCar.json.racer.id, carNumber: "1" },
+          { racerId: secondRacer.json.racer.id, carNumber: "3" },
+        ],
+      },
       frontDeskHeaders()
     );
-    assert.equal(duplicateCarUpdate.status, 200);
-    assert.equal(duplicateCarUpdate.json.racer.carNumber, "3");
+    assert.equal(saveAssignments.status, 200);
+    assert.deepEqual(
+      Object.fromEntries(
+        saveAssignments.json.session.racers.map((racer) => [racer.name, racer.carNumber])
+      ),
+      {
+        "Amy Prime": "2",
+        Ben: "1",
+        Blake: "3",
+      }
+    );
+
+    const duplicateAssignmentSave = await requestJson(
+      url,
+      `/api/sessions/${queuedSessionId}/car-assignments`,
+      "PUT",
+      {
+        assignments: [
+          { racerId, carNumber: "1" },
+          { racerId: duplicateCar.json.racer.id, carNumber: "1" },
+          { racerId: secondRacer.json.racer.id, carNumber: "2" },
+        ],
+      },
+      frontDeskHeaders()
+    );
+    assert.equal(duplicateAssignmentSave.status, 409);
+    assert.equal(duplicateAssignmentSave.json.code, "DUPLICATE_CAR_NUMBER");
+
+    const resetAssignments = await requestJson(
+      url,
+      `/api/sessions/${queuedSessionId}/car-assignments/reset`,
+      "POST",
+      {},
+      frontDeskHeaders()
+    );
+    assert.equal(resetAssignments.status, 200);
+    assert.deepEqual(
+      Object.fromEntries(
+        resetAssignments.json.session.racers.map((racer) => [racer.name, racer.carNumber])
+      ),
+      {
+        "Amy Prime": "1",
+        Ben: "2",
+        Blake: "3",
+      }
+    );
 
     const deleteRacer = await requestJson(
       url,
@@ -373,6 +423,16 @@ test("manual car assignment flag does not change queue ordering truth", async ()
       updatedRacer.json.raceSnapshot.queuedSessionIds,
       beforeAssignment.queuedSessionIds
     );
+
+    const resetAssignments = await requestJson(
+      url,
+      `/api/sessions/${heat2Id}/car-assignments/reset`,
+      "POST",
+      {},
+      frontDeskHeaders()
+    );
+    assert.equal(resetAssignments.status, 200);
+    assert.equal(resetAssignments.json.session.racers[0].carNumber, "1");
   } finally {
     delete process.env.FF_MANUAL_CAR_ASSIGNMENT;
     await new Promise((resolve) => server.close(resolve));

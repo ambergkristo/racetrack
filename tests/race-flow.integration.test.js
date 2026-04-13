@@ -296,3 +296,156 @@ test("race flow broadcasts canonical snapshots, timer finish, and lock guards", 
   }
 });
 
+test("locking a finished race with another queued session holds hazard until the next real start", async () => {
+  process.env.FRONT_DESK_KEY = "front-desk-test-key";
+  process.env.RACE_CONTROL_KEY = "race-control-test-key";
+  process.env.LAP_LINE_TRACKER_KEY = "lap-line-test-key";
+  process.env.NODE_ENV = "test";
+
+  const { server } = createApp({ tickIntervalMs: 20 });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const url = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const createFirstSession = await postJson(
+      url,
+      "/api/sessions",
+      { name: "Heat 1" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(createFirstSession.response.status, 201);
+    const firstSessionId = createFirstSession.json.session.id;
+
+    const createSecondSession = await postJson(
+      url,
+      "/api/sessions",
+      { name: "Heat 2" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(createSecondSession.response.status, 201);
+    const secondSessionId = createSecondSession.json.session.id;
+
+    const firstRacer = await postJson(
+      url,
+      `/api/sessions/${firstSessionId}/racers`,
+      { name: "Amy" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(firstRacer.response.status, 201);
+    const firstRacerId = firstRacer.json.racer.id;
+
+    const secondRacer = await postJson(
+      url,
+      `/api/sessions/${secondSessionId}/racers`,
+      { name: "Ben" },
+      {
+        "x-staff-route": "/front-desk",
+        "x-staff-key": process.env.FRONT_DESK_KEY,
+      }
+    );
+    assert.equal(secondRacer.response.status, 201);
+
+    const startRace = await postJson(
+      url,
+      "/api/race/start",
+      {},
+      {
+        "x-staff-route": "/race-control",
+        "x-staff-key": process.env.RACE_CONTROL_KEY,
+      }
+    );
+    assert.equal(startRace.response.status, 200);
+    assert.equal(startRace.json.raceSnapshot.state, "RUNNING");
+    assert.equal(startRace.json.raceSnapshot.flag, "SAFE");
+
+    const finishRace = await postJson(
+      url,
+      "/api/race/finish",
+      {},
+      {
+        "x-staff-route": "/race-control",
+        "x-staff-key": process.env.RACE_CONTROL_KEY,
+      }
+    );
+    assert.equal(finishRace.response.status, 200);
+    assert.equal(finishRace.json.raceSnapshot.state, "FINISHED");
+    assert.equal(finishRace.json.raceSnapshot.flag, "CHECKERED");
+    assert.equal(finishRace.json.raceSnapshot.lapEntryAllowed, true);
+
+    const postFinishLap = await postJson(
+      url,
+      "/api/laps/crossing",
+      { racerId: firstRacerId },
+      {
+        "x-staff-route": "/lap-line-tracker",
+        "x-staff-key": process.env.LAP_LINE_TRACKER_KEY,
+      }
+    );
+    assert.equal(postFinishLap.response.status, 200);
+
+    const lockRace = await postJson(
+      url,
+      "/api/race/lock",
+      {},
+      {
+        "x-staff-route": "/race-control",
+        "x-staff-key": process.env.RACE_CONTROL_KEY,
+      }
+    );
+    assert.equal(lockRace.response.status, 200);
+    assert.equal(lockRace.json.raceSnapshot.state, "STAGING");
+    assert.equal(lockRace.json.raceSnapshot.flag, "HAZARD_STOP");
+    assert.equal(lockRace.json.raceSnapshot.mode, "HAZARD_STOP");
+    assert.equal(lockRace.json.raceSnapshot.lapEntryAllowed, false);
+    assert.equal(lockRace.json.raceSnapshot.activeSessionId, secondSessionId);
+    assert.equal(lockRace.json.raceSnapshot.lockedSession?.id, firstSessionId);
+    assert.equal(lockRace.json.raceSnapshot.resultsFinalized, true);
+
+    const lockedApiSnapshot = await getJson(url, "/api/race");
+    assert.equal(lockedApiSnapshot.response.status, 200);
+    assert.equal(lockedApiSnapshot.json.state, "STAGING");
+    assert.equal(lockedApiSnapshot.json.flag, "HAZARD_STOP");
+    assert.equal(lockedApiSnapshot.json.mode, "HAZARD_STOP");
+    assert.equal(lockedApiSnapshot.json.activeSessionId, secondSessionId);
+
+    const blockedLap = await postJson(
+      url,
+      "/api/laps/crossing",
+      { racerId: firstRacerId },
+      {
+        "x-staff-route": "/lap-line-tracker",
+        "x-staff-key": process.env.LAP_LINE_TRACKER_KEY,
+      }
+    );
+    assert.equal(blockedLap.response.status, 409);
+    assert.equal(blockedLap.json.code, "LAP_INPUT_BLOCKED");
+
+    const startNextRace = await postJson(
+      url,
+      "/api/race/start",
+      {},
+      {
+        "x-staff-route": "/race-control",
+        "x-staff-key": process.env.RACE_CONTROL_KEY,
+      }
+    );
+    assert.equal(startNextRace.response.status, 200);
+    assert.equal(startNextRace.json.raceSnapshot.state, "RUNNING");
+    assert.equal(startNextRace.json.raceSnapshot.flag, "SAFE");
+    assert.equal(startNextRace.json.raceSnapshot.mode, "SAFE");
+    assert.equal(startNextRace.json.raceSnapshot.activeSessionId, secondSessionId);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+

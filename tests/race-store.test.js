@@ -176,6 +176,9 @@ test("manual lock promotes the next queued session to staging and allows the nex
 
   let snapshot = raceStore.getSnapshot();
   assert.equal(snapshot.state, "STAGING");
+  assert.equal(snapshot.mode, "HAZARD_STOP");
+  assert.equal(snapshot.flag, "HAZARD_STOP");
+  assert.equal(snapshot.lapEntryAllowed, false);
   assert.equal(snapshot.activeSessionId, heat2.id);
   assert.equal(snapshot.currentSessionId, heat2.id);
   assert.equal(snapshot.lockedSession?.id, heat1.id);
@@ -187,6 +190,8 @@ test("manual lock promotes the next queued session to staging and allows the nex
 
   snapshot = raceStore.getSnapshot();
   assert.equal(snapshot.state, "RUNNING");
+  assert.equal(snapshot.mode, "SAFE");
+  assert.equal(snapshot.flag, "SAFE");
   assert.equal(snapshot.activeSessionId, heat2.id);
   assert.equal(snapshot.simulation.active, true);
   assert.equal(snapshot.lockedSession, null);
@@ -227,6 +232,8 @@ test("race store exposes canonical current, next, and queued session truth", () 
 
   snapshot = raceStore.getSnapshot();
   assert.equal(snapshot.state, "STAGING");
+  assert.equal(snapshot.mode, "HAZARD_STOP");
+  assert.equal(snapshot.flag, "HAZARD_STOP");
   assert.equal(snapshot.currentSessionId, heat2.id);
   assert.equal(snapshot.currentSession?.id, heat2.id);
   assert.equal(snapshot.activeSessionId, heat2.id);
@@ -282,6 +289,50 @@ test("race store keeps duplicate car prevention behind manual assignment mode", 
   assert.throws(
     () => raceStore.updateRacer(session.id, ben.id, { carNumber: "7" }),
     (error) => error.code === "DUPLICATE_CAR_NUMBER"
+  );
+});
+
+test("resetting session car assignments restores automatic 1-8 ordering", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 60,
+    now: () => 2_000,
+  });
+
+  const session = raceStore.createSession({ name: "Reset Cars Heat" });
+  const amy = raceStore.addRacer(session.id, { name: "Amy" });
+  const ben = raceStore.addRacer(session.id, { name: "Ben" });
+  const casey = raceStore.addRacer(session.id, { name: "Casey" });
+
+  raceStore.updateSessionCarAssignments(session.id, [
+    { racerId: amy.id, carNumber: "3" },
+    { racerId: ben.id, carNumber: "1" },
+    { racerId: casey.id, carNumber: "2" },
+  ]);
+
+  let snapshot = raceStore.getSnapshot();
+  assert.deepEqual(
+    Object.fromEntries(
+      snapshot.currentSession.racers.map((racer) => [racer.name, racer.carNumber])
+    ),
+    {
+      Amy: "3",
+      Ben: "1",
+      Casey: "2",
+    }
+  );
+
+  raceStore.resetSessionCarAssignments(session.id);
+
+  snapshot = raceStore.getSnapshot();
+  assert.deepEqual(
+    Object.fromEntries(
+      snapshot.currentSession.racers.map((racer) => [racer.name, racer.carNumber])
+    ),
+    {
+      Amy: "1",
+      Ben: "2",
+      Casey: "3",
+    }
   );
 });
 

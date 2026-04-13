@@ -1,15 +1,16 @@
   function bindFrontDeskEvents() {
     const managedSession = getFrontDeskManagedSession();
     const sessionInput = document.getElementById("session-name-input");
-    const manualCarInput = document.getElementById("manual-car-number-input");
-    const assignCarBtn = document.getElementById("assign-car-btn");
-    const clearCarBtn = document.getElementById("clear-car-btn");
     const racerInput = document.getElementById("racer-name-input");
     const carInput = document.getElementById("car-number-input");
     const saveSessionBtn = document.getElementById("save-session-btn");
     const cancelSessionEditBtn = document.getElementById("cancel-session-edit-btn");
     const saveRacerBtn = document.getElementById("save-racer-btn");
     const cancelRacerEditBtn = document.getElementById("cancel-racer-edit-btn");
+    const adjustCarNumbersBtn = document.getElementById("adjust-car-numbers-btn");
+    const saveCarAssignmentsBtn = document.getElementById("save-car-assignments-btn");
+    const cancelCarAssignmentsBtn = document.getElementById("cancel-car-assignments-btn");
+    const resetCarAssignmentsBtn = document.getElementById("reset-car-assignments-btn");
 
     if (sessionInput) {
       sessionInput.addEventListener("input", (event) => {
@@ -43,19 +44,6 @@
           ...state,
           racerForm: {
             ...state.racerForm,
-            carNumber: event.target.value,
-          },
-        };
-        syncFrontDeskFormUi();
-      });
-    }
-
-    if (manualCarInput) {
-      manualCarInput.addEventListener("input", (event) => {
-        state = {
-          ...state,
-          manualAssignmentForm: {
-            ...state.manualAssignmentForm,
             carNumber: event.target.value,
           },
         };
@@ -123,30 +111,13 @@
           return;
         }
 
-        const formState = getFrontDeskFormState();
-        if (formState.duplicateCarRacer) {
-          setNotice(
-            "danger",
-            `Car ${state.racerForm.carNumber.trim()} is already assigned to ${formState.duplicateCarRacer.name}.`,
-            4000
-          );
-          return;
-        }
-
         const name = state.racerForm.name.trim();
         if (!name) {
           setNotice("danger", "Racer name is required.", 4000);
           return;
         }
 
-        const autoAssignmentMode = !manualAssignmentEnabled();
-        const carNumber = state.racerForm.carNumber.trim();
-        const body = autoAssignmentMode
-          ? { name }
-          : {
-              name,
-              carNumber: carNumber === "" ? null : carNumber,
-            };
+        const body = { name };
 
         runAction(
           () => {
@@ -191,29 +162,72 @@
       });
     }
 
-    if (assignCarBtn) {
-      assignCarBtn.addEventListener("click", () => {
-        const assignmentState = getManualAssignmentState();
-        if (!assignmentState?.activeSession || !assignmentState.selectedRacer) {
-          setNotice("danger", "Choose a staged racer before assigning a car.", 4000);
+    if (adjustCarNumbersBtn) {
+      adjustCarNumbersBtn.addEventListener("click", () => {
+        const carAssignmentState = getCarAssignmentEditorState();
+        if (!carAssignmentState.session) {
+          setNotice("danger", "Choose a saved session before adjusting car numbers.", 4000);
+          return;
+        }
+
+        setState({
+          carAssignmentEditor: {
+            active: true,
+            sessionId: carAssignmentState.session.id,
+            draftValues: carAssignmentState.draftValues,
+          },
+          racerForm: {
+            id: null,
+            name: "",
+            carNumber: "",
+          },
+        });
+      });
+    }
+
+    if (cancelCarAssignmentsBtn) {
+      cancelCarAssignmentsBtn.addEventListener("click", () => {
+        setState({
+          carAssignmentEditor: {
+            active: false,
+            sessionId: null,
+            draftValues: {},
+          },
+        });
+      });
+    }
+
+    if (saveCarAssignmentsBtn) {
+      saveCarAssignmentsBtn.addEventListener("click", () => {
+        const carAssignmentState = getCarAssignmentEditorState();
+        if (!carAssignmentState.session) {
+          setNotice("danger", "Choose a saved session before adjusting car numbers.", 4000);
+          return;
+        }
+
+        if (carAssignmentState.saveReason) {
+          setNotice("danger", carAssignmentState.saveReason, 4000);
           return;
         }
 
         runAction(
           () =>
-            apiRequest(
-              `/api/sessions/${assignmentState.activeSession.id}/racers/${assignmentState.selectedRacer.id}`,
-              {
-                method: "PATCH",
-                body: { carNumber: assignmentState.carNumber },
-              }
-            ),
-          `Car ${assignmentState.carNumber} assigned to ${assignmentState.selectedRacer.name}.`,
+            apiRequest(`/api/sessions/${carAssignmentState.session.id}/car-assignments`, {
+              method: "PUT",
+              body: {
+                assignments: carAssignmentState.rows.map((row) => ({
+                  racerId: row.racer.id,
+                  carNumber: row.draftCarNumber,
+                })),
+              },
+            }),
+          "Car assignments updated.",
           () => {
             setState({
-              manualAssignmentForm: {
-                racerId: assignmentState.selectedRacer.id,
-                carNumber: assignmentState.carNumber,
+              carAssignmentEditor: {
+                active: false,
+                sessionId: null,
+                draftValues: {},
               },
             });
           }
@@ -221,29 +235,32 @@
       });
     }
 
-    if (clearCarBtn) {
-      clearCarBtn.addEventListener("click", () => {
-        const assignmentState = getManualAssignmentState();
-        if (!assignmentState?.activeSession || !assignmentState.selectedRacer) {
-          setNotice("danger", "Choose a staged racer before clearing an assignment.", 4000);
+    if (resetCarAssignmentsBtn) {
+      resetCarAssignmentsBtn.addEventListener("click", () => {
+        const carAssignmentState = getCarAssignmentEditorState();
+        if (!carAssignmentState.session) {
+          setNotice("danger", "Choose a saved session before resetting assignments.", 4000);
+          return;
+        }
+
+        if (carAssignmentState.resetReason) {
+          setNotice("danger", carAssignmentState.resetReason, 4000);
           return;
         }
 
         runAction(
           () =>
-            apiRequest(
-              `/api/sessions/${assignmentState.activeSession.id}/racers/${assignmentState.selectedRacer.id}`,
-              {
-                method: "PATCH",
-                body: { carNumber: null },
-              }
-            ),
-          `Car assignment cleared for ${assignmentState.selectedRacer.name}.`,
+            apiRequest(`/api/sessions/${carAssignmentState.session.id}/car-assignments/reset`, {
+              method: "POST",
+              body: {},
+            }),
+          "Car assignments reset to automatic order.",
           () => {
             setState({
-              manualAssignmentForm: {
-                racerId: assignmentState.selectedRacer.id,
-                carNumber: "",
+              carAssignmentEditor: {
+                active: false,
+                sessionId: null,
+                draftValues: {},
               },
             });
           }
@@ -328,17 +345,15 @@
       });
     });
 
-    document.querySelectorAll("[data-action='select-manual-racer']").forEach((node) => {
-      node.addEventListener("click", () => {
-        const racer = activeSession?.racers.find((item) => item.id === node.dataset.racerId);
-        if (!racer) {
-          return;
-        }
-
+    document.querySelectorAll("[data-action='car-assignment-select']").forEach((node) => {
+      node.addEventListener("change", (event) => {
         setState({
-          manualAssignmentForm: {
-            racerId: racer.id,
-            carNumber: racer.carNumber || "",
+          carAssignmentEditor: {
+            ...state.carAssignmentEditor,
+            draftValues: {
+              ...state.carAssignmentEditor.draftValues,
+              [node.dataset.racerId]: event.target.value,
+            },
           },
         });
       });

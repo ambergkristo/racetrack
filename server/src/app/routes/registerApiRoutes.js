@@ -3,6 +3,8 @@ const {
   updateSessionSchema,
   createRacerSchema,
   updateRacerSchema,
+  updateSessionCarAssignmentsSchema,
+  resetSessionCarAssignmentsSchema,
   selectSessionSchema,
   raceModeSchema,
   lapCrossingSchema,
@@ -227,6 +229,43 @@ function registerApiRoutes({
         },
       };
     })
+  );
+
+  app.put("/api/sessions/:sessionId/car-assignments", frontDeskOrRaceControlAuth, (req, res) =>
+    executeMutation(req, res, async () => {
+      const { assignments } = parseBody(updateSessionCarAssignmentsSchema, req);
+      const session = raceStore.updateSessionCarAssignments(req.params.sessionId, assignments);
+      broadcastCanonicalState("session_car_assignments_updated");
+      persistCanonicalState();
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          session,
+          raceSnapshot: buildRaceSnapshotPayload(),
+        },
+      };
+    })
+  );
+
+  app.post(
+    "/api/sessions/:sessionId/car-assignments/reset",
+    frontDeskOrRaceControlAuth,
+    (req, res) =>
+      executeMutation(req, res, async () => {
+        parseBody(resetSessionCarAssignmentsSchema, req);
+        const session = raceStore.resetSessionCarAssignments(req.params.sessionId);
+        broadcastCanonicalState("session_car_assignments_reset");
+        persistCanonicalState();
+        return {
+          status: 200,
+          body: {
+            ok: true,
+            session,
+            raceSnapshot: buildRaceSnapshotPayload(),
+          },
+        };
+      })
   );
 
   app.post("/api/race/start", raceControlAuth, (req, res) =>

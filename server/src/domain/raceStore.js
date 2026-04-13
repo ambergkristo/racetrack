@@ -336,6 +336,10 @@ function createRaceStore({
     state.lockedLeaderboard = [];
   }
 
+  function shouldHoldHazardBeforeNextStart() {
+    return state.raceState === RACE_STATES.STAGING && Boolean(state.lockedSession);
+  }
+
   function getAssignedCarNumbers(session, excludeRacerId = null) {
     return new Set(
       session.racers
@@ -367,6 +371,12 @@ function createRaceStore({
     for (const racer of remainingRacers) {
       racer.carNumber = available.shift() || null;
     }
+  }
+
+  function applyAutomaticSessionAssignments(session) {
+    session.racers.forEach((racer, index) => {
+      racer.carNumber = AUTHORITATIVE_CAR_POOL[index] || null;
+    });
   }
 
   function buildSimulationSnapshot() {
@@ -733,7 +743,9 @@ function createRaceStore({
     }
 
     resetRaceClock();
-    state.raceMode = RACE_MODES.SAFE;
+    state.raceMode = shouldHoldHazardBeforeNextStart()
+      ? RACE_MODES.HAZARD_STOP
+      : RACE_MODES.SAFE;
     syncFlagFromState();
   }
 
@@ -806,7 +818,9 @@ function createRaceStore({
           assignActiveSession(state.activeSessionId);
         } else {
           resetRaceClock();
-          state.raceMode = RACE_MODES.SAFE;
+          state.raceMode = shouldHoldHazardBeforeNextStart()
+            ? RACE_MODES.HAZARD_STOP
+            : RACE_MODES.SAFE;
           syncFlagFromState();
         }
       } else if (state.raceState !== RACE_STATES.LOCKED) {
@@ -949,17 +963,107 @@ function createRaceStore({
     }
 
     if (carNumber !== undefined) {
-      if (manualCarAssignmentEnabled) {
-        const normalizedCarNumber = validateManualCarNumber(carNumber);
-        ensureUniqueCarNumber(session, normalizedCarNumber, racerId);
-        racer.carNumber = normalizedCarNumber;
-      }
+      const normalizedCarNumber = validateManualCarNumber(carNumber);
+      ensureUniqueCarNumber(session, normalizedCarNumber, racerId);
+      racer.carNumber = normalizedCarNumber;
     }
 
     racer.updatedAt = new Date(now()).toISOString();
     session.updatedAt = new Date(now()).toISOString();
 
     return clone(racer);
+  }
+
+  function updateSessionCarAssignments(sessionId, assignments) {
+    const session = getSession(sessionId);
+    assertSessionMutationAllowed(
+      sessionId,
+      "SESSION_EDIT_FORBIDDEN",
+      "Current session cannot be edited while the race is running or finished."
+    );
+
+    ensure(
+      Array.isArray(assignments) && assignments.length === session.racers.length,
+      "INVALID_ASSIGNMENT_SET",
+      "Provide exactly one car assignment for each racer in the session.",
+      409
+    );
+
+    const seenRacerIds = new Set();
+    const normalizedAssignments = assignments.map((entry) => {
+      ensure(
+        entry && typeof entry.racerId === "string",
+        "INVALID_ASSIGNMENT_SET",
+        "Each assignment must include a racerId.",
+        409
+      );
+      ensure(
+        !seenRacerIds.has(entry.racerId),
+        "INVALID_ASSIGNMENT_SET",
+        `Racer ${entry.racerId} appears more than once in the assignment list.`,
+        409
+      );
+      seenRacerIds.add(entry.racerId);
+      return {
+        racerId: entry.racerId,
+        carNumber: validateManualCarNumber(entry.carNumber),
+      };
+    });
+
+    ensure(
+      session.racers.every((racer) => seenRacerIds.has(racer.id)),
+      "INVALID_ASSIGNMENT_SET",
+      "Assignment list must cover every racer in the session.",
+      409
+    );
+
+    const seenCarNumbers = new Set();
+    normalizedAssignments.forEach((entry) => {
+      ensure(
+        entry.carNumber,
+        "INVALID_ASSIGNMENT_SET",
+        `Racer ${entry.racerId} is missing a car number.`,
+        409
+      );
+      ensure(
+        !seenCarNumbers.has(entry.carNumber),
+        "DUPLICATE_CAR_NUMBER",
+        `Car ${entry.carNumber} is assigned more than once in this session.`,
+        409
+      );
+      seenCarNumbers.add(entry.carNumber);
+    });
+
+    const racerById = new Map(session.racers.map((racer) => [racer.id, racer]));
+    const updatedAt = new Date(now()).toISOString();
+    normalizedAssignments.forEach((entry) => {
+      const racer = racerById.get(entry.racerId);
+      ensure(racer, "RACER_NOT_FOUND", `Racer ${entry.racerId} was not found.`, 404);
+      racer.carNumber = entry.carNumber;
+      racer.updatedAt = updatedAt;
+    });
+    session.updatedAt = updatedAt;
+
+    return clone(session);
+  }
+
+  function resetSessionCarAssignments(sessionId) {
+    const session = getSession(sessionId);
+    assertSessionMutationAllowed(
+      sessionId,
+      "SESSION_EDIT_FORBIDDEN",
+      "Current session cannot be edited while the race is running or finished."
+    );
+
+    ensureCarPoolCapacity(session);
+    applyAutomaticSessionAssignments(session);
+    const updatedAt = new Date(now()).toISOString();
+    session.racers.forEach((racer) => {
+      racer.updatedAt = updatedAt;
+    });
+    session.updatedAt = updatedAt;
+
+    return clone(session);
   }
 
   function removeRacer(sessionId, racerId) {
@@ -1199,7 +1303,7 @@ function createRaceStore({
     resetRaceClock();
     if (state.activeSessionId) {
       transitionTo(RACE_STATES.STAGING, "LOCK_BLOCKED");
-      state.raceMode = RACE_MODES.SAFE;
+      state.raceMode = RACE_MODES.HAZARD_STOP;
     } else {
       state.raceMode = RACE_MODES.HAZARD_STOP;
     }
@@ -1555,6 +1659,7 @@ function createRaceStore({
     getSnapshot,
     lockRace,
     recordLapCrossing,
+    resetSessionCarAssignments,
     removeRacer,
     selectSession,
     setRaceMode,
@@ -1562,6 +1667,7 @@ function createRaceStore({
     startRace,
     advanceSimulation,
     syncTimer,
+    updateSessionCarAssignments,
     updateRacer,
     updateSession,
   };

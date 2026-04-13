@@ -208,6 +208,25 @@
       managedSession && managedSession.racers.some((racer) => racer.id === state.racerForm.id)
         ? state.racerForm
         : { id: null, name: "", carNumber: "" };
+    const keepCarAssignmentEditor =
+      Boolean(state.carAssignmentEditor.active) &&
+      managedSession &&
+      state.carAssignmentEditor.sessionId === managedSession.id &&
+      activeSessionEditable(managedSession, normalized);
+    const nextCarAssignmentEditor = keepCarAssignmentEditor
+      ? {
+          active: true,
+          sessionId: managedSession.id,
+          draftValues: buildCarAssignmentDraft(
+            managedSession,
+            state.carAssignmentEditor.draftValues
+          ),
+        }
+      : {
+          active: false,
+          sessionId: null,
+          draftValues: {},
+        };
     const recoveredPublicFeed =
       routeConfig.public && state.socketConnectedOnce && state.awaitingLiveResync;
 
@@ -221,6 +240,7 @@
       raceSnapshot: normalized,
       sessionForm: nextSessionForm,
       frontDeskSessionId: nextFrontDeskSessionId,
+      carAssignmentEditor: nextCarAssignmentEditor,
       manualAssignmentForm: nextManualAssignmentForm,
       racerForm: nextRacerForm,
     });
@@ -446,12 +466,96 @@
     return route === "/front-desk" && Boolean(state.featureFlags.FF_MANUAL_CAR_ASSIGNMENT);
   }
 
-  function activeSessionEditable(session = getActiveSession()) {
+  function activeSessionEditable(session = getActiveSession(), snapshot = state.raceSnapshot) {
     return Boolean(
       session &&
-        (session.id !== state.raceSnapshot.activeSessionId ||
-          (state.raceSnapshot.state !== "RUNNING" && state.raceSnapshot.state !== "FINISHED"))
+        (session.id !== snapshot.activeSessionId ||
+          (snapshot.state !== "RUNNING" && snapshot.state !== "FINISHED"))
     );
+  }
+
+  function buildCarAssignmentDraft(session, existingDraftValues = {}) {
+    if (!session) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      session.racers.map((racer) => [
+        racer.id,
+        String(existingDraftValues[racer.id] ?? racer.carNumber ?? ""),
+      ])
+    );
+  }
+
+  function getCarAssignmentEditorState() {
+    const session = getFrontDeskManagedSession();
+    const accessReason = staffAccessReason();
+    const editReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      session ? "" : "Create or choose a saved session before adjusting car numbers.",
+      activeSessionEditable(session) ? "" : "Selected session locks once it is RUNNING or FINISHED."
+    );
+    const startReason = firstReason(
+      editReason,
+      session?.racers.length ? "" : "Add racers before adjusting car numbers."
+    );
+    const editorActive =
+      Boolean(state.carAssignmentEditor.active) && session && state.carAssignmentEditor.sessionId === session.id;
+    const draftValues = session
+      ? buildCarAssignmentDraft(
+          session,
+          editorActive ? state.carAssignmentEditor.draftValues : {}
+        )
+      : {};
+    const rows = session
+      ? session.racers.map((racer) => ({
+          racer,
+          draftCarNumber: String(draftValues[racer.id] ?? ""),
+        }))
+      : [];
+    const counts = rows.reduce((map, row) => {
+      if (!row.draftCarNumber) {
+        return map;
+      }
+
+      map.set(row.draftCarNumber, (map.get(row.draftCarNumber) || 0) + 1);
+      return map;
+    }, new Map());
+    const duplicateCarNumbers = Array.from(counts.entries())
+      .filter(([_carNumber, count]) => count > 1)
+      .map(([carNumber]) => carNumber)
+      .sort((left, right) => parseNumber(left) - parseNumber(right));
+    const missingAssignmentRow = rows.find((row) => row.draftCarNumber === "") || null;
+    const hasChanges = rows.some(
+      (row) => String(row.racer.carNumber ?? "") !== row.draftCarNumber
+    );
+    const saveReason = firstReason(
+      editorActive ? "" : "Select Adjust car numbers first.",
+      startReason,
+      duplicateCarNumbers.length
+        ? `Car ${duplicateCarNumbers[0]} is selected more than once.`
+        : "",
+      missingAssignmentRow ? `Choose a car for ${missingAssignmentRow.racer.name}.` : "",
+      hasChanges ? "" : "Change at least one car number before saving."
+    );
+    const resetReason = firstReason(
+      editorActive ? "" : "Select Adjust car numbers first.",
+      startReason
+    );
+
+    return {
+      session,
+      editorActive: Boolean(editorActive),
+      draftValues,
+      rows,
+      hasChanges,
+      duplicateCarNumbers,
+      editReason,
+      startReason,
+      saveReason,
+      resetReason,
+    };
   }
 
   function getManualAssignmentState() {

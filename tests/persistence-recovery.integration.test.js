@@ -487,7 +487,8 @@ test("LOCK -> restart preserves staged next-session progression and held results
       const restoredSnapshot = await requestJson(secondBoot.url, "/api/race", "GET");
       assert.equal(restoredSnapshot.status, 200);
       assert.equal(restoredSnapshot.json.state, "STAGING");
-      assert.equal(restoredSnapshot.json.flag, "SAFE");
+      assert.equal(restoredSnapshot.json.flag, "HAZARD_STOP");
+      assert.equal(restoredSnapshot.json.mode, "HAZARD_STOP");
       assert.equal(restoredSnapshot.json.lapEntryAllowed, false);
       assert.equal(restoredSnapshot.json.resultsFinalized, true);
       assert.equal(restoredSnapshot.json.activeSessionId, nextSessionId);

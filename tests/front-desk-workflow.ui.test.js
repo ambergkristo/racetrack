@@ -195,6 +195,7 @@ test("front-desk keeps manual assignment messaging hidden when the flag is off",
   const html = await renderFrontDesk();
 
   assert.equal(html.includes("Manual assignment active"), false);
+  assert.equal(html.includes("Adjust car numbers"), true);
 });
 
 test("front-desk shows manual assignment messaging only when the flag is on", async () => {
@@ -202,9 +203,10 @@ test("front-desk shows manual assignment messaging only when the flag is on", as
     FF_MANUAL_CAR_ASSIGNMENT: true,
   });
 
-  assert.equal(html.includes("Manual Car Assignment"), true);
+  assert.equal(html.includes("Manual Car Assignment"), false);
   assert.equal(html.includes("Manual assignment active"), false);
   assert.equal(html.includes("FF ON"), false);
+  assert.equal(html.includes("Adjust car numbers"), true);
 });
 
 test("front-desk saved sessions stay visible while racer management follows the selected next session", async () => {

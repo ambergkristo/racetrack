@@ -315,7 +315,8 @@ test("realtime contract validates active M1 lifecycle payloads and chain order",
     const stagedSnapshotPayload = await stagedSnapshotPromise;
     assertSchema(raceSnapshotSchema, stagedSnapshotPayload, "race:snapshot (STAGING after lock)");
     assert.equal(stagedSnapshotPayload.stateLabel, "Staging");
-    assert.equal(stagedSnapshotPayload.flag, "SAFE");
+    assert.equal(stagedSnapshotPayload.flag, "HAZARD_STOP");
+    assert.equal(stagedSnapshotPayload.mode, "HAZARD_STOP");
     assert.equal(stagedSnapshotPayload.lapEntryAllowed, false);
     assert.equal(stagedSnapshotPayload.resultsFinalized, true);
     assert.equal(stagedSnapshotPayload.activeSessionId, nextSessionId);
@@ -524,7 +525,8 @@ test("simulation mode runs through the canonical websocket truth layer", async (
         payload.activeSessionId === nextSessionId
     );
     assertSchema(raceSnapshotSchema, stagedSnapshot, "race:snapshot (simulation staged)");
-    assert.equal(stagedSnapshot.flag, "SAFE");
+    assert.equal(stagedSnapshot.flag, "HAZARD_STOP");
+    assert.equal(stagedSnapshot.mode, "HAZARD_STOP");
     assert.equal(stagedSnapshot.simulation.status, "COMPLETED");
     assert.equal(stagedSnapshot.simulation.phase, "COMPLETED");
     assert.equal(stagedSnapshot.simulation.completionReason, "pit_return_complete");

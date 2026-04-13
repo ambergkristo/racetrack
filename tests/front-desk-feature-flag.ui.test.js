@@ -87,7 +87,7 @@ async function renderFrontDesk(featureFlags) {
   return appEl.innerHTML;
 }
 
-test("front-desk keeps the manual assignment panel hidden when the flag is off", async () => {
+test("front-desk keeps the optional car-adjustment flow visible without the old manual panel when the flag is off", async () => {
   const html = await renderFrontDesk({
     FF_PERSISTENCE: false,
     FF_MANUAL_CAR_ASSIGNMENT: false,
@@ -95,15 +95,17 @@ test("front-desk keeps the manual assignment panel hidden when the flag is off",
 
   assert.equal(html.includes("Manual Car Assignment"), false);
   assert.equal(html.includes("FF_MANUAL_CAR_ASSIGNMENT"), false);
+  assert.equal(html.includes("Adjust car numbers"), true);
 });
 
-test("front-desk shows the manual assignment panel when the flag is on", async () => {
+test("front-desk keeps the same car-adjustment entry point when the flag is on", async () => {
   const html = await renderFrontDesk({
     FF_PERSISTENCE: false,
     FF_MANUAL_CAR_ASSIGNMENT: true,
   });
 
-  assert.equal(html.includes("Manual Car Assignment"), true);
+  assert.equal(html.includes("Manual Car Assignment"), false);
+  assert.equal(html.includes("Adjust car numbers"), true);
   assert.equal(html.includes("Front Desk Console"), true);
   assert.equal(html.includes("frontdesk-shell-grid"), true);
   assert.equal(html.includes("Next Race Setup"), true);
