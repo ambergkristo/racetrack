@@ -3132,7 +3132,9 @@ body {
 .route-front-desk.staff-shell {
   padding: 10px 14px 10px;
   gap: 10px;
-  overflow: hidden;
+  min-height: 100dvh;
+  height: auto;
+  overflow: auto;
 }
 
 .route-front-desk .telemetry-header {
@@ -3161,17 +3163,17 @@ body {
 
 .route-front-desk .staff-route-grid {
   grid-template-columns: 1fr;
-  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-rows: auto;
 }
 
 .route-front-desk .frontdesk-panel {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  height: 100%;
+  min-height: auto;
+  height: auto;
   padding: 10px 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .route-front-desk .panel-heading {
@@ -3179,8 +3181,8 @@ body {
 }
 
 .route-front-desk .frontdesk-workflow {
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
 }
 
 .route-front-desk .frontdesk-workflow.has-secondary {
@@ -3192,10 +3194,10 @@ body {
   grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
   grid-template-areas:
     "setup racer";
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto;
   gap: 10px;
-  min-height: 0;
-  height: 100%;
+  min-height: auto;
+  height: auto;
 }
 
 .route-front-desk .frontdesk-setup-card {
@@ -3234,15 +3236,21 @@ body {
 }
 
 .route-front-desk .frontdesk-racer-body {
-  grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .route-front-desk .frontdesk-racer-control-zone {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   align-content: start;
   flex-shrink: 0;
+}
+
+.route-front-desk .frontdesk-racer-console-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 10px;
+  align-items: start;
 }
 
 .route-front-desk .frontdesk-setup-body {
@@ -3335,8 +3343,9 @@ body {
 }
 
 .route-front-desk .frontdesk-racer-form {
-  grid-template-columns: minmax(0, 1fr) minmax(112px, 0.48fr) auto;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
 }
 
 .route-front-desk .frontdesk-racer-form .controls {
@@ -3344,18 +3353,15 @@ body {
 }
 
 .route-front-desk .frontdesk-racer-table {
-  min-height: 0;
-  display: flex;
-  overflow: hidden;
+  display: block;
+  overflow: visible;
 }
 
 .route-front-desk .frontdesk-racer-table .table-wrap {
-  flex: 1;
-  min-height: 0;
   margin-top: 0;
-  overflow: auto;
-  max-height: none;
-  height: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  height: auto;
 }
 
 .route-front-desk .frontdesk-racer-table .telemetry-table {
@@ -3431,35 +3437,31 @@ body {
   justify-content: flex-end;
 }
 
-.route-front-desk .auto-assignment-note {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 255, 123, 0.2);
-  background: rgba(0, 255, 123, 0.06);
-}
-
-.route-front-desk .auto-assignment-note strong {
-  font-family: "Orbitron", "Segoe UI", sans-serif;
-  font-size: 0.84rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--safe);
-}
-
-.route-front-desk .auto-assignment-note span:last-child {
-  color: var(--muted);
-  font-size: 0.76rem;
-  line-height: 1.2;
-}
-
-.route-front-desk .frontdesk-car-adjust-section {
+.route-front-desk .frontdesk-assignment-console {
   align-content: start;
   border-color: rgba(255, 212, 0, 0.16);
   background:
     linear-gradient(180deg, rgba(255, 212, 0, 0.06), rgba(255, 212, 0, 0.02)),
     rgba(255, 255, 255, 0.02);
+}
+
+.route-front-desk .frontdesk-assignment-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.route-front-desk .frontdesk-assignment-copy strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.84rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--warning);
+}
+
+.route-front-desk .frontdesk-assignment-copy span:last-child {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.2;
 }
 
 .route-front-desk .frontdesk-car-adjust-controls {
@@ -4574,6 +4576,7 @@ body {
     height: auto;
   }
 
+  .route-front-desk .frontdesk-racer-console-row,
   .route-front-desk .frontdesk-racer-form,
   .route-front-desk .frontdesk-car-adjust-controls,
   .route-front-desk .frontdesk-queue-setup,

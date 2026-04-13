@@ -2429,6 +2429,64 @@
         : registeredCount >= 8
           ? "Standby roster is full. Review the session list below if you need a different next race."
           : `${registeredCount} racer${registeredCount === 1 ? "" : "s"} staged. Keep building the standby roster on the right.`;
+    const assignmentModeLabel = carAssignmentState.editorActive ? "Manual override" : "Automatic";
+    const assignmentStatusTitle = carAssignmentState.editorActive
+      ? "Manual override active"
+      : "Assigned automatically";
+    const assignmentStatusDetail = carAssignmentState.editorActive
+      ? "Save, cancel, or reset this session from the console before editing racers again."
+      : "Use Adjust car numbers only when a session needs a manual override.";
+    const assignmentConsole = `
+      <div class="frontdesk-inline-section frontdesk-assignment-console">
+        <div class="frontdesk-inline-head">
+          <p class="queue-kicker">Car assignment</p>
+          <span class="chip tiny-chip">${escapeHtml(assignmentModeLabel)}</span>
+        </div>
+        <div class="frontdesk-assignment-copy">
+          <span class="chip tiny-chip">Cars 1-8</span>
+          <strong>${escapeHtml(assignmentStatusTitle)}</strong>
+          <span>${escapeHtml(assignmentStatusDetail)}</span>
+        </div>
+        <p id="car-assignment-hint" class="hint">${escapeHtml(
+          carAssignmentState.editorActive
+            ? carAssignmentState.saveReason || "Change only the rows you need, then save the session assignments."
+            : carAssignmentState.startReason ||
+                "Cars auto-assign by default. Open Adjust car numbers only when a session needs exceptions."
+        )}</p>
+        <div class="controls frontdesk-car-adjust-controls">
+          ${
+            carAssignmentState.editorActive
+              ? `
+                ${buttonMarkup({
+                  id: "save-car-assignments-btn",
+                  label: "Save assignments",
+                  variant: "warning",
+                  disabled: Boolean(carAssignmentState.saveReason),
+                })}
+                ${buttonMarkup({
+                  id: "cancel-car-assignments-btn",
+                  label: "Cancel",
+                  variant: "ghost",
+                })}
+                ${buttonMarkup({
+                  id: "reset-car-assignments-btn",
+                  label: "Reset to automatic",
+                  variant: "ghost",
+                  disabled: Boolean(carAssignmentState.resetReason),
+                })}
+              `
+              : `
+                ${buttonMarkup({
+                  id: "adjust-car-numbers-btn",
+                  label: "Adjust car numbers",
+                  variant: "ghost",
+                  disabled: Boolean(carAssignmentState.startReason),
+                })}
+              `
+          }
+        </div>
+      </div>
+    `;
     const racerManagementBody = `
       <div class="frontdesk-racer-control-zone">
         <div class="frontdesk-card-copy">
@@ -2438,70 +2496,22 @@
               "Cars auto-assign from the authoritative 1-8 pool when racers are added."
           )}</p>
         </div>
-        <div class="ops-board racer-board frontdesk-racer-form">
-          <label class="field">
-            <span>Racer name</span>
-            <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
-          </label>
-          <div class="auto-assignment-note">
-            <span class="chip tiny-chip">Cars 1-8</span>
-            <strong>Assigned automatically</strong>
-            <span>Use Adjust car numbers only when a session needs a manual override.</span>
+        <div class="frontdesk-racer-console-row">
+          <div class="ops-board racer-board frontdesk-racer-form">
+            <label class="field">
+              <span>Racer name</span>
+              <input id="racer-name-input" type="text" value="${escapeHtml(state.racerForm.name)}" placeholder="Driver Name" ${formState.racerEditReason ? "disabled" : ""} />
+            </label>
+            <div class="controls">
+              ${buttonMarkup({
+                id: "save-racer-btn",
+                label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
+                disabled: Boolean(formState.saveRacerReason),
+              })}
+              ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
+            </div>
           </div>
-          <div class="controls">
-            ${buttonMarkup({
-              id: "save-racer-btn",
-              label: formState.racerUpdateMode ? "Save Racer" : "Add Racer",
-              disabled: Boolean(formState.saveRacerReason),
-            })}
-            ${formState.racerUpdateMode ? buttonMarkup({ id: "cancel-racer-edit-btn", label: "Cancel", variant: "ghost" }) : ""}
-          </div>
-        </div>
-        <div class="frontdesk-inline-section frontdesk-car-adjust-section">
-          <div class="frontdesk-inline-head">
-            <p class="queue-kicker">Car assignment</p>
-            <span class="chip tiny-chip">${escapeHtml(
-              carAssignmentState.editorActive ? "Adjusting" : "Automatic"
-            )}</span>
-          </div>
-          <p id="car-assignment-hint" class="hint">${escapeHtml(
-            carAssignmentState.editorActive
-              ? carAssignmentState.saveReason || "Change only the rows you need, then save the session assignments."
-              : carAssignmentState.startReason ||
-                  "Cars auto-assign by default. Open Adjust car numbers only when a session needs exceptions."
-          )}</p>
-          <div class="controls frontdesk-car-adjust-controls">
-            ${
-              carAssignmentState.editorActive
-                ? `
-                  ${buttonMarkup({
-                    id: "save-car-assignments-btn",
-                    label: "Save assignments",
-                    variant: "warning",
-                    disabled: Boolean(carAssignmentState.saveReason),
-                  })}
-                  ${buttonMarkup({
-                    id: "cancel-car-assignments-btn",
-                    label: "Cancel",
-                    variant: "ghost",
-                  })}
-                  ${buttonMarkup({
-                    id: "reset-car-assignments-btn",
-                    label: "Reset to automatic",
-                    variant: "ghost",
-                    disabled: Boolean(carAssignmentState.resetReason),
-                  })}
-                `
-                : `
-                  ${buttonMarkup({
-                    id: "adjust-car-numbers-btn",
-                    label: "Adjust car numbers",
-                    variant: "ghost",
-                    disabled: Boolean(carAssignmentState.startReason),
-                  })}
-                `
-            }
-          </div>
+          ${assignmentConsole}
         </div>
       </div>
       <div class="frontdesk-racer-table">
