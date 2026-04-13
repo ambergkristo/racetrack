@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const http = require("http");
 const { io: createClient } = require("socket.io-client");
 const { createApp } = require("../server");
-const { SOCKET_EVENTS } = require("../src/socket/contract");
+const { SOCKET_EVENTS } = require("../server/src/socket/contract");
 const { test } = require("./helpers/testHarness");
 
 function waitForEvent(socket, event, predicate = () => true, timeoutMs = 4000) {
@@ -512,3 +512,4 @@ test("invalid socket payloads and repeated control actions surface errors withou
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

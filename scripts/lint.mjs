@@ -3,10 +3,11 @@ import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 const roots = [
-  "server.js",
+  "server/index.js",
+  "server/server.js",
   "client",
   "scripts",
-  "src",
+  "server/src",
   "tests",
 ];
 

@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const { io: createClient } = require("socket.io-client");
 const { createApp } = require("../server");
-const { SOCKET_EVENTS } = require("../src/socket/contract");
+const { SOCKET_EVENTS } = require("../server/src/socket/contract");
 const { test } = require("./helpers/testHarness");
 
 function waitForEvent(socket, event, timeoutMs = 3000) {
@@ -66,3 +66,4 @@ test("socket handshake + schema baseline emits hello and validates inbound paylo
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

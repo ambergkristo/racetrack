@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
-const { createRaceStore } = require("../src/domain/raceStore");
-const { buildRaceStateTruth } = require("../src/domain/raceStateTruth");
+const { createRaceStore } = require("../server/src/domain/raceStore");
+const { buildRaceStateTruth } = require("../server/src/domain/raceStateTruth");
 const { test } = require("./helpers/testHarness");
 
 test("race store ignores non-positive lap deltas without corrupting leaderboard timing", () => {
@@ -608,3 +608,4 @@ test("simulation honors hazard stop and enforces the hard time cap", () => {
   assert.equal(snapshot.simulation.completionReason, "hard_cap");
   assert.equal(snapshot.activeSession.racers[0].lapCount, 0);
 });
+

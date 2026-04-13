@@ -1,0 +1,121 @@
+  function leaderboardTable(
+    entries,
+    {
+      limit = entries.length,
+      wrapClass = "",
+      tableClass = "",
+    } = {}
+  ) {
+    if (isInitialPublicLoad()) {
+      return loadingSkeleton(5);
+    }
+
+    if (entries.length === 0) {
+      return emptyState(
+        "Leaderboard waiting for the first lap",
+        "As soon as lap crossings arrive, positions and best laps will populate here."
+      );
+    }
+
+    const leaderBestLapMs =
+      entries.find((entry) => Number.isFinite(entry.bestLapTimeMs))?.bestLapTimeMs ?? null;
+    const visibleEntries = entries.slice(0, limit);
+    const columns = ["Pos", "Car", "Racer", "Best Lap", "Live Lap", "Laps"];
+
+    return dataTable(
+      columns,
+      visibleEntries.map(
+        (entry) => {
+          const finishMeta = Number.isFinite(entry.finishPlace)
+            ? ` · ${formatOrdinal(entry.finishPlace)} over the line`
+            : "";
+          return `
+          <tr class="${entry.position === 1 ? "leader-row" : ""}${Number.isFinite(entry.finishPlace) ? " finish-row" : ""}">
+            <td><span class="position-badge">${escapeHtml(String(entry.position))}</span></td>
+            <td><span class="car-badge">${escapeHtml(entry.carNumber || "--")}</span></td>
+            <td>
+              <div class="driver-cell">
+                <strong>${escapeHtml(entry.name)}</strong>
+                <span>${escapeHtml(`${formatDeltaToLeader(entry, leaderBestLapMs)}${finishMeta}`)}</span>
+              </div>
+            </td>
+            <td class="timing-cell ${entry.bestLapTimeMs === leaderBestLapMs ? "is-best" : ""}">${escapeHtml(formatLap(entry.bestLapTimeMs))}</td>
+            <td class="timing-cell">${escapeHtml(formatLap(entry.currentLapTimeMs))}</td>
+            <td class="timing-cell">${entry.lapCount}</td>
+          </tr>
+        `;
+        }
+      ),
+      { wrapClass, tableClass }
+    );
+  }
+
+  function leaderboardTimingBoard(
+    entries,
+    {
+      limit = entries.length,
+      wrapClass = "",
+    } = {}
+  ) {
+    if (isInitialPublicLoad()) {
+      return loadingSkeleton(5);
+    }
+
+    if (entries.length === 0) {
+      return emptyState(
+        "Leaderboard waiting for the first lap",
+        "As soon as lap crossings arrive, positions and best laps will populate here."
+      );
+    }
+
+    const leaderBestLapMs =
+      entries.find((entry) => Number.isFinite(entry.bestLapTimeMs))?.bestLapTimeMs ?? null;
+    const visibleEntries = entries.slice(0, limit);
+
+    return `
+      <div class="leaderboard-board ${wrapClass}">
+        ${visibleEntries
+          .map((entry, index) => {
+            const rowToneClass =
+              entry.position === 1 ? " is-leader" : index % 2 === 1 ? " is-alt" : "";
+            const finishMeta = Number.isFinite(entry.finishPlace)
+              ? ` · ${formatOrdinal(entry.finishPlace)} over the line`
+              : "";
+            const deltaLabel = `${formatDeltaToLeader(entry, leaderBestLapMs)}${finishMeta}`;
+            return `
+              <article class="leaderboard-board-row${rowToneClass}${Number.isFinite(entry.finishPlace) ? " is-finished" : ""}">
+                <div class="leaderboard-pos-stack">
+                  <span class="leaderboard-pos-label">Pos</span>
+                  <strong class="leaderboard-pos-value">${escapeHtml(String(entry.position))}</strong>
+                </div>
+                <div class="leaderboard-car-stack">
+                  <span class="leaderboard-car-badge">${escapeHtml(entry.carNumber || "--")}</span>
+                </div>
+                <div class="leaderboard-driver-stack">
+                  <strong class="leaderboard-driver-name">${escapeHtml(entry.name)}</strong>
+                  <span class="leaderboard-driver-meta">${escapeHtml(deltaLabel)}</span>
+                </div>
+                <div class="leaderboard-time-stack">
+                  <span class="leaderboard-time-label">Best</span>
+                  <strong class="leaderboard-time-value${entry.bestLapTimeMs === leaderBestLapMs ? " is-best" : ""}">${escapeHtml(
+                    formatLap(entry.bestLapTimeMs)
+                  )}</strong>
+                </div>
+                <div class="leaderboard-time-stack leaderboard-live-stack">
+                  <span class="leaderboard-time-label">Live</span>
+                  <strong class="leaderboard-time-value">${escapeHtml(
+                    formatLap(entry.currentLapTimeMs)
+                  )}</strong>
+                </div>
+                <div class="leaderboard-lap-stack">
+                  <span class="leaderboard-time-label">Laps</span>
+                  <strong class="leaderboard-lap-value">${escapeHtml(String(entry.lapCount))}</strong>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+

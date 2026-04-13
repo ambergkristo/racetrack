@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const http = require("http");
 const { io: createClient } = require("socket.io-client");
 const { createApp } = require("../server");
-const { SOCKET_EVENTS } = require("../src/socket/contract");
+const { SOCKET_EVENTS } = require("../server/src/socket/contract");
 const { test } = require("./helpers/testHarness");
 
 async function requestJson(url, pathname, method, body, headers = {}) {
@@ -401,3 +401,4 @@ test("running clients receive a tick on reconnect and a full state resync after 
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

@@ -8,7 +8,7 @@ const {
   raceSnapshotSchema,
   raceTickSchema,
   serverHelloSchema,
-} = require("../src/socket/contract");
+} = require("../server/src/socket/contract");
 const { test } = require("./helpers/testHarness");
 
 function waitForEvent(socket, event, predicate = () => true, timeoutMs = 4000) {
@@ -546,3 +546,4 @@ test("simulation mode runs through the canonical websocket truth layer", async (
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

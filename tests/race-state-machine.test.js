@@ -5,7 +5,7 @@ const {
   canAcceptLapInput,
   canChangeMode,
   canTransition,
-} = require("../src/domain/raceStateMachine");
+} = require("../server/src/domain/raceStateMachine");
 
 test("race state machine allows only the milestone transitions", () => {
   assert.equal(canTransition(RACE_STATES.IDLE, RACE_STATES.STAGING), true);
@@ -31,3 +31,4 @@ test("lap input and mode changes stay constrained to running flow", () => {
   assert.equal(canChangeMode(RACE_STATES.RUNNING), true);
   assert.equal(canChangeMode(RACE_STATES.FINISHED), false);
 });
+

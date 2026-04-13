@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Beachside Racetrack M0 skeleton: single-host Node + Socket.IO + SPA routes.",
-  "main": "server.js",
+  "main": "server/index.js",
   "scripts": {
     "sync:client": "node scripts/sync-client-app.mjs",
     "prebuild": "npm run sync:client",
@@ -12,8 +12,8 @@
     "prestart": "npm run sync:client",
     "pretest": "npm run sync:client",
     "build": "node scripts/build.mjs",
-    "dev": "cross-env NODE_ENV=development nodemon server.js",
-    "start": "node server.js",
+    "dev": "cross-env NODE_ENV=development nodemon server/server.js",
+    "start": "node server/server.js",
     "lint": "node scripts/lint.mjs",
     "test": "node tests/run-tests.js",
     "test:m3-matrix": "node tests/run-m3-matrix.js"

@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const srcDir = path.join(rootDir, "client");
-const outDir = path.join(rootDir, "public");
+const outDir = path.join(rootDir, "server", "public");
 
 async function exists(p) {
   try {

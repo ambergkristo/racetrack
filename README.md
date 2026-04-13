@@ -1,5 +1,16 @@
 # Racetrack info-screens
 
+Live app:
+- `https://racetrack-wf9v.onrender.com`
+
+## ⚠️ Important (Render cold start)
+
+The deployed backend may take up to 30 seconds to wake up after inactivity.
+
+If the app appears unresponsive:
+- wait about 30 seconds
+- refresh the page
+
 Single-host Node.js app for running Beachside Racetrack staff screens and public display screens.
 
 - Backend: Express + Socket.IO
@@ -9,11 +20,13 @@ Single-host Node.js app for running Beachside Racetrack staff screens and public
 
 ## Repository structure
 
-- `server.js`: thin runtime entrypoint
-- `src/server/`: server composition, routes, middleware, services, socket wiring
-- `src/domain/`: race lifecycle, timer, store, and business rules
-- `src/persistence/`: persistence adapter
-- `client/`: browser entry files served in dev/build output
+- `server/`: backend entrypoints, backend source, and generated static build output
+- `server/server.js`: backend runtime entrypoint used by `npm run dev` and `npm start`
+- `server/index.js`: backend module entrypoint exported for tests
+- `server/src/app/`: server composition, routes, middleware, services, and socket wiring
+- `server/src/domain/`: race lifecycle, timer, store, and business rules
+- `server/src/persistence/`: persistence adapter
+- `client/`: frontend browser entry files
 - `client/src/`: feature-based frontend source fragments used to generate `client/app.js`
 - `tests/`: integration, regression, and UI contract tests
 
@@ -90,7 +103,7 @@ npm run build
 npm start
 ```
 
-`npm run build` copies `client/` to `public/`. `npm start` then serves the built assets.
+`npm run build` copies `client/` to `server/public/`. `npm start` then serves the built assets from there.
 
 ## Local routes
 
@@ -170,7 +183,7 @@ npm run test:m3-matrix
 - Port `3000` is already in use:
   Set `PORT` in `.env` before running the server.
 - Built assets look stale:
-  Run `npm run build` again. The build copies the current `client/` directory into `public/`.
+  Run `npm run build` again. The build copies the current `client/` directory into `server/public/`.
 - Frontend source fragments changed but `client/app.js` was not refreshed:
   Run `npm run sync:client`.
 - Staff login keeps failing:
