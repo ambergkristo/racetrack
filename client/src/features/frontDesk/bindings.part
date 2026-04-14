@@ -11,6 +11,7 @@
     const saveCarAssignmentsBtn = document.getElementById("save-car-assignments-btn");
     const cancelCarAssignmentsBtn = document.getElementById("cancel-car-assignments-btn");
     const resetCarAssignmentsBtn = document.getElementById("reset-car-assignments-btn");
+    const closeCarAssignmentModalNodes = document.querySelectorAll("[data-action='close-car-assignment-modal']");
 
     if (sessionInput) {
       sessionInput.addEventListener("input", (event) => {
@@ -267,6 +268,18 @@
         );
       });
     }
+
+    closeCarAssignmentModalNodes.forEach((node) => {
+      node.addEventListener("click", () => {
+        setState({
+          carAssignmentEditor: {
+            active: false,
+            sessionId: null,
+            draftValues: {},
+          },
+        });
+      });
+    });
 
     document.querySelectorAll("[data-action='stage-session']").forEach((node) => {
       node.addEventListener("click", () => {

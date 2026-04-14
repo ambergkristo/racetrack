@@ -2130,6 +2130,87 @@
     `;
   }
 
+  function carAssignmentModalRows(carAssignmentState) {
+    if (!carAssignmentState.rows.length) {
+      return emptyState(
+        "No racers ready for adjustment",
+        "Add racers to the selected session before adjusting car numbers."
+      );
+    }
+
+    return `
+      <div class="frontdesk-car-adjust-modal-list">
+        ${carAssignmentState.rows
+          .map(
+            (row) => `
+              <div class="frontdesk-car-adjust-modal-row">
+                <div class="frontdesk-car-adjust-modal-copy">
+                  <strong>${escapeHtml(row.racer.name)}</strong>
+                  <span>Current car ${escapeHtml(row.racer.carNumber || "--")}</span>
+                </div>
+                <label class="field frontdesk-car-adjust-modal-field">
+                  <span>Car number</span>
+                  ${carAssignmentCellMarkup(row.racer, carAssignmentState)}
+                </label>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function carAssignmentModalMarkup(carAssignmentState) {
+    if (!carAssignmentState.editorActive) {
+      return "";
+    }
+
+    return `
+      <div class="frontdesk-car-adjust-modal-layer">
+        <div class="frontdesk-car-adjust-modal-backdrop" data-action="close-car-assignment-modal" aria-hidden="true"></div>
+        <section
+          class="frontdesk-car-adjust-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="frontdesk-car-adjust-title"
+        >
+          <div class="frontdesk-car-adjust-modal-head">
+            <div class="frontdesk-car-adjust-modal-head-copy">
+              <p class="section-kicker">Manual adjustment</p>
+              <h3 id="frontdesk-car-adjust-title">Adjust car numbers</h3>
+              <p class="hint">Change assignments in this dialog, then return to the unchanged Front Desk layout.</p>
+            </div>
+            <span class="chip tiny-chip">${escapeHtml(carAssignmentState.session?.name || "No session")}</span>
+          </div>
+          <p id="car-assignment-hint" class="hint">${escapeHtml(
+            carAssignmentState.saveReason ||
+              "Choose car numbers for the racers you need to adjust."
+          )}</p>
+          ${carAssignmentModalRows(carAssignmentState)}
+          <div class="controls frontdesk-car-adjust-controls frontdesk-car-adjust-modal-actions">
+            ${buttonMarkup({
+              id: "save-car-assignments-btn",
+              label: "Save assignments",
+              variant: "warning",
+              disabled: Boolean(carAssignmentState.saveReason),
+            })}
+            ${buttonMarkup({
+              id: "cancel-car-assignments-btn",
+              label: "Cancel",
+              variant: "ghost",
+            })}
+            ${buttonMarkup({
+              id: "reset-car-assignments-btn",
+              label: "Reset to automatic",
+              variant: "ghost",
+              disabled: Boolean(carAssignmentState.resetReason),
+            })}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
   function racerRows(activeSession) {
     if (!activeSession) {
       return '<tr><td colspan="4" class="hint">Create or choose a saved session to manage racers.</td></tr>';
@@ -2157,11 +2238,7 @@
         return `
           <tr>
             <td>${escapeHtml(racer.name)}</td>
-            <td>${
-              editorActive
-                ? carAssignmentCellMarkup(racer, carAssignmentState)
-                : escapeHtml(racer.carNumber || "--")
-            }</td>
+            <td>${escapeHtml(racer.carNumber || "--")}</td>
             <td>${racer.lapCount}</td>
             <td>
               <div class="row-actions">
@@ -2429,61 +2506,30 @@
         : registeredCount >= 8
           ? "Standby roster is full. Review the session list below if you need a different next race."
           : `${registeredCount} racer${registeredCount === 1 ? "" : "s"} staged. Keep building the standby roster on the right.`;
-    const assignmentModeLabel = carAssignmentState.editorActive ? "Manual override" : "Automatic";
-    const assignmentStatusTitle = carAssignmentState.editorActive
-      ? "Manual override active"
-      : "Assigned automatically";
-    const assignmentStatusDetail = carAssignmentState.editorActive
-      ? "Save, cancel, or reset this session from the console before editing racers again."
-      : "Use Adjust car numbers only when a session needs a manual override.";
+    const assignmentStatusTitle = "Assigned automatically";
+    const assignmentStatusDetail = "Use Adjust car numbers only when a session needs a manual override.";
     const assignmentConsole = `
       <div class="frontdesk-inline-section frontdesk-assignment-console">
         <div class="frontdesk-inline-head">
           <p class="queue-kicker">Car assignment</p>
-          <span class="chip tiny-chip">${escapeHtml(assignmentModeLabel)}</span>
+          <span class="chip tiny-chip">Automatic</span>
         </div>
         <div class="frontdesk-assignment-copy">
           <span class="chip tiny-chip">Cars 1-8</span>
           <strong>${escapeHtml(assignmentStatusTitle)}</strong>
           <span>${escapeHtml(assignmentStatusDetail)}</span>
         </div>
-        <p id="car-assignment-hint" class="hint">${escapeHtml(
-          carAssignmentState.editorActive
-            ? carAssignmentState.saveReason || "Change only the rows you need, then save the session assignments."
-            : carAssignmentState.startReason ||
-                "Cars auto-assign by default. Open Adjust car numbers only when a session needs exceptions."
+        <p class="hint">${escapeHtml(
+          carAssignmentState.startReason ||
+            "Cars auto-assign by default. Open Adjust car numbers only when a session needs exceptions."
         )}</p>
         <div class="controls frontdesk-car-adjust-controls">
-          ${
-            carAssignmentState.editorActive
-              ? `
-                ${buttonMarkup({
-                  id: "save-car-assignments-btn",
-                  label: "Save assignments",
-                  variant: "warning",
-                  disabled: Boolean(carAssignmentState.saveReason),
-                })}
-                ${buttonMarkup({
-                  id: "cancel-car-assignments-btn",
-                  label: "Cancel",
-                  variant: "ghost",
-                })}
-                ${buttonMarkup({
-                  id: "reset-car-assignments-btn",
-                  label: "Reset to automatic",
-                  variant: "ghost",
-                  disabled: Boolean(carAssignmentState.resetReason),
-                })}
-              `
-              : `
-                ${buttonMarkup({
-                  id: "adjust-car-numbers-btn",
-                  label: "Adjust car numbers",
-                  variant: "ghost",
-                  disabled: Boolean(carAssignmentState.startReason),
-                })}
-              `
-          }
+          ${buttonMarkup({
+            id: "adjust-car-numbers-btn",
+            label: "Adjust car numbers",
+            variant: "ghost",
+            disabled: Boolean(carAssignmentState.startReason),
+          })}
         </div>
       </div>
     `;
@@ -2596,6 +2642,7 @@
             </section>
           </div>
         </div>
+        ${carAssignmentModalMarkup(carAssignmentState)}
       `,
       "warning",
       "staff-main-panel frontdesk-panel frontdesk-shell-panel"
@@ -4144,6 +4191,7 @@
     const saveCarAssignmentsBtn = document.getElementById("save-car-assignments-btn");
     const cancelCarAssignmentsBtn = document.getElementById("cancel-car-assignments-btn");
     const resetCarAssignmentsBtn = document.getElementById("reset-car-assignments-btn");
+    const closeCarAssignmentModalNodes = document.querySelectorAll("[data-action='close-car-assignment-modal']");
 
     if (sessionInput) {
       sessionInput.addEventListener("input", (event) => {
@@ -4400,6 +4448,18 @@
         );
       });
     }
+
+    closeCarAssignmentModalNodes.forEach((node) => {
+      node.addEventListener("click", () => {
+        setState({
+          carAssignmentEditor: {
+            active: false,
+            sessionId: null,
+            draftValues: {},
+          },
+        });
+      });
+    });
 
     document.querySelectorAll("[data-action='stage-session']").forEach((node) => {
       node.addEventListener("click", () => {

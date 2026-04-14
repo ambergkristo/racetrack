@@ -3132,9 +3132,7 @@ body {
 .route-front-desk.staff-shell {
   padding: 10px 14px 10px;
   gap: 10px;
-  min-height: 100dvh;
-  height: auto;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .route-front-desk .telemetry-header {
@@ -3163,17 +3161,17 @@ body {
 
 .route-front-desk .staff-route-grid {
   grid-template-columns: 1fr;
-  grid-auto-rows: auto;
+  grid-auto-rows: minmax(0, 1fr);
 }
 
 .route-front-desk .frontdesk-panel {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
-  min-height: auto;
-  height: auto;
+  min-height: 0;
+  height: 100%;
   padding: 10px 12px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .route-front-desk .panel-heading {
@@ -3181,8 +3179,8 @@ body {
 }
 
 .route-front-desk .frontdesk-workflow {
-  flex: 0 0 auto;
-  min-height: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .route-front-desk .frontdesk-workflow.has-secondary {
@@ -3194,10 +3192,10 @@ body {
   grid-template-columns: minmax(360px, 0.84fr) minmax(0, 1.16fr);
   grid-template-areas:
     "setup racer";
-  grid-template-rows: auto;
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
-  min-height: auto;
-  height: auto;
+  min-height: 0;
+  height: 100%;
 }
 
 .route-front-desk .frontdesk-setup-card {
@@ -3236,12 +3234,13 @@ body {
 }
 
 .route-front-desk .frontdesk-racer-body {
-  overflow: visible;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .route-front-desk .frontdesk-racer-control-zone {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-content: start;
   flex-shrink: 0;
 }
@@ -3353,15 +3352,19 @@ body {
 }
 
 .route-front-desk .frontdesk-racer-table {
-  display: block;
-  overflow: visible;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
 }
 
 .route-front-desk .frontdesk-racer-table .table-wrap {
+  flex: 1;
+  min-height: 0;
   margin-top: 0;
   overflow-x: auto;
-  overflow-y: visible;
-  height: auto;
+  overflow-y: hidden;
+  max-height: none;
+  height: 100%;
 }
 
 .route-front-desk .frontdesk-racer-table .telemetry-table {
@@ -3471,6 +3474,102 @@ body {
 
 .route-front-desk .frontdesk-car-adjust-controls .action-btn {
   flex: 1 1 160px;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 6, 10, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.route-front-desk .frontdesk-car-adjust-modal {
+  position: relative;
+  width: min(760px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 212, 0, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    rgba(12, 14, 20, 0.98);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.46);
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-head-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-head h3 {
+  margin: 0;
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(148px, 188px);
+  gap: 12px;
+  align-items: end;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-copy strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-copy span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.24;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-field {
+  gap: 6px;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-field span {
+  font-size: 0.7rem;
+}
+
+.route-front-desk .frontdesk-car-adjust-modal-actions {
+  justify-content: flex-end;
 }
 
 .route-front-desk .frontdesk-car-select {
@@ -4571,7 +4670,7 @@ body {
     grid-template-columns: 1fr;
     grid-template-areas:
       "setup"
-      "racer"
+      "racer";
     grid-template-rows: auto;
     height: auto;
   }
@@ -4589,6 +4688,10 @@ body {
 
   .route-lap-line-tracker .lap-entry-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .route-front-desk .frontdesk-car-adjust-modal-row {
+    grid-template-columns: 1fr;
   }
 
   .public-shell {
