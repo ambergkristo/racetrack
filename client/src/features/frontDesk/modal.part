@@ -1,0 +1,111 @@
+  function carAssignmentCellMarkup(racer, carAssignmentState) {
+    const selectedValue = String(carAssignmentState.draftValues[racer.id] ?? racer.carNumber ?? "");
+    const optionValues = Array.from(
+      new Set(
+        Array.from({ length: 8 }, (_unused, index) => String(index + 1)).concat(
+          selectedValue ? [selectedValue] : []
+        )
+      )
+    ).sort((left, right) => parseNumber(left) - parseNumber(right));
+
+    return `
+      <select
+        class="frontdesk-car-select"
+        data-action="car-assignment-select"
+        data-racer-id="${escapeHtml(racer.id)}"
+        ${carAssignmentState.editReason ? "disabled" : ""}
+      >
+        <option value="">Choose</option>
+        ${optionValues
+          .map(
+            (carNumber) => `
+              <option value="${escapeHtml(carNumber)}" ${carNumber === selectedValue ? "selected" : ""}>
+                ${escapeHtml(carNumber)}
+              </option>
+            `
+          )
+          .join("")}
+      </select>
+    `;
+  }
+
+  function carAssignmentModalRows(carAssignmentState) {
+    if (!carAssignmentState.rows.length) {
+      return emptyState(
+        "No racers ready for adjustment",
+        "Add racers to the selected session before adjusting car numbers."
+      );
+    }
+
+    return `
+      <div class="frontdesk-car-adjust-modal-list">
+        ${carAssignmentState.rows
+          .map(
+            (row) => `
+              <div class="frontdesk-car-adjust-modal-row">
+                <div class="frontdesk-car-adjust-modal-copy">
+                  <strong>${escapeHtml(row.racer.name)}</strong>
+                  <span>Current car ${escapeHtml(row.racer.carNumber || "--")}</span>
+                </div>
+                <label class="field frontdesk-car-adjust-modal-field">
+                  <span>Car number</span>
+                  ${carAssignmentCellMarkup(row.racer, carAssignmentState)}
+                </label>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function carAssignmentModalMarkup(carAssignmentState) {
+    if (!carAssignmentState.editorActive) {
+      return "";
+    }
+
+    return `
+      <div class="frontdesk-car-adjust-modal-layer">
+        <div class="frontdesk-car-adjust-modal-backdrop" data-action="close-car-assignment-modal" aria-hidden="true"></div>
+        <section
+          class="frontdesk-car-adjust-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="frontdesk-car-adjust-title"
+        >
+          <div class="frontdesk-car-adjust-modal-head">
+            <div class="frontdesk-car-adjust-modal-head-copy">
+              <p class="section-kicker">Manual adjustment</p>
+              <h3 id="frontdesk-car-adjust-title">Adjust car numbers</h3>
+              <p class="hint">Adjust exceptions here. The Front Desk layout stays unchanged.</p>
+            </div>
+            <span class="chip tiny-chip">${escapeHtml(carAssignmentState.session?.name || "No session")}</span>
+          </div>
+          <p id="car-assignment-hint" class="hint">${escapeHtml(
+            carAssignmentState.saveReason ||
+              "Set only the car-number exceptions you need."
+          )}</p>
+          ${carAssignmentModalRows(carAssignmentState)}
+          <div class="controls frontdesk-car-adjust-controls frontdesk-car-adjust-modal-actions">
+            ${buttonMarkup({
+              id: "save-car-assignments-btn",
+              label: "Save assignments",
+              variant: "warning",
+              disabled: Boolean(carAssignmentState.saveReason),
+            })}
+            ${buttonMarkup({
+              id: "cancel-car-assignments-btn",
+              label: "Cancel",
+              variant: "ghost",
+            })}
+            ${buttonMarkup({
+              id: "reset-car-assignments-btn",
+              label: "Reset to automatic",
+              variant: "ghost",
+              disabled: Boolean(carAssignmentState.resetReason),
+            })}
+          </div>
+        </section>
+      </div>
+    `;
+  }

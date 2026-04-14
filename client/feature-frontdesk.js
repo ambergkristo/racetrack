@@ -1,3 +1,4 @@
+// Generated from client/src. Run `npm run sync:client` after editing source modules.
   function sessionRows() {
     if (state.raceSnapshot.sessions.length === 0) {
       return '<tr><td colspan="4" class="hint">No sessions created yet.</td></tr>';
@@ -298,6 +299,227 @@
     `;
   }
 
+  function racerRows(activeSession) {
+    if (!activeSession) {
+      return '<tr><td colspan="4" class="hint">Create or choose a saved session to manage racers.</td></tr>';
+    }
+
+    if (activeSession.racers.length === 0) {
+      return '<tr><td colspan="4" class="hint">No racers in the selected session.</td></tr>';
+    }
+
+    const editBlocked = !activeSessionEditable(activeSession);
+    const accessReason = staffAccessReason();
+    const carAssignmentState = getCarAssignmentEditorState();
+    const editorActive =
+      carAssignmentState.editorActive && carAssignmentState.session?.id === activeSession.id;
+
+    return activeSession.racers
+      .map((racer) => {
+        const editReason = firstReason(
+          accessReason,
+          state.pending ? "Wait for the current request to finish." : "",
+          editorActive ? "Finish car-number adjustment before editing racers." : "",
+          editBlocked ? "Racer edits lock once the race is RUNNING or FINISHED." : ""
+        );
+
+        return `
+          <tr>
+            <td>${escapeHtml(racer.name)}</td>
+            <td>${escapeHtml(racer.carNumber || "--")}</td>
+            <td>${racer.lapCount}</td>
+            <td>
+              <div class="row-actions">
+                ${buttonMarkup({
+                  label: "Edit",
+                  variant: "ghost",
+                  size: "mini",
+                  disabled: Boolean(editReason),
+                  attrs: `data-action="edit-racer" data-racer-id="${escapeHtml(racer.id)}"`,
+                })}
+                ${buttonMarkup({
+                  label: "Delete",
+                  variant: "danger",
+                  size: "mini",
+                  disabled: Boolean(editReason),
+                  attrs: `data-action="delete-racer" data-racer-id="${escapeHtml(racer.id)}"`,
+                })}
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  function getFrontDeskFormState() {
+    const activeSession = getFrontDeskManagedSession();
+    const updateMode = state.sessionForm.id !== null;
+    const racerUpdateMode = state.racerForm.id !== null;
+    const accessReason = staffAccessReason();
+    const activeEditable = activeSessionEditable(activeSession);
+    const autoAssignmentMode = true;
+    const saveSessionReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      state.sessionForm.name.trim() ? "" : "Enter a session name."
+    );
+    const racerEditReason = firstReason(
+      accessReason,
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Create or choose a saved session before adding racers.",
+      activeEditable ? "" : "Selected session locks once it is RUNNING or FINISHED."
+    );
+    const saveRacerReason = firstReason(
+      racerEditReason,
+      state.racerForm.name.trim() ? "" : "Enter a racer name."
+    );
+    const frontDeskReasons = actionGuardList([
+      { label: updateMode ? "Save Session" : "Create Session", reason: saveSessionReason },
+      { label: racerUpdateMode ? "Save Racer" : "Add Racer", reason: saveRacerReason },
+    ]);
+
+    return {
+      activeSession,
+      updateMode,
+      racerUpdateMode,
+      saveSessionReason,
+      racerEditReason,
+      saveRacerReason,
+      frontDeskReasons,
+      autoAssignmentMode,
+    };
+  }
+
+  function manualAssignmentRoster(activeSession, selectedRacer) {
+    if (!activeSession) {
+      return emptyState(
+        "No staged session",
+        "Stage a session first. The assignment roster will unlock on the active heat."
+      );
+    }
+
+    if (activeSession.racers.length === 0) {
+      return emptyState(
+        "No racers ready for assignment",
+        "Add racers to the active session, then assign their cars from this panel."
+      );
+    }
+
+    return `
+      <div class="assignment-grid">
+        ${activeSession.racers
+          .map((racer) => {
+            const selected = selectedRacer?.id === racer.id;
+
+            return `
+              <button
+                class="assignment-card ${selected ? "is-selected" : ""}"
+                type="button"
+                data-action="select-manual-racer"
+                data-racer-id="${escapeHtml(racer.id)}"
+              >
+                <span class="assignment-card-label">${escapeHtml(selected ? "Selected racer" : "Tap to assign")}</span>
+                <strong>${escapeHtml(racer.name)}</strong>
+                <div class="assignment-card-meta">
+                  <span>Current car</span>
+                  <em>${escapeHtml(racer.carNumber || "--")}</em>
+                </div>
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function manualAssignmentPanel(embed = false) {
+    if (!embed && !manualAssignmentEnabled()) {
+      return "";
+    }
+
+    const assignmentState = getManualAssignmentState();
+    const selectedLabel = assignmentState.selectedRacer
+      ? `${assignmentState.selectedRacer.name} ${assignmentState.selectedRacer.carNumber ? `Ā· Car ${assignmentState.selectedRacer.carNumber}` : "Ā· Unassigned"}`
+      : "Choose a racer from the roster";
+    const guidance = assignmentState.selectionReason
+      ? inlineAlert({
+          tone: "warning",
+          title: "Assignment guard active",
+          detail: assignmentState.selectionReason,
+        })
+      : "";
+    const validation = assignmentState.saveReason && !assignmentState.selectionReason
+      ? inlineAlert({
+          tone: assignmentState.duplicateRacer ? "danger" : "warning",
+          title: assignmentState.duplicateRacer ? "Assignment conflict" : "Assignment incomplete",
+          detail: assignmentState.saveReason,
+        })
+      : "";
+    const guardList = actionGuardList([
+      { label: "Assign car", reason: assignmentState.saveReason },
+      { label: "Clear assignment", reason: assignmentState.clearReason },
+    ]);
+
+    const content = `
+        <div class="assignment-shell">
+          <div class="assignment-console">
+            <p class="section-kicker">Upgrade flag active</p>
+            <strong class="summary-value">Manual assignment console</strong>
+            <div class="telemetry-tags">
+              <span class="telemetry-tag tone-warning">Flag ON</span>
+              <span class="telemetry-tag tone-safe">${escapeHtml(selectedLabel)}</span>
+            </div>
+            <p class="hint">Guarded by <code>FF_MANUAL_CAR_ASSIGNMENT</code>.</p>
+            <label class="field">
+              <span>Car number</span>
+              <input id="manual-car-number-input" type="text" value="${escapeHtml(state.manualAssignmentForm.carNumber)}" placeholder="12" ${assignmentState.selectionReason ? "disabled" : ""} />
+            </label>
+            <div class="controls">
+              ${buttonMarkup({
+                id: "assign-car-btn",
+                label: "Assign Car",
+                variant: "warning",
+                disabled: Boolean(assignmentState.saveReason),
+              })}
+              ${buttonMarkup({
+                id: "clear-car-btn",
+                label: "Clear Assignment",
+                variant: "ghost",
+                disabled: Boolean(assignmentState.clearReason),
+              })}
+            </div>
+            <div id="manual-assignment-feedback">
+              ${guidance}
+              ${validation}
+            </div>
+            <div id="manual-assignment-guards">
+              ${guardList}
+            </div>
+          </div>
+          <div class="assignment-roster-shell">
+            <p class="section-kicker">Active roster</p>
+            ${manualAssignmentRoster(
+              assignmentState.activeSession,
+              assignmentState.selectedRacer
+            )}
+          </div>
+        </div>
+      `;
+
+    if (embed) {
+      return `
+        <section class="front-desk-embedded-panel">
+          <div class="panel-heading">
+            <h2>Manual Car Assignment</h2>
+          </div>
+          ${content}
+        </section>
+      `;
+    }
+
+    return panel("Manual Car Assignment", content, "warning", "panel-wide");
+  }
   function carAssignmentCellMarkup(racer, carAssignmentState) {
     const selectedValue = String(carAssignmentState.draftValues[racer.id] ?? racer.carNumber ?? "");
     const optionValues = Array.from(
@@ -409,99 +631,6 @@
       </div>
     `;
   }
-
-  function racerRows(activeSession) {
-    if (!activeSession) {
-      return '<tr><td colspan="4" class="hint">Create or choose a saved session to manage racers.</td></tr>';
-    }
-
-    if (activeSession.racers.length === 0) {
-      return '<tr><td colspan="4" class="hint">No racers in the selected session.</td></tr>';
-    }
-
-    const editBlocked = !activeSessionEditable(activeSession);
-    const accessReason = staffAccessReason();
-    const carAssignmentState = getCarAssignmentEditorState();
-    const editorActive =
-      carAssignmentState.editorActive && carAssignmentState.session?.id === activeSession.id;
-
-    return activeSession.racers
-      .map((racer) => {
-        const editReason = firstReason(
-          accessReason,
-          state.pending ? "Wait for the current request to finish." : "",
-          editorActive ? "Finish car-number adjustment before editing racers." : "",
-          editBlocked ? "Racer edits lock once the race is RUNNING or FINISHED." : ""
-        );
-
-        return `
-          <tr>
-            <td>${escapeHtml(racer.name)}</td>
-            <td>${escapeHtml(racer.carNumber || "--")}</td>
-            <td>${racer.lapCount}</td>
-            <td>
-              <div class="row-actions">
-                ${buttonMarkup({
-                  label: "Edit",
-                  variant: "ghost",
-                  size: "mini",
-                  disabled: Boolean(editReason),
-                  attrs: `data-action="edit-racer" data-racer-id="${escapeHtml(racer.id)}"`,
-                })}
-                ${buttonMarkup({
-                  label: "Delete",
-                  variant: "danger",
-                  size: "mini",
-                  disabled: Boolean(editReason),
-                  attrs: `data-action="delete-racer" data-racer-id="${escapeHtml(racer.id)}"`,
-                })}
-              </div>
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
-  }
-
-  function getFrontDeskFormState() {
-    const activeSession = getFrontDeskManagedSession();
-    const updateMode = state.sessionForm.id !== null;
-    const racerUpdateMode = state.racerForm.id !== null;
-    const accessReason = staffAccessReason();
-    const activeEditable = activeSessionEditable(activeSession);
-    const autoAssignmentMode = true;
-    const saveSessionReason = firstReason(
-      accessReason,
-      state.pending ? "Wait for the current request to finish." : "",
-      state.sessionForm.name.trim() ? "" : "Enter a session name."
-    );
-    const racerEditReason = firstReason(
-      accessReason,
-      state.pending ? "Wait for the current request to finish." : "",
-      activeSession ? "" : "Create or choose a saved session before adding racers.",
-      activeEditable ? "" : "Selected session locks once it is RUNNING or FINISHED."
-    );
-    const saveRacerReason = firstReason(
-      racerEditReason,
-      state.racerForm.name.trim() ? "" : "Enter a racer name."
-    );
-    const frontDeskReasons = actionGuardList([
-      { label: updateMode ? "Save Session" : "Create Session", reason: saveSessionReason },
-      { label: racerUpdateMode ? "Save Racer" : "Add Racer", reason: saveRacerReason },
-    ]);
-
-    return {
-      activeSession,
-      updateMode,
-      racerUpdateMode,
-      saveSessionReason,
-      racerEditReason,
-      saveRacerReason,
-      frontDeskReasons,
-      autoAssignmentMode,
-    };
-  }
-
   function frontDeskPanel() {
     const formState = getFrontDeskFormState();
     const currentSession = state.raceSnapshot.currentSession || formState.activeSession;
@@ -561,7 +690,7 @@
       kicker: "Queued later",
       title: queuedLater.length ? `${queuedLater.length} later session${queuedLater.length === 1 ? "" : "s"}` : "No later queue",
       detail: queuedLater.length
-        ? queuedLater.slice(0, 2).map((session) => session.name).join(" • ")
+        ? queuedLater.slice(0, 2).map((session) => session.name).join(" ā€¢ ")
         : "No later queued sessions yet. Add another heat only when the desk needs a visible backlog.",
       tone: queuedLater.length ? "warning" : "safe",
       metaLabel: `${queueCount} queued`,
@@ -855,136 +984,6 @@
     );
   }
 
-  function manualAssignmentRoster(activeSession, selectedRacer) {
-    if (!activeSession) {
-      return emptyState(
-        "No staged session",
-        "Stage a session first. The assignment roster will unlock on the active heat."
-      );
-    }
-
-    if (activeSession.racers.length === 0) {
-      return emptyState(
-        "No racers ready for assignment",
-        "Add racers to the active session, then assign their cars from this panel."
-      );
-    }
-
-    return `
-      <div class="assignment-grid">
-        ${activeSession.racers
-          .map((racer) => {
-            const selected = selectedRacer?.id === racer.id;
-
-            return `
-              <button
-                class="assignment-card ${selected ? "is-selected" : ""}"
-                type="button"
-                data-action="select-manual-racer"
-                data-racer-id="${escapeHtml(racer.id)}"
-              >
-                <span class="assignment-card-label">${escapeHtml(selected ? "Selected racer" : "Tap to assign")}</span>
-                <strong>${escapeHtml(racer.name)}</strong>
-                <div class="assignment-card-meta">
-                  <span>Current car</span>
-                  <em>${escapeHtml(racer.carNumber || "--")}</em>
-                </div>
-              </button>
-            `;
-          })
-          .join("")}
-      </div>
-    `;
-  }
-
-  function manualAssignmentPanel(embed = false) {
-    if (!embed && !manualAssignmentEnabled()) {
-      return "";
-    }
-
-    const assignmentState = getManualAssignmentState();
-    const selectedLabel = assignmentState.selectedRacer
-      ? `${assignmentState.selectedRacer.name} ${assignmentState.selectedRacer.carNumber ? `· Car ${assignmentState.selectedRacer.carNumber}` : "· Unassigned"}`
-      : "Choose a racer from the roster";
-    const guidance = assignmentState.selectionReason
-      ? inlineAlert({
-          tone: "warning",
-          title: "Assignment guard active",
-          detail: assignmentState.selectionReason,
-        })
-      : "";
-    const validation = assignmentState.saveReason && !assignmentState.selectionReason
-      ? inlineAlert({
-          tone: assignmentState.duplicateRacer ? "danger" : "warning",
-          title: assignmentState.duplicateRacer ? "Assignment conflict" : "Assignment incomplete",
-          detail: assignmentState.saveReason,
-        })
-      : "";
-    const guardList = actionGuardList([
-      { label: "Assign car", reason: assignmentState.saveReason },
-      { label: "Clear assignment", reason: assignmentState.clearReason },
-    ]);
-
-    const content = `
-        <div class="assignment-shell">
-          <div class="assignment-console">
-            <p class="section-kicker">Upgrade flag active</p>
-            <strong class="summary-value">Manual assignment console</strong>
-            <div class="telemetry-tags">
-              <span class="telemetry-tag tone-warning">Flag ON</span>
-              <span class="telemetry-tag tone-safe">${escapeHtml(selectedLabel)}</span>
-            </div>
-            <p class="hint">Guarded by <code>FF_MANUAL_CAR_ASSIGNMENT</code>.</p>
-            <label class="field">
-              <span>Car number</span>
-              <input id="manual-car-number-input" type="text" value="${escapeHtml(state.manualAssignmentForm.carNumber)}" placeholder="12" ${assignmentState.selectionReason ? "disabled" : ""} />
-            </label>
-            <div class="controls">
-              ${buttonMarkup({
-                id: "assign-car-btn",
-                label: "Assign Car",
-                variant: "warning",
-                disabled: Boolean(assignmentState.saveReason),
-              })}
-              ${buttonMarkup({
-                id: "clear-car-btn",
-                label: "Clear Assignment",
-                variant: "ghost",
-                disabled: Boolean(assignmentState.clearReason),
-              })}
-            </div>
-            <div id="manual-assignment-feedback">
-              ${guidance}
-              ${validation}
-            </div>
-            <div id="manual-assignment-guards">
-              ${guardList}
-            </div>
-          </div>
-          <div class="assignment-roster-shell">
-            <p class="section-kicker">Active roster</p>
-            ${manualAssignmentRoster(
-              assignmentState.activeSession,
-              assignmentState.selectedRacer
-            )}
-          </div>
-        </div>
-      `;
-
-    if (embed) {
-      return `
-        <section class="front-desk-embedded-panel">
-          <div class="panel-heading">
-            <h2>Manual Car Assignment</h2>
-          </div>
-          ${content}
-        </section>
-      `;
-    }
-
-    return panel("Manual Car Assignment", content, "warning", "panel-wide");
-  }
-
   function syncFrontDeskFormUi() {
     if (route !== "/front-desk") {
       return;
@@ -1048,4 +1047,377 @@
           "Cars auto-assign by default. Open Adjust car numbers only when a session needs exceptions.";
     }
   }
+  function bindFrontDeskEvents() {
+    const managedSession = getFrontDeskManagedSession();
+    const sessionInput = document.getElementById("session-name-input");
+    const racerInput = document.getElementById("racer-name-input");
+    const carInput = document.getElementById("car-number-input");
+    const saveSessionBtn = document.getElementById("save-session-btn");
+    const cancelSessionEditBtn = document.getElementById("cancel-session-edit-btn");
+    const saveRacerBtn = document.getElementById("save-racer-btn");
+    const cancelRacerEditBtn = document.getElementById("cancel-racer-edit-btn");
+    const adjustCarNumbersBtn = document.getElementById("adjust-car-numbers-btn");
+    const saveCarAssignmentsBtn = document.getElementById("save-car-assignments-btn");
+    const cancelCarAssignmentsBtn = document.getElementById("cancel-car-assignments-btn");
+    const resetCarAssignmentsBtn = document.getElementById("reset-car-assignments-btn");
+    const closeCarAssignmentModalNodes = document.querySelectorAll("[data-action='close-car-assignment-modal']");
 
+    if (sessionInput) {
+      sessionInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          sessionForm: {
+            ...state.sessionForm,
+            name: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (racerInput) {
+      racerInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          racerForm: {
+            ...state.racerForm,
+            name: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (carInput) {
+      carInput.addEventListener("input", (event) => {
+        state = {
+          ...state,
+          racerForm: {
+            ...state.racerForm,
+            carNumber: event.target.value,
+          },
+        };
+        syncFrontDeskFormUi();
+      });
+    }
+
+    if (saveSessionBtn) {
+      saveSessionBtn.addEventListener("click", () => {
+        const name = state.sessionForm.name.trim();
+        if (!name) {
+          setNotice("danger", "Session name is required.", 4000);
+          return;
+        }
+
+        runAction(
+          () => {
+            if (state.sessionForm.id) {
+              return apiRequest(`/api/sessions/${state.sessionForm.id}`, {
+                method: "PATCH",
+                body: { name },
+              });
+            }
+
+            return apiRequest("/api/sessions", {
+              method: "POST",
+              body: { name },
+            });
+          },
+          state.sessionForm.id ? "Session updated." : "Session created.",
+          (payload) => {
+            const savedSessionId = payload?.session?.id ? String(payload.session.id) : state.frontDeskSessionId;
+            setState({
+              sessionForm: {
+                id: null,
+                name: "",
+              },
+              frontDeskSessionId: savedSessionId || state.frontDeskSessionId,
+              racerForm: {
+                id: null,
+                name: "",
+                carNumber: "",
+              },
+            });
+          }
+        );
+      });
+    }
+
+    if (cancelSessionEditBtn) {
+      cancelSessionEditBtn.addEventListener("click", () => {
+        setState({
+          sessionForm: {
+            id: null,
+            name: "",
+          },
+        });
+      });
+    }
+
+    if (saveRacerBtn) {
+      saveRacerBtn.addEventListener("click", () => {
+        if (!managedSession) {
+          setNotice("danger", "Create or choose a saved session before adding racers.", 4000);
+          return;
+        }
+
+        const name = state.racerForm.name.trim();
+        if (!name) {
+          setNotice("danger", "Racer name is required.", 4000);
+          return;
+        }
+
+        const body = { name };
+
+        runAction(
+          () => {
+            if (state.racerForm.id) {
+              return apiRequest(
+                `/api/sessions/${managedSession.id}/racers/${state.racerForm.id}`,
+                {
+                  method: "PATCH",
+                  body,
+                }
+              );
+            }
+
+            return apiRequest(`/api/sessions/${managedSession.id}/racers`, {
+              method: "POST",
+              body,
+            });
+          },
+          state.racerForm.id ? "Racer updated." : "Racer added.",
+          () => {
+            setState({
+              racerForm: {
+                id: null,
+                name: "",
+                carNumber: "",
+              },
+            });
+          }
+        );
+      });
+    }
+
+    if (cancelRacerEditBtn) {
+      cancelRacerEditBtn.addEventListener("click", () => {
+        setState({
+          racerForm: {
+            id: null,
+            name: "",
+            carNumber: "",
+          },
+        });
+      });
+    }
+
+    if (adjustCarNumbersBtn) {
+      adjustCarNumbersBtn.addEventListener("click", () => {
+        const carAssignmentState = getCarAssignmentEditorState();
+        if (!carAssignmentState.session) {
+          setNotice("danger", "Choose a saved session before adjusting car numbers.", 4000);
+          return;
+        }
+
+        setState({
+          carAssignmentEditor: {
+            active: true,
+            sessionId: carAssignmentState.session.id,
+            draftValues: carAssignmentState.draftValues,
+          },
+          racerForm: {
+            id: null,
+            name: "",
+            carNumber: "",
+          },
+        });
+      });
+    }
+
+    if (cancelCarAssignmentsBtn) {
+      cancelCarAssignmentsBtn.addEventListener("click", () => {
+        setState({
+          carAssignmentEditor: {
+            active: false,
+            sessionId: null,
+            draftValues: {},
+          },
+        });
+      });
+    }
+
+    if (saveCarAssignmentsBtn) {
+      saveCarAssignmentsBtn.addEventListener("click", () => {
+        const carAssignmentState = getCarAssignmentEditorState();
+        if (!carAssignmentState.session) {
+          setNotice("danger", "Choose a saved session before adjusting car numbers.", 4000);
+          return;
+        }
+
+        if (carAssignmentState.saveReason) {
+          setNotice("danger", carAssignmentState.saveReason, 4000);
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(`/api/sessions/${carAssignmentState.session.id}/car-assignments`, {
+              method: "PUT",
+              body: {
+                assignments: carAssignmentState.rows.map((row) => ({
+                  racerId: row.racer.id,
+                  carNumber: row.draftCarNumber,
+                })),
+              },
+            }),
+          "Car assignments updated.",
+          () => {
+            setState({
+              carAssignmentEditor: {
+                active: false,
+                sessionId: null,
+                draftValues: {},
+              },
+            });
+          }
+        );
+      });
+    }
+
+    if (resetCarAssignmentsBtn) {
+      resetCarAssignmentsBtn.addEventListener("click", () => {
+        const carAssignmentState = getCarAssignmentEditorState();
+        if (!carAssignmentState.session) {
+          setNotice("danger", "Choose a saved session before resetting assignments.", 4000);
+          return;
+        }
+
+        if (carAssignmentState.resetReason) {
+          setNotice("danger", carAssignmentState.resetReason, 4000);
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(`/api/sessions/${carAssignmentState.session.id}/car-assignments/reset`, {
+              method: "POST",
+              body: {},
+            }),
+          "Car assignments reset to automatic order.",
+          () => {
+            setState({
+              carAssignmentEditor: {
+                active: false,
+                sessionId: null,
+                draftValues: {},
+              },
+            });
+          }
+        );
+      });
+    }
+
+    closeCarAssignmentModalNodes.forEach((node) => {
+      node.addEventListener("click", () => {
+        setState({
+          carAssignmentEditor: {
+            active: false,
+            sessionId: null,
+            draftValues: {},
+          },
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-action='stage-session']").forEach((node) => {
+      node.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/session/select", {
+              method: "POST",
+              body: { sessionId: node.dataset.sessionId },
+            }),
+          "Session staged."
+        );
+      });
+    });
+
+    document.querySelectorAll("[data-action='edit-session']").forEach((node) => {
+      node.addEventListener("click", () => {
+        const session = state.raceSnapshot.sessions.find(
+          (item) => item.id === node.dataset.sessionId
+        );
+        if (!session) {
+          return;
+        }
+
+        setState({
+          frontDeskSessionId: session.id,
+          sessionForm: {
+            id: session.id,
+            name: session.name,
+          },
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-action='delete-session']").forEach((node) => {
+      node.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest(`/api/sessions/${node.dataset.sessionId}`, {
+              method: "DELETE",
+            }),
+          "Session deleted."
+        );
+      });
+    });
+
+    document.querySelectorAll("[data-action='edit-racer']").forEach((node) => {
+      node.addEventListener("click", () => {
+        const racer = managedSession?.racers.find((item) => item.id === node.dataset.racerId);
+        if (!racer) {
+          return;
+        }
+
+        setState({
+          racerForm: {
+            id: racer.id,
+            name: racer.name,
+            carNumber: racer.carNumber || "",
+          },
+        });
+      });
+    });
+
+    document.querySelectorAll("[data-action='delete-racer']").forEach((node) => {
+      node.addEventListener("click", () => {
+        if (!managedSession) {
+          return;
+        }
+
+        runAction(
+          () =>
+            apiRequest(`/api/sessions/${managedSession.id}/racers/${node.dataset.racerId}`, {
+              method: "DELETE",
+            }),
+          "Racer removed."
+        );
+      });
+    });
+
+    document.querySelectorAll("[data-action='car-assignment-select']").forEach((node) => {
+      node.addEventListener("change", (event) => {
+        setState({
+          carAssignmentEditor: {
+            ...state.carAssignmentEditor,
+            draftValues: {
+              ...state.carAssignmentEditor.draftValues,
+              [node.dataset.racerId]: event.target.value,
+            },
+          },
+        });
+      });
+    });
+  }

@@ -1,0 +1,30 @@
+  const featureBundlePaths = [
+    "/feature-frontdesk.js",
+    "/feature-race-control.js",
+    "/feature-lap-line-tracker.js",
+    "/feature-public.js",
+    "/feature-home.js",
+  ];
+  let featureBundleSources = null;
+
+  async function fetchFeatureBundles() {
+    if (featureBundleSources) {
+      return featureBundleSources;
+    }
+
+    featureBundleSources = await Promise.all(
+      featureBundlePaths.map(async (bundlePath) => {
+        const response = await fetch(bundlePath, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Could not load client bundle ${bundlePath}.`);
+        }
+
+        return {
+          bundlePath,
+          bundleSource: await response.text(),
+        };
+      })
+    );
+
+    return featureBundleSources;
+  }

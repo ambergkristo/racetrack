@@ -1,0 +1,50 @@
+  function buildContent() {
+    if (routeConfig.public && state.bootstrapStatus === "error" && !hasRaceData()) {
+      return panel(
+        "Live Feed Unavailable",
+        `
+          ${inlineAlert({
+            tone: "danger",
+            title: "The public board could not load",
+            detail: state.bootstrapError || state.error || "No bootstrap or websocket data is available yet.",
+          })}
+          ${emptyState(
+            "Waiting for a usable race snapshot",
+            "Keep this screen open. As soon as bootstrap or websocket state becomes available, the board will recover without polling."
+          )}
+        `,
+        "danger",
+        "panel-wide"
+      );
+    }
+
+    if (route === "/front-desk") {
+      return [frontDeskHotfixPanel(), debugMode ? runtimePanel() : ""].join("");
+    }
+
+    if (route === "/race-control") {
+      return [raceControlPanel(), debugMode ? runtimePanel() : ""].join("");
+    }
+
+    if (route === "/lap-line-tracker") {
+      return [staffStatusPanel(), lapTrackerPanel(), debugMode ? runtimePanel() : ""].join("");
+    }
+
+    if (route === "/leader-board") {
+      return leaderBoardPanels();
+    }
+
+    if (route === "/next-race") {
+      return nextRacePanels();
+    }
+
+    if (route === "/race-countdown") {
+      return countdownPanels();
+    }
+
+    if (route === "/race-flags") {
+      return flagPanels();
+    }
+
+    return homePanels();
+  }

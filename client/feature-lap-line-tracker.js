@@ -1,0 +1,651 @@
+// Generated from client/src. Run `npm run sync:client` after editing source modules.
+  function lapTrackSeed(value) {
+    return String(value || "")
+      .split("")
+      .reduce((hash, character) => ((hash * 33 + character.charCodeAt(0)) % 9973), 17);
+  }
+
+  function buildLapTrackPath(points, closed = true) {
+    if (!Array.isArray(points) || points.length === 0) {
+      return "";
+    }
+
+    const commands = [`M ${points[0].x} ${points[0].y}`];
+    for (let index = 1; index < points.length; index += 1) {
+      commands.push(`L ${points[index].x} ${points[index].y}`);
+    }
+    if (closed) {
+      commands.push("Z");
+    }
+    return commands.join(" ");
+  }
+
+  function buildLapTrackMetrics(points, closed = true) {
+    const segments = [];
+    let totalLength = 0;
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const length = Math.hypot(dx, dy);
+      segments.push({
+        start,
+        end,
+        dx,
+        dy,
+        length,
+        startLength: totalLength,
+      });
+      totalLength += length;
+    }
+
+    if (closed && points.length > 1) {
+      const start = points[points.length - 1];
+      const end = points[0];
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const length = Math.hypot(dx, dy);
+      segments.push({
+        start,
+        end,
+        dx,
+        dy,
+        length,
+        startLength: totalLength,
+      });
+      totalLength += length;
+    }
+
+    return {
+      points,
+      segments,
+      totalLength,
+    };
+  }
+
+  function sampleLapTrackPolyline(metrics, progress) {
+    if (!metrics || !metrics.segments.length || metrics.totalLength <= 0) {
+      return {
+        x: 0,
+        y: 0,
+        tangent: { x: 1, y: 0 },
+        normal: { x: 0, y: -1 },
+      };
+    }
+
+    const normalized = ((progress % 1) + 1) % 1;
+    const targetLength = normalized * metrics.totalLength;
+    const segment =
+      metrics.segments.find(
+        (candidate) => targetLength <= candidate.startLength + candidate.length
+      ) || metrics.segments[metrics.segments.length - 1];
+    const ratio = segment.length > 0
+      ? (targetLength - segment.startLength) / segment.length
+      : 0;
+    const x = segment.start.x + segment.dx * ratio;
+    const y = segment.start.y + segment.dy * ratio;
+    const tangentLength = Math.max(Math.hypot(segment.dx, segment.dy), 1);
+    const tangent = {
+      x: segment.dx / tangentLength,
+      y: segment.dy / tangentLength,
+    };
+
+    return {
+      x,
+      y,
+      tangent,
+      normal: {
+        x: -tangent.y,
+        y: tangent.x,
+      },
+    };
+  }
+
+  function getLapTrackGeometry() {
+    if (lapTrackVisualState.geometry) {
+      return lapTrackVisualState.geometry;
+    }
+
+    const loopMetrics = buildLapTrackMetrics(LAP_TRACK_LAYOUT.loop, true);
+    const pitMetrics = buildLapTrackMetrics(LAP_TRACK_LAYOUT.pitLane, false);
+    const finishSample = sampleLapTrackPolyline(loopMetrics, LAP_TRACK_FINISH_PROGRESS);
+    const finishLength = 22;
+
+    lapTrackVisualState.geometry = {
+      viewBox: LAP_TRACK_VIEWBOX,
+      loopPath: buildLapTrackPath(LAP_TRACK_LAYOUT.loop, true),
+      pitLanePath: buildLapTrackPath(LAP_TRACK_LAYOUT.pitLane, false),
+      loopMetrics,
+      pitMetrics,
+      finishLine: {
+        x1: finishSample.x + finishSample.normal.x * finishLength,
+        y1: finishSample.y + finishSample.normal.y * finishLength,
+        x2: finishSample.x - finishSample.normal.x * finishLength,
+        y2: finishSample.y - finishSample.normal.y * finishLength,
+      },
+    };
+
+    return lapTrackVisualState.geometry;
+  }
+
+  function getSimulationMeta(snapshot = state.raceSnapshot) {
+    return snapshot.simulation || createEmptyRaceSnapshot().simulation;
+  }
+
+  function simulationStatusTone(status) {
+    if (status === "ACTIVE") {
+      return "warning";
+    }
+
+    if (status === "READY") {
+      return "safe";
+    }
+
+    if (status === "COMPLETED") {
+      return "danger";
+    }
+
+    return "idle";
+  }
+
+  function buildLapTrackerEstimateModel(nowMs = Date.now()) {
+    const snapshot = state.raceSnapshot;
+    const activeSession = getDisplaySession();
+    if (!activeSession || activeSession.racers.length === 0) {
+      return [];
+    }
+
+    const simulation = getSimulationMeta(snapshot);
+    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
+    const leaderboardEntries = getDisplayLeaderboardEntries(snapshot);
+    const leaderboardByRacerId = new Map(
+      leaderboardEntries.map((entry) => [entry.racerId, entry])
+    );
+    const simulationByRacerId = new Map(
+      simulation.racers.map((entry) => [entry.racerId, entry])
+    );
+    const baselineSamples = [
+      ...leaderboardEntries.map((entry) => entry.bestLapTimeMs),
+      ...activeSession.racers.map((racer) => racer.bestLapTimeMs),
+    ].filter((value) => Number.isFinite(value) && value > 0);
+    const baselineLapMs = baselineSamples.length
+      ? clamp(
+          Math.round(
+            baselineSamples.reduce((sum, value) => sum + value, 0) / baselineSamples.length
+          ),
+          18000,
+          120000
+        )
+      : 45000;
+    const syncTimeMs = parseTimestampMs(snapshot.serverTime ?? state.lastSyncAt) ?? nowMs;
+    const liveAdvanceMs =
+      snapshot.state === "RUNNING" || snapshot.state === "FINISHED"
+        ? Math.max(0, nowMs - syncTimeMs)
+        : 0;
+    const orderedRacers = activeSession.racers.slice().sort((left, right) => {
+      const leftEntry = leaderboardByRacerId.get(left.id);
+      const rightEntry = leaderboardByRacerId.get(right.id);
+      const leftOrder = Number.isFinite(leftEntry?.position) ? leftEntry.position : Number.MAX_SAFE_INTEGER;
+      const rightOrder = Number.isFinite(rightEntry?.position) ? rightEntry.position : Number.MAX_SAFE_INTEGER;
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return compareRacers(left, right);
+    });
+    const racerCount = orderedRacers.length;
+
+    return orderedRacers.map((racer, index) => {
+      const entry = leaderboardByRacerId.get(racer.id);
+      const simulationEntry = simulationByRacerId.get(racer.id);
+      const seed = lapTrackSeed(`${racer.id}:${racer.carNumber || racer.name}`);
+      const seedUnit = (seed % 1000) / 1000;
+      const lapCount = entry?.lapCount ?? racer.lapCount ?? 0;
+      const bestLapMs = Number.isFinite(entry?.bestLapTimeMs)
+        ? entry.bestLapTimeMs
+        : Number.isFinite(racer.bestLapTimeMs)
+          ? racer.bestLapTimeMs
+          : null;
+      const reportedCurrentLapMs = Number.isFinite(entry?.currentLapTimeMs)
+        ? entry.currentLapTimeMs + liveAdvanceMs
+        : null;
+      const elapsedFromCrossingMs = Number.isFinite(racer.lastCrossingTimestampMs)
+        ? Math.max(0, nowMs - racer.lastCrossingTimestampMs)
+        : null;
+      const estimatedLapMs = clamp(
+        Math.round(
+          Math.max(
+            bestLapMs ? bestLapMs * (1.02 + seedUnit * 0.06) : 0,
+            baselineLapMs * (0.92 + seedUnit * 0.16),
+            Number.isFinite(reportedCurrentLapMs)
+              ? reportedCurrentLapMs + 2200
+              : Number.isFinite(elapsedFromCrossingMs)
+                ? elapsedFromCrossingMs + 2600
+                : 0
+          )
+        ),
+        18000,
+        120000
+      );
+      const fallbackBaseProgress = clamp(
+        0.12 + ((racerCount - index) / Math.max(racerCount, 1)) * 0.58 + seedUnit * 0.06,
+        0.08,
+        0.84
+      );
+      const sparseDriftProgress = clamp(
+        (fallbackBaseProgress + liveAdvanceMs / Math.max(estimatedLapMs * (0.88 + seedUnit * 0.2), 1)) %
+          1,
+        0.05,
+        0.985
+      );
+      let lapProgress = simulation.active && simulationEntry
+        ? clamp(simulationEntry.progress, 0.01, 0.995)
+        : Number.isFinite(reportedCurrentLapMs)
+          ? clamp(reportedCurrentLapMs / estimatedLapMs, 0.03, 0.985)
+          : Number.isFinite(elapsedFromCrossingMs)
+            ? clamp(elapsedFromCrossingMs / estimatedLapMs, 0.04, 0.985)
+            : sparseDriftProgress;
+
+      if (
+        !simulationEntry &&
+        (snapshot.finishOrderActive || simulation.status === "COMPLETED") &&
+        Number.isFinite(entry?.finishPlace)
+      ) {
+        lapProgress = clamp(0.982 + entry.finishPlace * 0.003, 0.982, 0.997);
+      }
+
+      const lane = simulationEntry?.lane || "TRACK";
+      const pitProgress = lane === "GARAGE"
+        ? 1
+        : clamp(Number(simulationEntry?.pitProgress) || 0, 0, 0.999);
+
+      return {
+        id: racer.id,
+        name: racer.name,
+        carNumber: simulationEntry?.carNumber || racer.carNumber || "--",
+        lapCount,
+        orderIndex: index,
+        position: entry?.position ?? index + 1,
+        finishPlace: entry?.finishPlace ?? racer.finishPlace ?? null,
+        simulationProgress: simulationEntry?.progress ?? null,
+        simulationPhase: simulation.phase,
+        simulationPhaseLabel: simulationPhaseMeta.label,
+        markerHue: (seed * 13) % 360,
+        targetLapDurationMs: simulationEntry?.targetLapDurationMs ?? estimatedLapMs,
+        lane,
+        pitProgress,
+        totalProgress: lapCount + lapProgress,
+      };
+    });
+  }
+
+  function lapTrackerVisualPanel() {
+    const racers = buildLapTrackerEstimateModel();
+    const simulation = getSimulationMeta();
+    const geometry = getLapTrackGeometry();
+    const trackLabel = simulation.active
+      ? "Simulation track"
+      : state.raceSnapshot.finishOrderActive
+        ? "Finish map"
+        : "Estimated track";
+    const markerMarkup = racers
+      .map(
+        (racer) => `
+          <g class="lap-track-marker${racer.position === 1 ? " is-leader" : ""}${Number.isFinite(racer.finishPlace) ? " is-finished" : ""}${racer.lane === "PIT" ? " is-pit" : ""}${racer.lane === "GARAGE" ? " is-garage" : ""}" style="--marker-hue:${racer.markerHue};" data-track-marker="${escapeHtml(racer.id)}">
+            <circle class="lap-track-marker-halo" cx="0" cy="0" r="15"></circle>
+            <circle class="lap-track-marker-dot" cx="0" cy="0" r="10"></circle>
+            <text class="lap-track-marker-car" text-anchor="middle" x="0" y="4">${escapeHtml(racer.carNumber)}</text>
+            ${
+              Number.isFinite(racer.finishPlace)
+                ? `<text class="lap-track-marker-place" text-anchor="middle" x="0" y="-20">${escapeHtml(formatOrdinal(racer.finishPlace))}</text>`
+                : ""
+            }
+          </g>
+        `
+      )
+      .join("");
+
+    return `
+      <div class="lap-track-visual" id="lap-track-estimate">
+        <div class="lap-track-visual-head">
+          <span class="lap-track-visual-label">${escapeHtml(trackLabel)}</span>
+        </div>
+        <svg class="lap-track-svg" viewBox="0 0 ${geometry.viewBox.width} ${geometry.viewBox.height}" role="img" aria-label="Telemetry simulation track map">
+          <rect class="lap-track-frame" x="22" y="24" width="516" height="272" rx="24"></rect>
+          <path class="lap-track-gridline" d="M 40 88 H 520"></path>
+          <path class="lap-track-gridline" d="M 40 160 H 520"></path>
+          <path class="lap-track-gridline" d="M 40 232 H 520"></path>
+          <path class="lap-track-glow" d="${geometry.loopPath}"></path>
+          <path class="lap-track-lane lap-track-lane-shell" d="${geometry.loopPath}"></path>
+          <path class="lap-track-lane lap-track-lane-core" d="${geometry.loopPath}"></path>
+          <path class="lap-track-lane lap-track-center-line" d="${geometry.loopPath}"></path>
+          <g class="lap-track-finish-line">
+            <line x1="${geometry.finishLine.x1.toFixed(2)}" y1="${geometry.finishLine.y1.toFixed(2)}" x2="${geometry.finishLine.x2.toFixed(2)}" y2="${geometry.finishLine.y2.toFixed(2)}"></line>
+            <text x="${(geometry.finishLine.x1 + 10).toFixed(2)}" y="${(geometry.finishLine.y1 - 8).toFixed(2)}">F</text>
+          </g>
+          <path class="lap-track-pit-lane" d="${geometry.pitLanePath}"></path>
+          <text class="lap-track-pit-label" x="426" y="98">PIT</text>
+          <g class="lap-track-marker-layer">
+            ${markerMarkup}
+          </g>
+        </svg>
+      </div>
+    `;
+  }
+
+  function rosterStrip(session, { emptyTitle, emptyDetail, limit = 8, gridClass = "" } = {}) {
+    if (isInitialPublicLoad()) {
+      return loadingSkeleton(4);
+    }
+
+    if (!session || session.racers.length === 0) {
+      return emptyState(emptyTitle, emptyDetail);
+    }
+
+    return `
+      <div class="roster-pill-grid${gridClass ? ` ${escapeHtml(gridClass)}` : ""}">
+        ${session.racers
+          .slice(0, limit)
+          .map(
+            (racer) => `
+              <div class="roster-pill">
+                <strong>${escapeHtml(racer.name)}</strong>
+                <span class="roster-pill-car">Car ${escapeHtml(racer.carNumber || "--")}</span>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function lapTrackerPanel() {
+    const snapshot = state.raceSnapshot;
+    const activeSession = getDisplaySession();
+    const simulation = getSimulationMeta(snapshot);
+    const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
+    const lapAllowed = Boolean(snapshot.lapEntryAllowed);
+    const flagMeta = getFlagMeta(snapshot);
+    const lapReason = firstReason(
+      staffAccessReason(),
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before lap entry.",
+      simulation.active ? "Simulation is driving lap truth right now." : "",
+      lapAllowed ? "" : "Lap entry is only available while RUNNING or FINISHED."
+    );
+    const simulateReason = firstReason(
+      staffAccessReason(),
+      state.pending ? "Wait for the current request to finish." : "",
+      activeSession ? "" : "Stage a session before starting simulation.",
+      snapshot.state === "STAGING" ? "" : "Simulation can only start from STAGING.",
+      activeSession && activeSession.racers.length > 0 ? "" : "Simulation needs staged racers.",
+      simulation.active ? "Simulation is already active." : "",
+      snapshot.state === "LOCKED" ? "Simulation is unavailable once the race is locked." : ""
+    );
+    const racers = activeSession ? activeSession.racers : [];
+
+    const buttons = racers.length
+      ? racers
+          .map(
+            (racer) => `
+              ${buttonMarkup({
+                variant: "ghost",
+                size: "huge-touch",
+                disabled: Boolean(lapReason),
+                attrs: `data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}"`,
+                innerHtml: `
+                <span class="lap-entry-car">${escapeHtml(racer.carNumber ? `Car ${racer.carNumber}` : "Car --")}</span>
+                <strong class="lap-entry-name">${escapeHtml(racer.name)}</strong>
+                <em class="lap-entry-laps">${escapeHtml(`${racer.lapCount} laps`)}</em>
+                `,
+              })}
+            `
+          )
+          .join("")
+      : emptyState(
+          "No staged racers available",
+          "Stage a session first, then lap tracker buttons will appear here."
+        );
+
+    const overlay =
+      snapshot.state === "LOCKED"
+        ? '<div class="session-overlay">Session is LOCKED. Lap input is blocked.</div>'
+        : "";
+
+    return [
+      panel(
+        "Lap Entry Console",
+        `
+          <div class="lap-tracker-shell">
+            <div class="lap-stage tone-${flagMeta.tone}">
+              <div class="lap-entry-shell">
+                <div class="lap-entry-head">
+                  <div class="lap-stage-copy">
+                    <strong class="command-stage-title">${escapeHtml(activeSession ? activeSession.name : "Awaiting staged session")}</strong>
+                  </div>
+                  <div class="telemetry-tags lap-tracker-head-tags">
+                    <span class="telemetry-tag tone-${flagMeta.tone}">${escapeHtml(flagMeta.label)}</span>
+                    <span class="telemetry-tag tone-${simulation.active ? "warning" : lapAllowed ? "safe" : "danger"}">${escapeHtml(
+                      simulation.active ? "Simulation driving" : lapAllowed ? "Lap entry open" : "Lap entry blocked"
+                    )}</span>
+                    <span class="telemetry-tag tone-${escapeHtml(simulationPhaseMeta.tone)}">${escapeHtml(
+                      simulationPhaseMeta.label
+                    )}</span>
+                    <span class="telemetry-tag tone-${escapeHtml(simulationStatusTone(simulation.active ? "ACTIVE" : simulation.status))}">${escapeHtml(
+                      simulation.active ? "Simulation Active" : simulation.status === "READY" ? "Simulation Ready" : simulation.status === "COMPLETED" ? "Simulation Complete" : "Simulation Idle"
+                    )}</span>
+                    ${buttonMarkup({
+                      id: "simulate-race-btn",
+                      label: "Simulate Race",
+                      variant: "warning",
+                      size: "mini",
+                      disabled: Boolean(simulateReason),
+                    })}
+                  </div>
+                </div>
+                <div class="car-grid lap-grid lap-entry-grid">${buttons}</div>
+              </div>
+            </div>
+            <div class="lap-tracker-sidecar">
+              ${lapTrackerVisualPanel()}
+            </div>
+          </div>
+          ${overlay}
+        `,
+        "danger",
+        "staff-main-panel lap-tracker-panel"
+      ),
+    ].join("");
+  }
+  function bindLapTrackerEvents() {
+    const simulateBtn = document.getElementById("simulate-race-btn");
+
+    if (simulateBtn) {
+      simulateBtn.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/race/simulate", {
+              method: "POST",
+              body: {},
+            }),
+          "Simulation started.",
+          () => {
+            setNotice("success", "Simulation is driving the staged session.", 2200);
+          }
+        );
+      });
+    }
+
+    document.querySelectorAll("[data-action='lap-crossing']").forEach((node) => {
+      node.addEventListener("click", () => {
+        runAction(
+          () =>
+            apiRequest("/api/laps/crossing", {
+              method: "POST",
+              body: { racerId: node.dataset.racerId },
+            }),
+          "Lap crossing recorded.",
+          () => {
+            const activeSession = getActiveSession();
+            const racer = activeSession?.racers.find((item) => item.id === node.dataset.racerId);
+            if (racer) {
+              setNotice("success", `Lap crossing recorded for ${racer.name}.`, 1800);
+            }
+          }
+        );
+      });
+    });
+  }
+
+  function stopLapTrackAnimation() {
+    if (lapTrackVisualState.frameId && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(lapTrackVisualState.frameId);
+      lapTrackVisualState.frameId = 0;
+    }
+    lapTrackVisualState.lastFrameTs = 0;
+    if (typeof cancelAnimationFrame !== "function") {
+      lapTrackVisualState.frameId = 0;
+    }
+  }
+
+  function lapTrackPoint(progress, offset = 0) {
+    const geometry = getLapTrackGeometry();
+    const sample = sampleLapTrackPolyline(
+      geometry.loopMetrics,
+      (((progress % 1) + 1) % 1) + LAP_TRACK_FINISH_PROGRESS
+    );
+    return {
+      x: sample.x + sample.normal.x * offset,
+      y: sample.y + sample.normal.y * offset,
+    };
+  }
+
+  function applyLapTrackOverlapOffsets(items) {
+    if (items.length <= 1) {
+      return new Map(items.map((item) => [item.id, 0]));
+    }
+
+    const sorted = items.slice().sort((left, right) => left.progress - right.progress);
+    const clusters = [];
+    let cluster = [sorted[0]];
+
+    for (let index = 1; index < sorted.length; index += 1) {
+      if ((sorted[index].progress - sorted[index - 1].progress) < 0.04) {
+        cluster.push(sorted[index]);
+        continue;
+      }
+      clusters.push(cluster);
+      cluster = [sorted[index]];
+    }
+    clusters.push(cluster);
+
+    if (
+      clusters.length > 1 &&
+      ((sorted[0].progress + 1) - sorted[sorted.length - 1].progress) < 0.04
+    ) {
+      clusters[0] = [...clusters[clusters.length - 1], ...clusters[0]];
+      clusters.pop();
+    }
+
+    const offsets = new Map();
+    const pattern = [0, 12, -12, 22, -22, 30, -30, 38];
+    clusters.forEach((group) => {
+      group.forEach((item, index) => {
+        offsets.set(item.id, pattern[index] ?? 0);
+      });
+    });
+
+    return offsets;
+  }
+
+  function frameLapTrackVisual(frameTs) {
+    const root = document.getElementById("lap-track-estimate");
+    if (!root || route !== "/lap-line-tracker") {
+      stopLapTrackAnimation();
+      return;
+    }
+
+    const nowMs = Date.now();
+    const model = buildLapTrackerEstimateModel(nowMs);
+    const nextIds = new Set(model.map((item) => item.id));
+    const smoothing = lapTrackVisualState.lastFrameTs
+      ? 1 - Math.exp(-(Math.min(frameTs - lapTrackVisualState.lastFrameTs, 96) / 180))
+      : 1;
+    lapTrackVisualState.lastFrameTs = frameTs;
+
+    lapTrackVisualState.markers.forEach((_, markerId) => {
+      if (!nextIds.has(markerId)) {
+        lapTrackVisualState.markers.delete(markerId);
+      }
+    });
+
+    const displayItems = model.map((item) => {
+      const previous = lapTrackVisualState.markers.get(item.id) || {
+        displayTotalProgress: item.totalProgress,
+        displayPitProgress: item.pitProgress || 0,
+      };
+      previous.displayTotalProgress += (item.totalProgress - previous.displayTotalProgress) * smoothing;
+      previous.displayPitProgress += ((item.pitProgress || 0) - previous.displayPitProgress) * smoothing;
+      lapTrackVisualState.markers.set(item.id, previous);
+      return {
+        ...item,
+        progress: ((previous.displayTotalProgress % 1) + 1) % 1,
+        pitProgress: clamp(previous.displayPitProgress, 0, 1),
+      };
+    });
+    const trackOffsets = applyLapTrackOverlapOffsets(
+      displayItems.filter((item) => item.lane === "TRACK")
+    );
+    const pitOffsets = applyLapTrackOverlapOffsets(
+      displayItems
+        .filter((item) => item.lane === "PIT" || item.lane === "GARAGE")
+        .map((item) => ({
+          ...item,
+          progress: item.pitProgress,
+        }))
+    );
+
+    displayItems.forEach((item) => {
+      const marker = root.querySelector(`[data-track-marker=\"${item.id}\"]`);
+      if (!marker) {
+        return;
+      }
+
+      const point =
+        item.lane === "PIT" || item.lane === "GARAGE"
+          ? (() => {
+              const geometry = getLapTrackGeometry();
+              const sample = sampleLapTrackPolyline(geometry.pitMetrics, item.pitProgress);
+              const offset = pitOffsets.get(item.id) ?? 0;
+              return {
+                x: sample.x + sample.normal.x * offset,
+                y: sample.y + sample.normal.y * offset,
+              };
+            })()
+          : lapTrackPoint(item.progress, trackOffsets.get(item.id) ?? 0);
+      marker.setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`);
+      marker.classList.toggle("is-leader", item.position === 1);
+      marker.classList.toggle("is-pit", item.lane === "PIT");
+      marker.classList.toggle("is-garage", item.lane === "GARAGE");
+    });
+
+    lapTrackVisualState.frameId = requestAnimationFrame(frameLapTrackVisual);
+  }
+
+  function ensureLapTrackAnimation() {
+    if (typeof requestAnimationFrame !== "function") {
+      return;
+    }
+
+    if (route !== "/lap-line-tracker") {
+      stopLapTrackAnimation();
+      return;
+    }
+
+    if (!lapTrackVisualState.frameId) {
+      lapTrackVisualState.frameId = requestAnimationFrame(frameLapTrackVisual);
+    }
+  }

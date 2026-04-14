@@ -43,8 +43,28 @@
     });
   });
 
-  loadBootstrap();
-  render();
+  try {
+    const featureBundles = await fetchFeatureBundles();
+    for (const { bundlePath, bundleSource } of featureBundles) {
+      eval(`${bundleSource}\n//# sourceURL=${bundlePath}`);
+    }
+    loadBootstrap();
+    render();
+  } catch (error) {
+    console.error(error);
+    appEl.innerHTML = appShell(
+      panel(
+        "Client Load Error",
+        inlineAlert({
+          tone: "danger",
+          title: "The route shell could not finish loading.",
+          detail: error?.message || "One of the client feature bundles failed to load.",
+        }),
+        "danger",
+        "panel-wide"
+      )
+    );
+  }
 
   window.RacetrackUI = {
     fullscreenButton,

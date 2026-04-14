@@ -1,3 +1,4 @@
+// Generated from client/src. Run `npm run sync:client` after editing source modules.
   function homePanels() {
     return [
       summaryPanel(),
