@@ -377,13 +377,13 @@
             <div class="frontdesk-car-adjust-modal-head-copy">
               <p class="section-kicker">Manual adjustment</p>
               <h3 id="frontdesk-car-adjust-title">Adjust car numbers</h3>
-              <p class="hint">Change assignments in this dialog, then return to the unchanged Front Desk layout.</p>
+              <p class="hint">Adjust exceptions here. The Front Desk layout stays unchanged.</p>
             </div>
             <span class="chip tiny-chip">${escapeHtml(carAssignmentState.session?.name || "No session")}</span>
           </div>
           <p id="car-assignment-hint" class="hint">${escapeHtml(
             carAssignmentState.saveReason ||
-              "Choose car numbers for the racers you need to adjust."
+              "Set only the car-number exceptions you need."
           )}</p>
           ${carAssignmentModalRows(carAssignmentState)}
           <div class="controls frontdesk-car-adjust-controls frontdesk-car-adjust-modal-actions">
