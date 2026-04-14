@@ -11,6 +11,28 @@ If the app appears unresponsive:
 - wait about 30 seconds
 - refresh the page
 
+## Evaluator quick path
+
+For the fastest local evaluation:
+
+```bash
+npm install
+cp .env.example .env
+npm start
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Then open:
+
+- `http://localhost:3000/front-desk`
+
+Use the demo/testing keys already documented in this README.
+
 Single-host Node.js app for running Beachside Racetrack staff screens and public display screens.
 
 - Backend: Express + Socket.IO
@@ -214,6 +236,21 @@ npm run test:m3-matrix
 - SPA deep-linking is enabled for all listed routes.
 - Public display routes keep fullscreen controls available.
 - Race lifecycle, socket contract, and timer behavior are covered by the regression suite in `tests/`.
+
+## Bonus feature: Simulation mode
+
+Simulation mode is an extra / bonus feature and is not part of the original school MVP requirement.
+
+It is meant for demo, testing, and presentation use when you want to show the race flow end-to-end without manual lap entry.
+
+During simulation, you can observe the public screens update across:
+
+- `http://localhost:3000/leader-board`
+- `http://localhost:3000/next-race`
+- `http://localhost:3000/race-countdown`
+- `http://localhost:3000/race-flags`
+
+Normal manual operation remains unchanged. Staff routes can still be operated manually in the standard workflow.
 
 ## Troubleshooting
 
