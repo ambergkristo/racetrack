@@ -709,6 +709,9 @@
     const assignmentStatusDetail =
       carAssignmentState.startReason ||
       "Auto mode uses cars 1-8 unless a session needs an exception.";
+    const assignmentActionDetail =
+      carAssignmentState.startReason ||
+      "Open manual overrides only for session-specific exceptions.";
     const assignmentConsole = `
       <div class="frontdesk-assignment-zone">
         <div class="frontdesk-inline-section frontdesk-assignment-console">
@@ -724,7 +727,11 @@
         <div class="frontdesk-assignment-trigger">
           ${buttonMarkup({
             id: "adjust-car-numbers-btn",
-            label: "Adjust car numbers",
+            innerHtml: `
+              <span class="frontdesk-assignment-trigger-kicker">Manual override</span>
+              <strong>Adjust car numbers</strong>
+              <span class="frontdesk-assignment-trigger-copy">${escapeHtml(assignmentActionDetail)}</span>
+            `,
             variant: "ghost",
             size: "mini",
             disabled: Boolean(carAssignmentState.startReason),

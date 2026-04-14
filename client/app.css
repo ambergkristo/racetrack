@@ -3247,14 +3247,14 @@ body {
 
 .route-front-desk .frontdesk-racer-console-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
   gap: 8px;
   align-items: start;
 }
 
 .route-front-desk .frontdesk-assignment-zone {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   align-items: start;
 }
@@ -3458,6 +3458,7 @@ body {
 }
 
 .route-front-desk .frontdesk-assignment-console {
+  min-width: 0;
   gap: 6px;
   padding: 8px 10px;
   align-content: start;
@@ -3482,19 +3483,66 @@ body {
 
 .route-front-desk .frontdesk-assignment-copy span {
   color: var(--muted);
-  font-size: 0.71rem;
-  line-height: 1.2;
+  font-size: 0.69rem;
+  line-height: 1.18;
 }
 
 .route-front-desk .frontdesk-assignment-trigger {
   display: flex;
-  justify-content: flex-end;
+  min-width: 0;
+  justify-content: stretch;
   align-items: flex-start;
 }
 
 .route-front-desk .frontdesk-assignment-trigger .action-btn {
   min-width: 0;
-  white-space: nowrap;
+  min-height: 0;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 212, 0, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 212, 0, 0.045), rgba(255, 212, 0, 0.015)),
+    rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  align-content: start;
+  text-align: left;
+  color: var(--ink);
+}
+
+.route-front-desk .frontdesk-assignment-trigger .action-btn strong {
+  font-family: "Orbitron", "Segoe UI", sans-serif;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--warning);
+}
+
+.route-front-desk .frontdesk-assignment-trigger .action-btn span {
+  display: block;
+}
+
+.route-front-desk .frontdesk-assignment-trigger-kicker {
+  color: rgba(179, 191, 214, 0.86);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.route-front-desk .frontdesk-assignment-trigger-copy {
+  color: var(--muted);
+  font-size: 0.69rem;
+  line-height: 1.18;
+}
+
+.route-front-desk .frontdesk-assignment-trigger .action-btn:hover:not(:disabled) {
+  border-color: rgba(255, 212, 0, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 212, 0, 0.06), rgba(255, 212, 0, 0.02)),
+    rgba(255, 255, 255, 0.03);
 }
 
 .route-front-desk .frontdesk-car-adjust-controls {
