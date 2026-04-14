@@ -3223,13 +3223,13 @@ body {
   justify-content: space-between;
   gap: 10px;
   align-items: flex-start;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .route-front-desk .frontdesk-desktop-body {
   min-height: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-content: start;
 }
 
@@ -3240,7 +3240,7 @@ body {
 
 .route-front-desk .frontdesk-racer-control-zone {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   align-content: start;
   flex-shrink: 0;
 }
@@ -3248,7 +3248,14 @@ body {
 .route-front-desk .frontdesk-racer-console-row {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
-  gap: 10px;
+  gap: 8px;
+  align-items: start;
+}
+
+.route-front-desk .frontdesk-assignment-zone {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
   align-items: start;
 }
 
@@ -3282,9 +3289,19 @@ body {
   gap: 3px;
 }
 
+.route-front-desk .frontdesk-racer-status-copy {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+}
+
+.route-front-desk .frontdesk-racer-status-copy .hint {
+  margin: 0;
+}
+
 .route-front-desk .frontdesk-target-session {
   font-family: "Orbitron", "Segoe UI", sans-serif;
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -3343,7 +3360,7 @@ body {
 
 .route-front-desk .frontdesk-racer-form {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   align-items: end;
 }
 
@@ -3441,6 +3458,8 @@ body {
 }
 
 .route-front-desk .frontdesk-assignment-console {
+  gap: 6px;
+  padding: 8px 10px;
   align-content: start;
   border-color: rgba(255, 212, 0, 0.16);
   background:
@@ -3450,21 +3469,32 @@ body {
 
 .route-front-desk .frontdesk-assignment-copy {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .route-front-desk .frontdesk-assignment-copy strong {
   font-family: "Orbitron", "Segoe UI", sans-serif;
-  font-size: 0.84rem;
+  font-size: 0.76rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--warning);
 }
 
-.route-front-desk .frontdesk-assignment-copy span:last-child {
+.route-front-desk .frontdesk-assignment-copy span {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.71rem;
   line-height: 1.2;
+}
+
+.route-front-desk .frontdesk-assignment-trigger {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.route-front-desk .frontdesk-assignment-trigger .action-btn {
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .route-front-desk .frontdesk-car-adjust-controls {
@@ -3495,7 +3525,9 @@ body {
 .route-front-desk .frontdesk-car-adjust-modal {
   position: relative;
   width: min(760px, 100%);
+  max-height: calc(100dvh - 48px);
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 16px;
   padding: 20px;
   border-radius: 22px;
@@ -3504,6 +3536,7 @@ body {
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
     rgba(12, 14, 20, 0.98);
   box-shadow: 0 30px 100px rgba(0, 0, 0, 0.46);
+  overflow: hidden;
 }
 
 .route-front-desk .frontdesk-car-adjust-modal-head {
@@ -3529,6 +3562,9 @@ body {
 .route-front-desk .frontdesk-car-adjust-modal-list {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .route-front-desk .frontdesk-car-adjust-modal-row {
@@ -4678,6 +4714,8 @@ body {
   .route-front-desk .frontdesk-racer-console-row,
   .route-front-desk .frontdesk-racer-form,
   .route-front-desk .frontdesk-car-adjust-controls,
+  .route-front-desk .frontdesk-assignment-zone,
+  .route-front-desk .frontdesk-racer-status-copy,
   .route-front-desk .frontdesk-queue-setup,
   .route-front-desk .frontdesk-summary-strip,
   .route-front-desk .frontdesk-control-body .status-marquee,
@@ -4692,6 +4730,14 @@ body {
 
   .route-front-desk .frontdesk-car-adjust-modal-row {
     grid-template-columns: 1fr;
+  }
+
+  .route-front-desk .frontdesk-assignment-trigger {
+    justify-content: stretch;
+  }
+
+  .route-front-desk .frontdesk-assignment-trigger .action-btn {
+    width: 100%;
   }
 
   .public-shell {

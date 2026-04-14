@@ -2507,27 +2507,27 @@
           ? "Standby roster is full. Review the session list below if you need a different next race."
           : `${registeredCount} racer${registeredCount === 1 ? "" : "s"} staged. Keep building the standby roster on the right.`;
     const assignmentStatusTitle = "Assigned automatically";
-    const assignmentStatusDetail = "Use Adjust car numbers only when a session needs a manual override.";
+    const assignmentStatusDetail =
+      carAssignmentState.startReason ||
+      "Auto mode uses cars 1-8 unless a session needs an exception.";
     const assignmentConsole = `
-      <div class="frontdesk-inline-section frontdesk-assignment-console">
-        <div class="frontdesk-inline-head">
-          <p class="queue-kicker">Car assignment</p>
-          <span class="chip tiny-chip">Automatic</span>
+      <div class="frontdesk-assignment-zone">
+        <div class="frontdesk-inline-section frontdesk-assignment-console">
+          <div class="frontdesk-inline-head">
+            <p class="queue-kicker">Car assignment</p>
+            <span class="chip tiny-chip">Automatic</span>
+          </div>
+          <div class="frontdesk-assignment-copy">
+            <strong>${escapeHtml(assignmentStatusTitle)}</strong>
+            <span>${escapeHtml(assignmentStatusDetail)}</span>
+          </div>
         </div>
-        <div class="frontdesk-assignment-copy">
-          <span class="chip tiny-chip">Cars 1-8</span>
-          <strong>${escapeHtml(assignmentStatusTitle)}</strong>
-          <span>${escapeHtml(assignmentStatusDetail)}</span>
-        </div>
-        <p class="hint">${escapeHtml(
-          carAssignmentState.startReason ||
-            "Cars auto-assign by default. Open Adjust car numbers only when a session needs exceptions."
-        )}</p>
-        <div class="controls frontdesk-car-adjust-controls">
+        <div class="frontdesk-assignment-trigger">
           ${buttonMarkup({
             id: "adjust-car-numbers-btn",
             label: "Adjust car numbers",
             variant: "ghost",
+            size: "mini",
             disabled: Boolean(carAssignmentState.startReason),
           })}
         </div>
@@ -2535,7 +2535,7 @@
     `;
     const racerManagementBody = `
       <div class="frontdesk-racer-control-zone">
-        <div class="frontdesk-card-copy">
+        <div class="frontdesk-card-copy frontdesk-racer-status-copy">
           <strong class="frontdesk-target-session">${escapeHtml(managedSession ? managedSession.name : "Choose a session to manage")}</strong>
           <p id="racer-edit-hint" class="hint">${escapeHtml(
             formState.racerEditReason ||
