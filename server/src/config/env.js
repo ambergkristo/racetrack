@@ -34,7 +34,9 @@ function parseRaceDurationSeconds() {
     return explicit;
   }
 
-  return process.env.NODE_ENV === "production" ? 600 : 60;
+  return process.env.NODE_ENV === "production" || process.env.npm_lifecycle_event === "start"
+    ? 600
+    : 60;
 }
 
 function parseAuthFailureDelayMs() {

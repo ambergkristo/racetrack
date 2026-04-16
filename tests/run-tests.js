@@ -1,5 +1,6 @@
 require("./session-racer-crud.integration.test");
 require("./feature-flags.integration.test");
+require("./env-config.test");
 require("./front-desk-feature-flag.ui.test");
 require("./front-desk-workflow.ui.test");
 require("./staff-auth-focus.ui.test");
