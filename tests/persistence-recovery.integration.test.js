@@ -302,8 +302,10 @@ test("persistence restores RUNNING without lap reset or recovery auto-transition
     assert.equal(runningSnapshot.status, 200);
     assert.equal(runningSnapshot.json.state, "RUNNING");
     assert.equal(runningSnapshot.json.activeSession.racers[0].lapCount, 2);
+    const remainingBeforeRestart = runningSnapshot.json.remainingSeconds;
 
     await stopServer(firstBoot.server);
+    await new Promise((resolve) => setTimeout(resolve, 2200));
 
     const secondBoot = await startServer({ tickIntervalMs: 20 });
     try {
@@ -314,6 +316,7 @@ test("persistence restores RUNNING without lap reset or recovery auto-transition
       assert.equal(restoredSnapshot.json.activeSession.racers[0].lapCount, 2);
       assert.equal(restoredSnapshot.json.leaderboard[0].lapCount, 2);
       assert.ok(restoredSnapshot.json.remainingSeconds > 0);
+      assert.ok(restoredSnapshot.json.remainingSeconds < remainingBeforeRestart);
       assert.equal(typeof restoredSnapshot.json.endsAt, "string");
 
       const finishAfterRecovery = await requestJson(
@@ -325,6 +328,75 @@ test("persistence restores RUNNING without lap reset or recovery auto-transition
       );
       assert.equal(finishAfterRecovery.status, 200);
       assert.equal(finishAfterRecovery.json.raceSnapshot.state, "FINISHED");
+    } finally {
+      await stopServer(secondBoot.server);
+    }
+  } finally {
+    resetPersistenceEnv();
+  }
+});
+
+test("persistence finishes a running race if the timer expires during restart downtime", async () => {
+  const filePath = createPersistenceFilePath("running-expired-during-downtime");
+  configurePersistenceEnv(filePath, "4");
+
+  const firstBoot = await startServer({ tickIntervalMs: 20 });
+
+  try {
+    const createdSession = await requestJson(
+      firstBoot.url,
+      "/api/sessions",
+      "POST",
+      { name: "Heat 1" },
+      frontDeskHeaders()
+    );
+    const sessionId = createdSession.json.session.id;
+
+    const createdRacer = await requestJson(
+      firstBoot.url,
+      `/api/sessions/${sessionId}/racers`,
+      "POST",
+      { name: "Amy", carNumber: "7" },
+      frontDeskHeaders()
+    );
+    const racerId = createdRacer.json.racer.id;
+
+    const startedRace = await requestJson(
+      firstBoot.url,
+      "/api/race/start",
+      "POST",
+      {},
+      raceControlHeaders()
+    );
+    assert.equal(startedRace.status, 200);
+
+    await requestJson(
+      firstBoot.url,
+      "/api/laps/crossing",
+      "POST",
+      { racerId, timestampMs: 1000 },
+      lapTrackerHeaders()
+    );
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    const runningSnapshot = await requestJson(firstBoot.url, "/api/race", "GET");
+    assert.equal(runningSnapshot.status, 200);
+    assert.equal(runningSnapshot.json.state, "RUNNING");
+    assert.ok(runningSnapshot.json.remainingSeconds > 0);
+
+    await stopServer(firstBoot.server);
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+
+    const secondBoot = await startServer({ tickIntervalMs: 20 });
+    try {
+      const restoredSnapshot = await requestJson(secondBoot.url, "/api/race", "GET");
+      assert.equal(restoredSnapshot.status, 200);
+      assert.equal(restoredSnapshot.json.state, "FINISHED");
+      assert.equal(restoredSnapshot.json.flag, "CHECKERED");
+      assert.equal(restoredSnapshot.json.remainingSeconds, 0);
+      assert.equal(restoredSnapshot.json.activeSessionId, sessionId);
+      assert.equal(restoredSnapshot.json.activeSession.racers[0].lapCount, 1);
+      assert.equal(restoredSnapshot.json.lapEntryAllowed, true);
     } finally {
       await stopServer(secondBoot.server);
     }

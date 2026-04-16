@@ -24,6 +24,17 @@ const { registerRaceSocketHandlers } = require("./sockets/registerRaceSocketHand
 const { registerApiRoutes } = require("./routes/registerApiRoutes");
 const { registerSpaRoutes } = require("./routes/registerSpaRoutes");
 
+function resolveRecoveredRemainingSeconds(restoredState, nowMs) {
+  const restoredEndsAtMs = Date.parse(restoredState?.timerEndsAt || "");
+  if (Number.isFinite(restoredEndsAtMs)) {
+    return Math.max(0, Math.ceil((restoredEndsAtMs - nowMs) / 1000));
+  }
+
+  return Number.isInteger(restoredState?.remainingSeconds)
+    ? Math.max(0, restoredState.remainingSeconds)
+    : 0;
+}
+
 function createApp(options = {}) {
   const env = loadEnvConfig();
   const { staffRoutes, spaRoutes } = createStaffSets(env.staffRouteToKey);
@@ -128,10 +139,23 @@ function createApp(options = {}) {
   });
 
   if (restoredState && restoredState.raceState === RACE_STATES.RUNNING) {
-    const resumedTimer = timerService.resume({
-      remainingSeconds: restoredState.remainingSeconds,
-    });
-    raceStore.syncTimer(resumedTimer);
+    const recoveredRemainingSeconds = resolveRecoveredRemainingSeconds(
+      restoredState,
+      options.now ? options.now() : Date.now()
+    );
+
+    if (recoveredRemainingSeconds > 0) {
+      const resumedTimer = timerService.resume({
+        remainingSeconds: recoveredRemainingSeconds,
+      });
+      raceStore.syncTimer(resumedTimer);
+    } else {
+      raceStore.finishRace({ reason: "timer_elapsed" });
+      raceStore.syncTimer({ remainingSeconds: 0, endsAt: null });
+      logger.info("race.timer_elapsed_during_restart", {
+        state: raceStore.getSnapshot().state,
+      });
+    }
   }
 
   if (raceStore.getSnapshot().simulation?.active) {
