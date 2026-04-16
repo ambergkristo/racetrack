@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { createClientAppFetch } = require("./helpers/clientAppFetch");
 const { test } = require("./helpers/testHarness");
 
 function buildSnapshot(overrides = {}) {
@@ -106,18 +107,16 @@ async function renderRoute(pathname, { featureFlags, snapshot } = {}) {
     },
   };
 
-  const fetch = async () => ({
-    async json() {
-      return {
-        featureFlags: {
-          FF_PERSISTENCE: false,
-          FF_MANUAL_CAR_ASSIGNMENT: false,
-          ...featureFlags,
-        },
-        staffAuthDisabled: false,
-        serverTime: "2026-03-26T09:00:00.000Z",
-        raceSnapshot: buildSnapshot(snapshot),
-      };
+  const fetch = createClientAppFetch({
+    bootstrap: {
+      featureFlags: {
+        FF_PERSISTENCE: false,
+        FF_MANUAL_CAR_ASSIGNMENT: false,
+        ...featureFlags,
+      },
+      staffAuthDisabled: false,
+      serverTime: "2026-03-26T09:00:00.000Z",
+      raceSnapshot: buildSnapshot(snapshot),
     },
   });
 
