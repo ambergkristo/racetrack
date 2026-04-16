@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { createClientAppFetch } = require("./helpers/clientAppFetch");
 const { test } = require("./helpers/testHarness");
 
 function buildSnapshot() {
@@ -60,14 +61,12 @@ async function renderFrontDesk(featureFlags) {
     },
   };
 
-  const fetch = async () => ({
-    async json() {
-      return {
-        featureFlags,
-        staffAuthDisabled: false,
-        serverTime: "2026-03-25T12:00:00.000Z",
-        raceSnapshot: buildSnapshot(),
-      };
+  const fetch = createClientAppFetch({
+    bootstrap: {
+      featureFlags,
+      staffAuthDisabled: false,
+      serverTime: "2026-03-25T12:00:00.000Z",
+      raceSnapshot: buildSnapshot(),
     },
   });
 
