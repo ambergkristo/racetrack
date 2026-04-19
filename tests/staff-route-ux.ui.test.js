@@ -70,7 +70,10 @@ function buildSnapshot(overrides = {}) {
   };
 }
 
-async function renderRoute(pathname, { featureFlags, snapshot } = {}) {
+async function renderRoute(
+  pathname,
+  { featureFlags, snapshot, staffAuthDisabled = false, socketConnected = false } = {}
+) {
   const source = fs.readFileSync(path.join(__dirname, "..", "client", "app.js"), "utf8");
   const appEl = { innerHTML: "" };
 
@@ -95,14 +98,27 @@ async function renderRoute(pathname, { featureFlags, snapshot } = {}) {
       search: "",
     },
     io() {
-      return {
-        connected: false,
-        on() {},
+      const handlers = new Map();
+      const socket = {
+        connected: socketConnected,
+        on(event, handler) {
+          handlers.set(event, handler);
+          if (socketConnected && event === "connect") {
+            setImmediate(() => handler());
+          }
+          if (socketConnected && event === "race:snapshot") {
+            setImmediate(() => handler(buildSnapshot(snapshot)));
+          }
+        },
         emit() {},
         disconnect() {},
         io: {
           on() {},
         },
+      };
+
+      return {
+        ...socket,
       };
     },
   };
@@ -114,7 +130,7 @@ async function renderRoute(pathname, { featureFlags, snapshot } = {}) {
         FF_MANUAL_CAR_ASSIGNMENT: false,
         ...featureFlags,
       },
-      staffAuthDisabled: false,
+      staffAuthDisabled,
       serverTime: "2026-03-26T09:00:00.000Z",
       raceSnapshot: buildSnapshot(snapshot),
     },
@@ -195,4 +211,96 @@ test("lap-line-tracker keeps lap entry and tap targets in one console", async ()
   assert.equal(html.includes("Gate Bypassed"), false);
   assert.equal(html.includes("Manual Assign: OFF"), false);
   assert.equal(html.includes("Sync live"), false);
+});
+
+test("lap-line-tracker keeps unfinished cars enabled under checkered and blocks all input after lock", async () => {
+  const finishedHtml = await renderRoute("/lap-line-tracker", {
+    staffAuthDisabled: true,
+    socketConnected: true,
+    snapshot: {
+      state: "FINISHED",
+      lapEntryAllowed: true,
+      mode: "SAFE",
+      flag: "CHECKERED",
+      activeSession: {
+        id: "session-1",
+        name: "Morning Heat",
+        racers: [
+          {
+            id: "racer-1",
+            name: "Alex",
+            carNumber: "7",
+            lapCount: 2,
+            currentLapTimeMs: 43000,
+            bestLapTimeMs: 42888,
+            lastCrossingTimestampMs: 2000,
+            finishPlace: 1,
+          },
+          {
+            id: "racer-2",
+            name: "Ben",
+            carNumber: "8",
+            lapCount: 1,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: 1000,
+            finishPlace: null,
+          },
+        ],
+      },
+      sessions: [
+        {
+          id: "session-1",
+          name: "Morning Heat",
+          racers: [
+            {
+              id: "racer-1",
+              name: "Alex",
+              carNumber: "7",
+              lapCount: 2,
+              currentLapTimeMs: 43000,
+              bestLapTimeMs: 42888,
+              lastCrossingTimestampMs: 2000,
+              finishPlace: 1,
+            },
+            {
+              id: "racer-2",
+              name: "Ben",
+              carNumber: "8",
+              lapCount: 1,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: 1000,
+              finishPlace: null,
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  const finishedRacerButton = finishedHtml.match(/<button[^>]*data-racer-id="racer-1"[^>]*>/);
+  const unfinishedRacerButton = finishedHtml.match(/<button[^>]*data-racer-id="racer-2"[^>]*>/);
+
+  assert.ok(finishedRacerButton);
+  assert.ok(unfinishedRacerButton);
+  assert.equal(finishedRacerButton[0].includes("disabled"), true);
+  assert.equal(unfinishedRacerButton[0].includes("disabled"), false);
+  assert.equal(finishedHtml.includes("Session is LOCKED. Lap input is blocked."), false);
+
+  const lockedHtml = await renderRoute("/lap-line-tracker", {
+    staffAuthDisabled: true,
+    socketConnected: true,
+    snapshot: {
+      state: "LOCKED",
+      lapEntryAllowed: false,
+      mode: "SAFE",
+      flag: "LOCKED",
+    },
+  });
+  const lockedRacerButton = lockedHtml.match(/<button[^>]*data-racer-id="racer-1"[^>]*>/);
+
+  assert.ok(lockedRacerButton);
+  assert.equal(lockedRacerButton[0].includes("disabled"), true);
+  assert.equal(lockedHtml.includes("Session is LOCKED. Lap input is blocked."), true);
 });

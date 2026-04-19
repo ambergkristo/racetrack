@@ -128,6 +128,44 @@ test("race store keeps post-checkered finish place secondary to fastest-lap lead
   assert.equal(finishedSnapshot.leaderboard[1].finishPlace, 1);
 });
 
+test("race store allows one post-checkered crossing per racer and ignores later re-taps for finished racers", () => {
+  const raceStore = createRaceStore({
+    raceDurationSeconds: 90,
+    now: () => 1_000,
+  });
+
+  const session = raceStore.createSession({ name: "Heat 4" });
+  const amy = raceStore.addRacer(session.id, { name: "Amy" });
+  const ben = raceStore.addRacer(session.id, { name: "Ben" });
+
+  raceStore.startRace();
+  raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 9_000 });
+  raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 9_500 });
+  raceStore.finishRace({ reason: "manual" });
+
+  const amyFinish = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 21_000 });
+  const amyRetap = raceStore.recordLapCrossing({ racerId: amy.id, timestampMs: 21_050 });
+  const benFinish = raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 21_200 });
+  const benRetap = raceStore.recordLapCrossing({ racerId: ben.id, timestampMs: 21_250 });
+
+  assert.equal(amyFinish.lapCount, 2);
+  assert.equal(amyFinish.finishPlace, 1);
+  assert.equal(amyRetap.lapCount, 2);
+  assert.equal(amyRetap.finishPlace, 1);
+  assert.equal(benFinish.lapCount, 2);
+  assert.equal(benFinish.finishPlace, 2);
+  assert.equal(benRetap.lapCount, 2);
+  assert.equal(benRetap.finishPlace, 2);
+
+  const snapshot = raceStore.getSnapshot();
+  const amySnapshot = snapshot.activeSession.racers.find((racer) => racer.id === amy.id);
+  const benSnapshot = snapshot.activeSession.racers.find((racer) => racer.id === ben.id);
+  assert.equal(amySnapshot.lapCount, 2);
+  assert.equal(amySnapshot.finishPlace, 1);
+  assert.equal(benSnapshot.lapCount, 2);
+  assert.equal(benSnapshot.finishPlace, 2);
+});
+
 test("derived state truth keeps FINISHED distinct from LOCKED", () => {
   const raceStore = createRaceStore({
     raceDurationSeconds: 60,

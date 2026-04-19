@@ -390,11 +390,13 @@
     const buttons = racers.length
       ? racers
           .map(
-            (racer) => `
+            (racer) => {
+              const racerFinished = snapshot.state === "FINISHED" && Number.isFinite(racer.finishPlace);
+              return `
               ${buttonMarkup({
                 variant: "ghost",
                 size: "huge-touch",
-                disabled: Boolean(lapReason),
+                disabled: Boolean(lapReason) || racerFinished,
                 attrs: `data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}"`,
                 innerHtml: `
                 <span class="lap-entry-car">${escapeHtml(racer.carNumber ? `Car ${racer.carNumber}` : "Car --")}</span>
@@ -403,6 +405,7 @@
                 `,
               })}
             `
+            }
           )
           .join("")
       : emptyState(
