@@ -301,9 +301,10 @@ test("staff and public routes reflect the same CHECKERED truth without collapsin
     true
   );
   assert.equal(leaderBoardHtml.includes("Alex"), true);
-  assert.equal(nextRaceHtml.includes("Heat 1"), true);
+  assert.equal(nextRaceHtml.includes("Next session lineup"), true);
   assert.equal(nextRaceHtml.includes("Heat 2"), true);
   assert.equal(nextRaceHtml.includes("Blair"), true);
+  assert.equal(nextRaceHtml.includes("Proceed to the paddock"), false);
 });
 
 test("locked truth stays visible on staff and public routes while fullscreen remains available", async () => {
@@ -343,10 +344,14 @@ test("locked truth stays visible on staff and public routes while fullscreen rem
 
   const lapTrackerHtml = await renderRoute("/lap-line-tracker", { snapshot });
   const flagsHtml = await renderRoute("/race-flags", { snapshot });
+  const nextRaceHtml = await renderRoute("/next-race", { snapshot });
 
   assert.equal(lapTrackerHtml.includes("Session is LOCKED. Lap input is blocked."), true);
   assert.equal(flagsHtml.includes("id=\"fullscreen-btn\""), true);
   assert.equal(flagsHtml.includes("Locked"), true);
   assert.equal(flagsHtml.includes("Heat 1"), true);
   assert.equal(flagsHtml.includes("Race is locked. Results are final and lap input is blocked."), true);
+  assert.equal(nextRaceHtml.includes("Proceed to paddock"), true);
+  assert.equal(nextRaceHtml.includes("Proceed to the paddock"), true);
+  assert.equal(nextRaceHtml.includes("Heat 1"), true);
 });
