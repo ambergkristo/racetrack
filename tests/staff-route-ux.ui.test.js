@@ -213,6 +213,66 @@ test("lap-line-tracker keeps lap entry and tap targets in one console", async ()
   assert.equal(html.includes("Sync live"), false);
 });
 
+test("lap-line-tracker constrains long driver names inside the rendered tap target", async () => {
+  const longName = "Driver With An Exceptionally Long Name That Must Stay Inside The Lap Entry Card";
+  const html = await renderRoute("/lap-line-tracker", {
+    snapshot: {
+      state: "RUNNING",
+      lapEntryAllowed: true,
+      mode: "SAFE",
+      flag: "SAFE",
+      activeSession: {
+        id: "session-1",
+        name: "Morning Heat",
+        racers: [
+          {
+            id: "racer-1",
+            name: longName,
+            carNumber: "7",
+            lapCount: 3,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      sessions: [
+        {
+          id: "session-1",
+          name: "Morning Heat",
+          racers: [
+            {
+              id: "racer-1",
+              name: longName,
+              carNumber: "7",
+              lapCount: 3,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: null,
+            },
+          ],
+        },
+      ],
+    },
+  });
+  const css = fs.readFileSync(path.join(__dirname, "..", "client", "app.css"), "utf8");
+
+  assert.equal(html.includes(longName), true);
+  assert.equal(html.includes('class="lap-entry-name"'), true);
+  assert.match(
+    css,
+    /\.route-lap-line-tracker \.huge-touch-btn \{[\s\S]*min-width: 0;[\s\S]*overflow: hidden;/
+  );
+  assert.match(
+    css,
+    /\.route-lap-line-tracker \.huge-touch-btn > \* \{[\s\S]*max-width: 100%;[\s\S]*min-width: 0;/
+  );
+  assert.match(
+    css,
+    /\.route-lap-line-tracker \.lap-entry-name \{[\s\S]*white-space: nowrap;[\s\S]*overflow: hidden;[\s\S]*text-overflow: ellipsis;/
+  );
+});
+
 test("lap-line-tracker keeps unfinished cars enabled under checkered and blocks all input after lock", async () => {
   const finishedHtml = await renderRoute("/lap-line-tracker", {
     staffAuthDisabled: true,

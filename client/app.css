@@ -4398,6 +4398,7 @@ body {
 
 .route-lap-line-tracker .huge-touch-btn {
   min-height: 80px;
+  min-width: 0;
   padding: 10px 12px;
   gap: 5px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -4409,9 +4410,15 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 22px rgba(0, 0, 0, 0.22);
   color: var(--ink);
+  overflow: hidden;
   justify-items: start;
   text-align: left;
   align-content: center;
+}
+
+.route-lap-line-tracker .huge-touch-btn > * {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .route-lap-line-tracker .huge-touch-btn strong {
@@ -4420,6 +4427,13 @@ body {
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--ink);
+}
+
+.route-lap-line-tracker .lap-entry-name {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .route-lap-line-tracker .huge-touch-btn span,
