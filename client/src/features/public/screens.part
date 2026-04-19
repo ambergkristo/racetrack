@@ -135,24 +135,20 @@
     const activeSession = state.raceSnapshot.activeSession;
     const simulation = getSimulationMeta();
     const simulationPhaseMeta = getSimulationPhaseMeta(simulation);
-    const pitLaneSession =
+    const endedSession =
       (state.raceSnapshot.state !== "RUNNING" && state.raceSnapshot.lockedSession)
         ? state.raceSnapshot.lockedSession
         : null;
-    const pitReturnActive =
-      Boolean(pitLaneSession) || simulation.phase === "PIT_RETURN";
-    const onTrackSession =
-      pitLaneSession ||
-      (pitReturnActive ? activeSession || getDisplaySession() : activeSession || getDisplaySession());
-    const queued = pitLaneSession
-      ? activeSession || state.raceSnapshot.nextSession || getQueuedSessions()[0] || null
-      : state.raceSnapshot.nextSession || getQueuedSessions()[0] || null;
+    const endSessionActive = Boolean(endedSession);
+    const pitReturnTelemetryActive = endSessionActive || simulation.phase === "PIT_RETURN";
+    const nextSession = state.raceSnapshot.nextSession || getQueuedSessions()[0] || null;
+    const featuredSession = endSessionActive ? endedSession : nextSession;
     const flagMeta = getFlagMeta();
     const runningRace = state.raceSnapshot.state === "RUNNING";
-    const topThreeEntries = (runningRace || pitReturnActive || state.raceSnapshot.finishOrderActive)
+    const topThreeEntries = (runningRace || pitReturnTelemetryActive || state.raceSnapshot.finishOrderActive)
       ? getDisplayLeaderboardEntries().slice(0, 3)
       : [];
-    const topThreeMarkup = (runningRace || pitReturnActive || state.raceSnapshot.finishOrderActive)
+    const topThreeMarkup = (runningRace || pitReturnTelemetryActive || state.raceSnapshot.finishOrderActive)
       ? topThreeEntries.length > 0
         ? `
           <div class="next-race-top-three-grid">
@@ -183,18 +179,17 @@
           <strong>Current race Top 3 appears once the race is running.</strong>
         </div>
       `;
-    const trackStateCopy = pitReturnActive
-      ? simulation.phase === "PIT_RETURN"
+    const statusDetail = endSessionActive
+      ? "Safety Official ended this session. Drivers should proceed to the paddock."
+      : simulation.phase === "PIT_RETURN"
         ? simulationPhaseMeta.detail
-        : "This session has finished. Drivers should proceed to the pit lane."
       : STATE_META[state.raceSnapshot.state]?.detail || "Waiting for the next session to be staged.";
-    const nextStateCopy = pitReturnActive
-      ? queued
-        ? "Next lineup is now in focus for the next safe start."
-        : "No next lineup is staged yet."
-      : queued
+    const featuredCopy = endSessionActive
+      ? "This finished lineup should proceed to the paddock."
+      : nextSession
         ? "Next lineup waiting to take the track."
         : "Front desk has not staged the next lineup yet.";
+    const featuredTone = endSessionActive ? "danger" : "safe";
 
     return [
       panel(
@@ -204,40 +199,30 @@
             <div class="next-race-status-copy">
               <p class="section-kicker">Race board</p>
               <strong class="next-race-status-title">${escapeHtml(flagMeta.label)}</strong>
-              <span class="public-state-detail">${escapeHtml(pitReturnActive ? trackStateCopy : flagMeta.detail)}</span>
+              <span class="public-state-detail">${escapeHtml(statusDetail)}</span>
             </div>
             <div class="glance-metric-grid">
-              ${kpiPill("Track", activeSession ? activeSession.name : "No active session", activeSession ? "warning" : "danger")}
-              ${kpiPill("On Deck", queued ? queued.name : "Waiting", queued ? "safe" : "warning")}
-              ${kpiPill("Current Racers", String(activeSession ? activeSession.racers.length : 0), activeSession ? "safe" : "warning")}
-              ${kpiPill("Next Racers", String(queued ? queued.racers.length : 0), queued ? "safe" : "warning")}
+              ${kpiPill("Board", endSessionActive ? "Paddock" : "Next lineup", endSessionActive ? "danger" : "safe")}
+              ${kpiPill("Session", featuredSession ? featuredSession.name : "Waiting", featuredSession ? featuredTone : "warning")}
+              ${kpiPill(endSessionActive ? "Drivers Returning" : "Drivers Queued", String(featuredSession ? featuredSession.racers.length : 0), featuredSession ? "safe" : "warning")}
+              ${kpiPill("Track State", flagMeta.label, flagMeta.tone)}
             </div>
           </div>
           <div class="session-board-grid${finishedClass()}">
-            <div class="session-board tone-${escapeHtml(pitReturnActive ? "danger" : flagMeta.tone)} ${pitReturnActive ? "session-board-pit" : ""}">
-              <p class="section-kicker">${escapeHtml(pitReturnActive ? "Return to pit lane" : "On track now")}</p>
-              <strong>${escapeHtml(onTrackSession ? onTrackSession.name : "No active session")}</strong>
-              <span>${escapeHtml(trackStateCopy)}</span>
+            <div class="session-board tone-${escapeHtml(featuredTone)} ${endSessionActive ? "session-board-pit" : ""}">
+              <p class="section-kicker">${escapeHtml(endSessionActive ? "Proceed to paddock" : "Next session lineup")}</p>
+              <strong>${escapeHtml(featuredSession ? featuredSession.name : endSessionActive ? "Finished session unavailable" : "No queued session")}</strong>
+              <span>${escapeHtml(featuredCopy)}</span>
               ${
-                pitReturnActive
-                  ? `<div class="next-race-pit-callout"><strong>Proceed to pit lane</strong><span>Keep this lineup moving off track before the next safe start.</span></div>`
+                endSessionActive
+                  ? `<div class="next-race-pit-callout"><strong>Proceed to the paddock</strong><span>Call this finished lineup forward before the next safe start.</span></div>`
                   : ""
               }
-              ${rosterStrip(onTrackSession, {
-                emptyTitle: pitReturnActive ? "Pit return roster unavailable" : "No racers on track",
-                emptyDetail: pitReturnActive
-                  ? "The finished session roster will appear here until the next race starts safely."
-                  : "Front desk has not staged an active session yet.",
-                gridClass: "next-race-roster-grid",
-              })}
-            </div>
-            <div class="session-board tone-safe">
-              <p class="section-kicker">Up next</p>
-              <strong>${escapeHtml(queued ? queued.name : "No queued session")}</strong>
-              <span>${escapeHtml(nextStateCopy)}</span>
-              ${rosterStrip(queued, {
-                emptyTitle: "Next lineup not ready",
-                emptyDetail: "Front desk has not staged the next lineup yet.",
+              ${rosterStrip(featuredSession, {
+                emptyTitle: endSessionActive ? "Finished session roster unavailable" : "Next lineup not ready",
+                emptyDetail: endSessionActive
+                  ? "The finished session roster stays here until the next race starts safely."
+                  : "Front desk has not staged the next lineup yet.",
                 gridClass: "next-race-roster-grid",
               })}
             </div>
@@ -247,7 +232,7 @@
               <div>
                 <p class="section-kicker">Current race Top 3</p>
                 <strong class="next-race-top-three-title">${escapeHtml(
-                  runningRace ? "Live names and pace" : pitReturnActive ? "Final order during pit return" : "Stand by for live race order"
+                  runningRace ? "Live names and pace" : pitReturnTelemetryActive ? "Final order during pit return" : "Stand by for live race order"
                 )}</strong>
               </div>
             </div>

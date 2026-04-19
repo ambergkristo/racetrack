@@ -195,14 +195,17 @@ async function renderRoute(pathname, { snapshot } = {}) {
 test("next-race keeps public lineup language and avoids queue or manual-assignment leakage", async () => {
   const html = await renderRoute("/next-race");
 
-  assert.equal(html.includes("Heat 1"), true);
   assert.equal(html.includes("Heat 2"), true);
   assert.equal(html.includes("Blair"), true);
+  assert.equal(html.includes("Next session lineup"), true);
   assert.equal(html.includes("Next lineup waiting to take the track."), true);
+  assert.equal(html.includes("On track now"), false);
+  assert.equal(html.includes("Up next"), false);
   assert.equal(html.includes("queued lineup"), false);
   assert.equal(html.includes("Queue is empty"), false);
   assert.equal(html.includes("queue the next session"), false);
   assert.equal(html.includes("Manual assignment"), false);
+  assert.equal(html.includes("Proceed to the paddock"), false);
 });
 
 test("next-race empty state stays public-facing when no next lineup is staged", async () => {
@@ -238,7 +241,7 @@ test("next-race empty state stays public-facing when no next lineup is staged", 
   assert.equal(html.includes("Add and queue the next session from front desk."), false);
 });
 
-test("next-race shows pit-return guidance while simulation is routing cars off track", async () => {
+test("next-race keeps the next-session lineup visible before the Safety Official ends the session", async () => {
   const html = await renderRoute("/next-race", {
     snapshot: {
       state: "FINISHED",
@@ -285,9 +288,122 @@ test("next-race shows pit-return guidance while simulation is routing cars off t
     },
   });
 
-  assert.equal(html.includes("Return to pit lane"), true);
-  assert.equal(html.includes("Cars are peeling into the pit lane before the session fully locks."), true);
+  assert.equal(html.includes("Next session lineup"), true);
+  assert.equal(html.includes("Heat 2"), true);
+  assert.equal(html.includes("Blair"), true);
+  assert.equal(html.includes("Proceed to the paddock"), false);
   assert.equal(html.includes("Final order during pit return"), true);
+});
+
+test("next-race switches to the finished session roster with paddock guidance after end session", async () => {
+  const html = await renderRoute("/next-race", {
+    snapshot: {
+      state: "STAGING",
+      mode: "HAZARD_STOP",
+      flag: "HAZARD_STOP",
+      lapEntryAllowed: false,
+      finishOrderActive: true,
+      activeSessionId: "session-2",
+      activeSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: [
+          {
+            id: "racer-2",
+            name: "Blair",
+            carNumber: "12",
+            lapCount: 0,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      currentSessionId: "session-2",
+      currentSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: [
+          {
+            id: "racer-2",
+            name: "Blair",
+            carNumber: "12",
+            lapCount: 0,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      nextSessionId: null,
+      nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
+      lockedSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: [
+          {
+            id: "racer-1",
+            name: "Alex",
+            carNumber: "7",
+            lapCount: 5,
+            currentLapTimeMs: 21999,
+            bestLapTimeMs: 21444,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      finalResults: [
+        {
+          position: 1,
+          racerId: "racer-1",
+          name: "Alex",
+          carNumber: "7",
+          lapCount: 5,
+          currentLapTimeMs: 21999,
+          bestLapTimeMs: 21444,
+          finishPlace: 1,
+        },
+      ],
+      leaderboard: [
+        {
+          position: 1,
+          racerId: "racer-1",
+          name: "Alex",
+          carNumber: "7",
+          lapCount: 5,
+          currentLapTimeMs: 21999,
+          bestLapTimeMs: 21444,
+          finishPlace: 1,
+        },
+      ],
+      sessions: [
+        {
+          id: "session-2",
+          name: "Heat 2",
+          racers: [
+            {
+              id: "racer-2",
+              name: "Blair",
+              carNumber: "12",
+              lapCount: 0,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: null,
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(html.includes("Proceed to paddock"), true);
+  assert.equal(html.includes("Proceed to the paddock"), true);
+  assert.equal(html.includes("Heat 1"), true);
+  assert.equal(html.includes("Alex"), true);
+  assert.equal(html.includes("Next session lineup"), false);
+  assert.equal(html.includes("Blair"), false);
 });
 
 test("next-race renders all eight current and next racers without truncating the roster", async () => {
@@ -348,12 +464,11 @@ test("next-race renders all eight current and next racers without truncating the
 
   const rosterCount = (html.match(/class="roster-pill"/g) || []).length;
 
-  assert.equal(html.includes("Current Racers"), true);
-  assert.equal(html.includes("Next Racers"), true);
+  assert.equal(html.includes("Next session lineup"), true);
   assert.equal(html.includes(">8<"), true);
-  assert.equal(rosterCount, 16);
-  assert.equal(html.includes("Current 8"), true);
+  assert.equal(rosterCount, 8);
   assert.equal(html.includes("Next 8"), true);
+  assert.equal(html.includes("Current 8"), false);
   assert.equal(html.includes("Car 8"), true);
   assert.equal(html.includes("next-race-roster-grid"), true);
 });
