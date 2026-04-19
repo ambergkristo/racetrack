@@ -5,6 +5,20 @@
       .reduce((hash, character) => ((hash * 33 + character.charCodeAt(0)) % 9973), 17);
   }
 
+  function formatLapTrackerDriverCode(name) {
+    const trimmed = typeof name === "string" ? name.trim() : "";
+    if (!trimmed) {
+      return "";
+    }
+
+    const normalized = trimmed.toLowerCase();
+    if (normalized === "null" || normalized === "undefined") {
+      return "";
+    }
+
+    return Array.from(trimmed).slice(0, 3).join("").toUpperCase();
+  }
+
   function buildLapTrackPath(points, closed = true) {
     if (!Array.isArray(points) || points.length === 0) {
       return "";
@@ -400,7 +414,7 @@
                 attrs: `data-action="lap-crossing" data-racer-id="${escapeHtml(racer.id)}"`,
                 innerHtml: `
                 <span class="lap-entry-car">${escapeHtml(racer.carNumber ? `Car ${racer.carNumber}` : "Car --")}</span>
-                <strong class="lap-entry-name">${escapeHtml(racer.name)}</strong>
+                <strong class="lap-entry-name">${escapeHtml(formatLapTrackerDriverCode(racer.name))}</strong>
                 <em class="lap-entry-laps">${escapeHtml(`${racer.lapCount} laps`)}</em>
                 `,
               })}

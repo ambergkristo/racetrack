@@ -213,8 +213,7 @@ test("lap-line-tracker keeps lap entry and tap targets in one console", async ()
   assert.equal(html.includes("Sync live"), false);
 });
 
-test("lap-line-tracker constrains long driver names inside the rendered tap target", async () => {
-  const longName = "Driver With An Exceptionally Long Name That Must Stay Inside The Lap Entry Card";
+test("lap-line-tracker renders uppercase three-letter driver codes inside the tap target", async () => {
   const html = await renderRoute("/lap-line-tracker", {
     snapshot: {
       state: "RUNNING",
@@ -226,10 +225,46 @@ test("lap-line-tracker constrains long driver names inside the rendered tap targ
         name: "Morning Heat",
         racers: [
           {
-            id: "racer-1",
-            name: longName,
+            id: "racer-kevin",
+            name: "Kevin",
             carNumber: "7",
             lapCount: 3,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+          {
+            id: "racer-toomas",
+            name: "toomas",
+            carNumber: "8",
+            lapCount: 2,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+          {
+            id: "racer-al",
+            name: "Al",
+            carNumber: "9",
+            lapCount: 1,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+          {
+            id: "racer-ergo",
+            name: " Érgo ",
+            carNumber: "10",
+            lapCount: 0,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+          {
+            id: "racer-empty",
+            name: null,
+            carNumber: "11",
+            lapCount: 0,
             currentLapTimeMs: null,
             bestLapTimeMs: null,
             lastCrossingTimestampMs: null,
@@ -242,10 +277,46 @@ test("lap-line-tracker constrains long driver names inside the rendered tap targ
           name: "Morning Heat",
           racers: [
             {
-              id: "racer-1",
-              name: longName,
+              id: "racer-kevin",
+              name: "Kevin",
               carNumber: "7",
               lapCount: 3,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: null,
+            },
+            {
+              id: "racer-toomas",
+              name: "toomas",
+              carNumber: "8",
+              lapCount: 2,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: null,
+            },
+            {
+              id: "racer-al",
+              name: "Al",
+              carNumber: "9",
+              lapCount: 1,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: null,
+            },
+            {
+              id: "racer-ergo",
+              name: " Érgo ",
+              carNumber: "10",
+              lapCount: 0,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: null,
+            },
+            {
+              id: "racer-empty",
+              name: null,
+              carNumber: "11",
+              lapCount: 0,
               currentLapTimeMs: null,
               bestLapTimeMs: null,
               lastCrossingTimestampMs: null,
@@ -256,9 +327,33 @@ test("lap-line-tracker constrains long driver names inside the rendered tap targ
     },
   });
   const css = fs.readFileSync(path.join(__dirname, "..", "client", "app.css"), "utf8");
+  const kevinButton = html.match(
+    /<button[^>]*data-racer-id="racer-kevin"[\s\S]*?<strong class="lap-entry-name">(.*?)<\/strong>/
+  );
+  const toomasButton = html.match(
+    /<button[^>]*data-racer-id="racer-toomas"[\s\S]*?<strong class="lap-entry-name">(.*?)<\/strong>/
+  );
+  const alButton = html.match(
+    /<button[^>]*data-racer-id="racer-al"[\s\S]*?<strong class="lap-entry-name">(.*?)<\/strong>/
+  );
+  const ergoButton = html.match(
+    /<button[^>]*data-racer-id="racer-ergo"[\s\S]*?<strong class="lap-entry-name">(.*?)<\/strong>/
+  );
+  const emptyRacerButton = html.match(
+    /<button[^>]*data-racer-id="racer-empty"[\s\S]*?<strong class="lap-entry-name">(.*?)<\/strong>/
+  );
 
-  assert.equal(html.includes(longName), true);
+  assert.ok(kevinButton);
+  assert.ok(toomasButton);
+  assert.ok(alButton);
+  assert.ok(ergoButton);
   assert.equal(html.includes('class="lap-entry-name"'), true);
+  assert.equal(kevinButton[1], "KEV");
+  assert.equal(toomasButton[1], "TOO");
+  assert.equal(alButton[1], "AL");
+  assert.equal(ergoButton[1], "ÉRG");
+  assert.ok(emptyRacerButton);
+  assert.equal(emptyRacerButton[1], "");
   assert.match(
     css,
     /\.route-lap-line-tracker \.huge-touch-btn \{[\s\S]*min-width: 0;[\s\S]*overflow: hidden;/
