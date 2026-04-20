@@ -326,7 +326,7 @@
             <strong>${escapeHtml(stagedNextSession ? stagedNextSession.name : "No next session staged yet")}</strong>
             <span>${escapeHtml(
               stagedNextSession
-                ? "Next staged session roster and assigned cars are ready for the Safety Official briefing."
+                ? "Next staged session roster and assigned cars are ready for the Safety Official briefing. Cars start from paddock."
                 : "No next session staged yet."
             )}</span>
             ${rosterStrip(stagedNextSession, {

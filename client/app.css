@@ -2293,7 +2293,7 @@ body {
 }
 
 .route-next-race .next-race-session-board-grid.is-paddock-handoff {
-  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   align-items: start;
 }
 
@@ -2303,6 +2303,7 @@ body {
 
 .route-next-race .next-race-secondary-board {
   align-content: start;
+  min-width: 0;
 }
 
 .route-next-race .next-race-secondary-roster-grid {

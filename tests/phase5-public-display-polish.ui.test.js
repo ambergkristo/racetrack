@@ -414,7 +414,9 @@ test("next-race switches to the finished session roster with paddock guidance af
     true
   );
   assert.equal(
-    html.includes("Next staged session roster and assigned cars are ready for the Safety Official briefing."),
+    html.includes(
+      "Next staged session roster and assigned cars are ready for the Safety Official briefing. Cars start from paddock."
+    ),
     true
   );
 });
@@ -571,7 +573,7 @@ test("next-race keeps paddock panel first and preserves two-column handoff layou
   assert.equal(html.indexOf("Proceed to paddock") < html.indexOf("Up next"), true);
   assert.match(
     css,
-    /\.route-next-race \.next-race-session-board-grid\.is-paddock-handoff \{[\s\S]*grid-template-columns: minmax\(0, 1\.2fr\) minmax\(280px, 0\.8fr\);/
+    /\.route-next-race \.next-race-session-board-grid\.is-paddock-handoff \{[\s\S]*grid-template-columns: minmax\(0, 1\.2fr\) minmax\(320px, 0\.8fr\);/
   );
   assert.match(
     css,
@@ -644,4 +646,101 @@ test("next-race renders all eight current and next racers without truncating the
   assert.equal(html.includes("Current 8"), false);
   assert.equal(html.includes("Car 8"), true);
   assert.equal(html.includes("next-race-roster-grid"), true);
+});
+
+test("next-race locked handoff keeps both eight-racer panels intact with staged-session briefing copy", async () => {
+  const finishedRacers = Array.from({ length: 8 }, (_unused, index) => ({
+    id: `finished-${index + 1}`,
+    name: `Finished ${index + 1}`,
+    carNumber: String(index + 1),
+    lapCount: 5 - Math.floor(index / 2),
+    currentLapTimeMs: 22000 + index * 111,
+    bestLapTimeMs: 21400 + index * 101,
+    lastCrossingTimestampMs: null,
+  }));
+  const stagedRacers = Array.from({ length: 8 }, (_unused, index) => ({
+    id: `staged-${index + 1}`,
+    name: `Staged ${index + 1}`,
+    carNumber: String(index + 11),
+    lapCount: 0,
+    currentLapTimeMs: null,
+    bestLapTimeMs: null,
+    lastCrossingTimestampMs: null,
+  }));
+
+  const html = await renderRoute("/next-race", {
+    snapshot: {
+      state: "LOCKED",
+      mode: "HAZARD_STOP",
+      flag: "LOCKED",
+      lapEntryAllowed: false,
+      finishOrderActive: true,
+      activeSessionId: "session-2",
+      activeSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: stagedRacers,
+      },
+      currentSessionId: "session-2",
+      currentSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: stagedRacers,
+      },
+      nextSessionId: null,
+      nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
+      lockedSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: finishedRacers,
+      },
+      finalResults: finishedRacers.map((racer, index) => ({
+        position: index + 1,
+        racerId: racer.id,
+        name: racer.name,
+        carNumber: racer.carNumber,
+        lapCount: racer.lapCount,
+        currentLapTimeMs: racer.currentLapTimeMs,
+        bestLapTimeMs: racer.bestLapTimeMs,
+        finishPlace: index + 1,
+      })),
+      leaderboard: finishedRacers.map((racer, index) => ({
+        position: index + 1,
+        racerId: racer.id,
+        name: racer.name,
+        carNumber: racer.carNumber,
+        lapCount: racer.lapCount,
+        currentLapTimeMs: racer.currentLapTimeMs,
+        bestLapTimeMs: racer.bestLapTimeMs,
+        finishPlace: index + 1,
+      })),
+      sessions: [
+        {
+          id: "session-2",
+          name: "Heat 2",
+          racers: stagedRacers,
+        },
+      ],
+    },
+  });
+
+  const rosterCount = (html.match(/class="roster-pill"/g) || []).length;
+
+  assert.equal(html.includes("Proceed to paddock"), true);
+  assert.equal(html.includes("Up next"), true);
+  assert.equal(html.includes("Heat 1"), true);
+  assert.equal(html.includes("Heat 2"), true);
+  assert.equal(
+    html.includes(
+      "Next staged session roster and assigned cars are ready for the Safety Official briefing. Cars start from paddock."
+    ),
+    true
+  );
+  assert.equal(rosterCount, 16);
+  assert.equal(html.includes("Finished 8"), true);
+  assert.equal(html.includes("Staged 8"), true);
+  assert.equal(html.includes("Car 18"), true);
+  assert.equal(html.indexOf("Proceed to paddock") < html.indexOf("Up next"), true);
 });
