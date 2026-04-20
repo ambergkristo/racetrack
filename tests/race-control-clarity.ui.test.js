@@ -182,7 +182,7 @@ test("race-control shows mode buttons while RUNNING", async () => {
 
   assert.equal(html.includes("Mode controls hidden"), false);
   assert.equal(html.includes("Hazard Slow"), true);
-  assert.equal(html.includes("Hazard Stop"), true);
+  assert.equal(html.includes("Danger"), true);
 });
 
 test("race-control makes FINISHED state visibly checkered before lock", async () => {

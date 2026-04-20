@@ -73,6 +73,24 @@
     return `<span class="telemetry-tag tone-${meta.tone}">${escapeHtml(meta.label)}</span>`;
   }
 
+  function publicHeaderCopy(snapshot = state.raceSnapshot) {
+    if (
+      route === "/next-race" &&
+      snapshot.state !== "RUNNING" &&
+      snapshot.lockedSession
+    ) {
+      return {
+        subtitle: "Which finished drivers should proceed to the paddock?",
+        body: "This board now shows the finished session roster while the next lineup is queued for the Safety Official.",
+      };
+    }
+
+    return {
+      subtitle: routeConfig.subtitle,
+      body: routeConfig.body,
+    };
+  }
+
   function telemetryHeader() {
     const snapshot = state.raceSnapshot;
     const flagMeta = getFlagMeta(snapshot);
@@ -80,8 +98,15 @@
     const routeLabel = route === "/" ? "Launch Surface" : routeConfig.public ? "Public Display" : "Staff Operation";
     const phaseLabel = route === "/" ? "Control Hub" : STATE_META[snapshot.state]?.label || snapshot.state;
     const compactHomeHeader = route === "/";
-    const headerSubtitle = compactHomeHeader ? "" : routeConfig.staff ? routeConfig.body : routeConfig.subtitle;
-    const headerCaption = compactHomeHeader || routeConfig.staff ? "" : `<p class="route-caption">${routeConfig.body}</p>`;
+    const headerCopy = routeConfig.public ? publicHeaderCopy(snapshot) : null;
+    const headerSubtitle = compactHomeHeader
+      ? ""
+      : routeConfig.staff
+        ? routeConfig.body
+        : headerCopy?.subtitle || routeConfig.subtitle;
+    const headerCaption = compactHomeHeader || routeConfig.staff
+      ? ""
+      : `<p class="route-caption">${escapeHtml(headerCopy?.body || routeConfig.body)}</p>`;
     const homeConnectionTag = compactHomeHeader ? compactConnectionTag() : "";
     const headerMeta = compactHomeHeader
       ? ""

@@ -77,7 +77,7 @@
       detail: "Drivers must reduce pace and follow marshal guidance.",
     },
     HAZARD_STOP: {
-      label: "Hazard Stop",
+      label: "Danger",
       tone: "danger",
       detail: "Drivers must stop. No further racing pace is allowed.",
     },

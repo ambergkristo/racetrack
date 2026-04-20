@@ -402,6 +402,14 @@ test("next-race switches to the finished session roster with paddock guidance af
   assert.equal(html.includes("Proceed to the paddock"), true);
   assert.equal(html.includes("Heat 1"), true);
   assert.equal(html.includes("Alex"), true);
+  assert.equal(html.includes("Danger"), true);
+  assert.equal(html.includes("Who is on track now, and who is up next?"), false);
+  assert.equal(html.includes("Information board for the current heat and the next lineup waiting to take the track."), false);
+  assert.equal(html.includes("Which finished drivers should proceed to the paddock?"), true);
+  assert.equal(
+    html.includes("This board now shows the finished session roster while the next lineup is queued for the Safety Official."),
+    true
+  );
   assert.equal(html.includes("Next session lineup"), false);
   assert.equal(html.includes("Blair"), false);
 });
