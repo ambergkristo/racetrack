@@ -2292,8 +2292,21 @@ body {
   gap: 8px;
 }
 
+.route-next-race .next-race-session-board-grid.is-paddock-handoff {
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  align-items: start;
+}
+
 .route-next-race .session-board {
   gap: 8px;
+}
+
+.route-next-race .next-race-secondary-board {
+  align-content: start;
+}
+
+.route-next-race .next-race-secondary-roster-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .route-next-race .session-board > span {

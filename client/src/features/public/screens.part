@@ -142,6 +142,14 @@
     const endSessionActive = Boolean(endedSession);
     const pitReturnTelemetryActive = endSessionActive || simulation.phase === "PIT_RETURN";
     const nextSession = state.raceSnapshot.nextSession || getQueuedSessions()[0] || null;
+    const stagedSessionCandidate =
+      state.raceSnapshot.currentSession || activeSession || null;
+    const stagedNextSession =
+      endSessionActive &&
+      stagedSessionCandidate &&
+      stagedSessionCandidate.id !== endedSession.id
+        ? stagedSessionCandidate
+        : null;
     const featuredSession = endSessionActive ? endedSession : nextSession;
     const flagMeta = getFlagMeta();
     const runningRace = state.raceSnapshot.state === "RUNNING";
@@ -190,6 +198,24 @@
         ? "Next lineup waiting to take the track."
         : "Front desk has not staged the next lineup yet.";
     const featuredTone = endSessionActive ? "danger" : "safe";
+    const secondaryPanelMarkup = endSessionActive
+      ? `
+          <div class="session-board tone-safe next-race-secondary-board">
+            <p class="section-kicker">Up next</p>
+            <strong>${escapeHtml(stagedNextSession ? stagedNextSession.name : "No next session staged yet")}</strong>
+            <span>${escapeHtml(
+              stagedNextSession
+                ? "Next staged session roster and assigned cars are ready for the Safety Official briefing."
+                : "No next session staged yet."
+            )}</span>
+            ${rosterStrip(stagedNextSession, {
+              emptyTitle: "No next session staged yet",
+              emptyDetail: "Front desk has not staged the next lineup yet.",
+              gridClass: "next-race-roster-grid next-race-secondary-roster-grid",
+            })}
+          </div>
+        `
+      : "";
 
     return [
       panel(
@@ -208,7 +234,7 @@
               ${kpiPill("Track State", flagMeta.label, flagMeta.tone)}
             </div>
           </div>
-          <div class="session-board-grid${finishedClass()}">
+          <div class="session-board-grid next-race-session-board-grid${finishedClass()}${endSessionActive ? " is-paddock-handoff" : ""}">
             <div class="session-board tone-${escapeHtml(featuredTone)} ${endSessionActive ? "session-board-pit" : ""}">
               <p class="section-kicker">${escapeHtml(endSessionActive ? "Proceed to paddock" : "Next session lineup")}</p>
               <strong>${escapeHtml(featuredSession ? featuredSession.name : endSessionActive ? "Finished session unavailable" : "No queued session")}</strong>
@@ -226,6 +252,7 @@
                 gridClass: "next-race-roster-grid",
               })}
             </div>
+            ${secondaryPanelMarkup}
           </div>
           <section class="next-race-top-three-shell">
             <div class="next-race-top-three-head">

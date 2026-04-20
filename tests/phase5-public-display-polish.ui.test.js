@@ -402,6 +402,9 @@ test("next-race switches to the finished session roster with paddock guidance af
   assert.equal(html.includes("Proceed to the paddock"), true);
   assert.equal(html.includes("Heat 1"), true);
   assert.equal(html.includes("Alex"), true);
+  assert.equal(html.includes("Up next"), true);
+  assert.equal(html.includes("Heat 2"), true);
+  assert.equal(html.includes("Blair"), true);
   assert.equal(html.includes("Danger"), true);
   assert.equal(html.includes("Who is on track now, and who is up next?"), false);
   assert.equal(html.includes("Information board for the current heat and the next lineup waiting to take the track."), false);
@@ -410,8 +413,170 @@ test("next-race switches to the finished session roster with paddock guidance af
     html.includes("This board now shows the finished session roster while the next lineup is queued for the Safety Official."),
     true
   );
-  assert.equal(html.includes("Next session lineup"), false);
-  assert.equal(html.includes("Blair"), false);
+  assert.equal(
+    html.includes("Next staged session roster and assigned cars are ready for the Safety Official briefing."),
+    true
+  );
+});
+
+test("next-race keeps paddock guidance and shows an empty staged-session side panel when no next session exists", async () => {
+  const html = await renderRoute("/next-race", {
+    snapshot: {
+      state: "LOCKED",
+      mode: "HAZARD_STOP",
+      flag: "LOCKED",
+      lapEntryAllowed: false,
+      finishOrderActive: true,
+      activeSessionId: null,
+      activeSession: null,
+      currentSessionId: null,
+      currentSession: null,
+      nextSessionId: null,
+      nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
+      lockedSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: [
+          {
+            id: "racer-1",
+            name: "Alex",
+            carNumber: "7",
+            lapCount: 5,
+            currentLapTimeMs: 21999,
+            bestLapTimeMs: 21444,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      finalResults: [
+        {
+          position: 1,
+          racerId: "racer-1",
+          name: "Alex",
+          carNumber: "7",
+          lapCount: 5,
+          currentLapTimeMs: 21999,
+          bestLapTimeMs: 21444,
+          finishPlace: 1,
+        },
+      ],
+      leaderboard: [
+        {
+          position: 1,
+          racerId: "racer-1",
+          name: "Alex",
+          carNumber: "7",
+          lapCount: 5,
+          currentLapTimeMs: 21999,
+          bestLapTimeMs: 21444,
+          finishPlace: 1,
+        },
+      ],
+      sessions: [],
+    },
+  });
+
+  assert.equal(html.includes("Proceed to paddock"), true);
+  assert.equal(html.includes("Proceed to the paddock"), true);
+  assert.equal(html.includes("Heat 1"), true);
+  assert.equal(html.includes("Alex"), true);
+  assert.equal(html.includes("Up next"), true);
+  assert.equal(html.includes("No next session staged yet"), true);
+  assert.equal(html.includes("Front desk has not staged the next lineup yet."), true);
+});
+
+test("next-race keeps paddock panel first and preserves two-column handoff layout styles", async () => {
+  const html = await renderRoute("/next-race", {
+    snapshot: {
+      state: "STAGING",
+      mode: "HAZARD_STOP",
+      flag: "HAZARD_STOP",
+      lapEntryAllowed: false,
+      finishOrderActive: true,
+      activeSessionId: "session-2",
+      activeSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: [
+          {
+            id: "racer-2",
+            name: "Blair",
+            carNumber: "12",
+            lapCount: 0,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      currentSessionId: "session-2",
+      currentSession: {
+        id: "session-2",
+        name: "Heat 2",
+        racers: [
+          {
+            id: "racer-2",
+            name: "Blair",
+            carNumber: "12",
+            lapCount: 0,
+            currentLapTimeMs: null,
+            bestLapTimeMs: null,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      nextSessionId: null,
+      nextSession: null,
+      queuedSessionIds: [],
+      queuedSessions: [],
+      lockedSession: {
+        id: "session-1",
+        name: "Heat 1",
+        racers: [
+          {
+            id: "racer-1",
+            name: "Alex",
+            carNumber: "7",
+            lapCount: 5,
+            currentLapTimeMs: 21999,
+            bestLapTimeMs: 21444,
+            lastCrossingTimestampMs: null,
+          },
+        ],
+      },
+      sessions: [
+        {
+          id: "session-2",
+          name: "Heat 2",
+          racers: [
+            {
+              id: "racer-2",
+              name: "Blair",
+              carNumber: "12",
+              lapCount: 0,
+              currentLapTimeMs: null,
+              bestLapTimeMs: null,
+              lastCrossingTimestampMs: null,
+            },
+          ],
+        },
+      ],
+    },
+  });
+  const css = fs.readFileSync(path.join(__dirname, "..", "client", "app.css"), "utf8");
+
+  assert.equal(html.includes('class="session-board-grid next-race-session-board-grid is-paddock-handoff"'), true);
+  assert.equal(html.indexOf("Proceed to paddock") < html.indexOf("Up next"), true);
+  assert.match(
+    css,
+    /\.route-next-race \.next-race-session-board-grid\.is-paddock-handoff \{[\s\S]*grid-template-columns: minmax\(0, 1\.2fr\) minmax\(280px, 0\.8fr\);/
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1180px\) \{[\s\S]*\.session-board-grid,[\s\S]*grid-template-columns: 1fr;/
+  );
 });
 
 test("next-race renders all eight current and next racers without truncating the roster", async () => {
