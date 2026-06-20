@@ -1,0 +1,29 @@
+name: Mirror Gitea Main
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: mirror-gitea-main
+  cancel-in-progress: true
+
+jobs:
+  mirror-main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push GitHub main to Gitea main
+        env:
+          GITEA_MIRROR_USERNAME: ${{ secrets.GITEA_MIRROR_USERNAME }}
+          GITEA_MIRROR_TOKEN: ${{ secrets.GITEA_MIRROR_TOKEN }}
+        run: |
+          git fetch origin main
+          git remote add gitea "https://${GITEA_MIRROR_USERNAME}:${GITEA_MIRROR_TOKEN}@gitea.kood.tech/kristoamberg/info-screens.git"
+          git push --force gitea refs/remotes/origin/main:refs/heads/main
